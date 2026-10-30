@@ -241,20 +241,24 @@
 
 #### 2.8 Table: `gold.fact_campaign_exposure` (Range Partitioned by Year on `assignment_date_key`)
 * **Physical PK:** `(exposure_fact_key, assignment_date_key)`
-* **Intra-Partition Unique Index:** `(campaign_key, customer_key, assignment_date_key)`
-* **Grain:** Strictly one customer assignment & communication dispatch record per campaign.
+* **Foreign Key to Registry:** `CONSTRAINT fk_fact_exposure_assignment FOREIGN KEY (assignment_id) REFERENCES control.control_campaign_assignment_registry(assignment_id)`
+* **Partition-Compatible Unique Constraints:**
+  * `CONSTRAINT uq_fact_exposure_assignment_partition UNIQUE (assignment_id, assignment_date_key)`
+  * `CONSTRAINT uq_fact_exposure_cohort_partition UNIQUE (campaign_key, customer_key, assignment_date_key)`
+* **Grain:** Strictly one customer assignment & communication dispatch record per campaign (1-assignment-to-1-canonical-exposure relationship). Supports control-group assignments with zero dispatch events.
 
 | Column Name | PostgreSQL Data Type | Nullable | Key Type | Default Value | Business Description / Derivation Rule |
 | :--- | :--- | :---: | :---: | :--- | :--- |
-| `exposure_fact_key` | `BIGINT` | NO | PK (Part) | `GENERATED ALWAYS AS IDENTITY` | Synthetic surrogate primary key component |
+| `exposure_fact_key` | `BIGINT` | NO | PK (Part) | `GENERATED ALWAYS AS IDENTITY` | Independent analytical fact surrogate primary key |
+| `assignment_id` | `BIGINT` | NO | FK/Unique | None | Foreign key referencing authoritative assignment in `control.control_campaign_assignment_registry(assignment_id)` |
 | `assignment_date_key` | `INTEGER` | NO | PK/FK | None | Date cohort was locked referencing `dim_date.date_key` (Partition Key)|
 | `campaign_key` | `INTEGER` | NO | FK | None | Campaign referencing `dim_campaign.campaign_key` |
-| `customer_key` | `INTEGER` | NO | FK | None | Pseudonymized customer referencing `dim_customer` |
+| `customer_key` | `BIGINT` | NO | FK | None | Pseudonymized customer referencing `dim_customer.customer_key` |
 | `is_holdout_control_flag`| `BOOLEAN` | NO | Non-Add | `FALSE` | `TRUE` if assigned to 10% uncontacted control group (`FR-018`) |
 | `communication_channel` | `VARCHAR(20)` | NO | Degenerate | None | Channel: `SMS`, `WHATSAPP`, `EMAIL` |
 | `dispatch_status` | `VARCHAR(30)` | NO | None | `'PENDING'` | `'PENDING'`, `'DISPATCHED'`, `'NOT_DISPATCHED_HOLDOUT'`, `'DISPATCH_FAILED'` |
 | `dispatch_timestamp` | `TIMESTAMPTZ` | YES | None | NULL | Outbound broadcast push timestamp (NULL for holdout) |
-| `dispatch_attempt_count`| `SMALLINT` | NO | None | `0` | Number of outbound dispatch attempts made |
+| `dispatch_attempt_count`| `SMALLINT` | NO | None | `0` | Number of outbound dispatch attempts made (0 for holdout) |
 | `delivery_status` | `VARCHAR(30)` | NO | None | `'PENDING'` | `'NOT_APPLICABLE_HOLDOUT'`, `'PENDING'`, `'DELIVERED'`, `'BOUNCED'`, `'UNDELIVERED'` |
 | `delivery_timestamp` | `TIMESTAMPTZ` | YES | None | NULL | Webhook confirmation timestamp from SMS/WhatsApp gateway |
 | `coupon_redeemed_flag` | `BOOLEAN` | NO | Non-Add | `FALSE` | `TRUE` if linked coupon voucher was redeemed at checkout |
@@ -499,7 +503,7 @@
 * **Canonical Unique Constraint:** `CONSTRAINT uq_campaign_customer_canonical UNIQUE (campaign_id, customer_sk)`
 * **Surrogate Unique Constraint:** `CONSTRAINT uq_campaign_customer_surrogate UNIQUE (campaign_key, customer_key)`
 * **Role:** Unpartitioned authoritative state register guaranteeing global customer assignment uniqueness, canonical HMAC reproducibility, and cohort immutability across campaign dates.
-* **Storage Footprint:** Modeled at ~211 MiB heap (~221 MB at 90% usable page capacity) + ~165–215 MB B-tree indexes (~365–440 MB total for 1,000,000 assignments); storage labeled as **pending empirical measurement during Stage 5.3 benchmarking** (`pg_total_relation_size`).
+* **Storage Footprint:** Modeled at ~248–283 MB heap (~260–270 MiB at 90% usable page capacity) + ~165–215 MB B-tree indexes (~413–498 MB total for 1,000,000 assignments); storage labeled as **pending empirical measurement during Stage 5.3 benchmarking** (`pg_total_relation_size`).
 * **Immutability Enforcement:** Role-based access control (REVOKE UPDATE/DELETE) combined with PostgreSQL engine trigger `trg_prevent_locked_assignment_mutation` preventing changes to locked attributes (`campaign_id`, `customer_sk`, `campaign_key`, `customer_key`, `assignment_date_key`, `is_holdout_control_flag`, `assignment_hash_value`, `holdout_key_version`).
 
 | Column Name | PostgreSQL Data Type | Nullable | Key Type | Default Value | Business Description |
@@ -512,7 +516,7 @@
 | `assignment_date_key` | `INTEGER` | NO | FK | None | Locked assignment date referencing `dim_date.date_key` |
 | `assignment_timestamp` | `TIMESTAMPTZ` | NO | None | `CURRENT_TIMESTAMP` | Exact cohort generation timestamp |
 | `is_holdout_control_flag`| `BOOLEAN` | NO | None | None | Assigned cohort (`TRUE` = 10% Control, `FALSE` = Treatment) |
-| `assignment_hash_value`| `NUMERIC(20, 0)`| NO | None | None | Exact 64-bit unsigned integer $U$ from HMAC-SHA256 digest |
+| `assignment_hash_value`| `CHAR(64)` | NO | None | None | Complete 64-character HMAC-SHA256 hexadecimal digest |
 | `holdout_key_version` | `VARCHAR(20)` | NO | None | `'v1'` | Secret key version used during hashing |
 | `is_locked_flag` | `BOOLEAN` | NO | None | `TRUE` | Immutability lock preventing post-launch reassignment |
 | `ingestion_batch_id` | `UUID` | NO | Audit | None | Pipeline run identifier that registered the assignment |

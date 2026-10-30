@@ -59,7 +59,8 @@ The certified Stage 5.2A physical design baseline comprises eight authoritative 
 +----+------------------------------------+-----------------------+---------------------------------------------------------------+
 | 05 | Global Campaign Registry Keys      | 100% RECONCILED       | PRIMARY KEY (assignment_id) BIGINT GENERATED ALWAYS AS        |
 |    |                                    |                       | IDENTITY; UNIQUE (campaign_id, customer_sk);                  |
-|    |                                    |                       | UNIQUE (campaign_key, customer_key).                          |
+|    |                                    |                       | UNIQUE (campaign_key, customer_key). Referenced via FK by     |
+|    |                                    |                       | gold.fact_campaign_exposure(assignment_id).                   |
 +----+------------------------------------+-----------------------+---------------------------------------------------------------+
 | 06 | Assignment Immutability            | 100% SPECIFIED        | 3-Tier Immutability: RBAC (REVOKE UPDATE/DELETE), engine      |
 |    |                                    |                       | trigger trg_prevent_locked_assignment_mutation, and append-   |
@@ -69,7 +70,8 @@ The certified Stage 5.2A physical design baseline comprises eight authoritative 
 |    |                                    |                       | classification: duplicate, conflicting cohort (quarantined),  |
 |    |                                    |                       | conflicting date (warning), hash tamper, and batch replay.    |
 +----+------------------------------------+-----------------------+---------------------------------------------------------------+
-| 08 | HMAC-SHA256 Integer Threshold      | 100% CONFORMED        | Big-Endian uint64 conversion: U < 0x1999999999999999. Pure    |
+| 08 | HMAC-SHA256 Hash & Datatype        | 100% STANDARDIZED     | Standardized on assignment_hash_value CHAR(64) NOT NULL.      |
+|    |                                    |                       | Big-Endian uint64 conversion: U < 0x1999999999999999. Pure    |
 |    |                                    |                       | integer math eliminates floating-point rounding anomalies.    |
 +----+------------------------------------+-----------------------+---------------------------------------------------------------+
 | 09 | Canonical HMAC Identifier Mapping  | 100% DECOUPLED        | Input strictly mapped to campaign_id || ':' || customer_sk.   |
@@ -78,8 +80,8 @@ The certified Stage 5.2A physical design baseline comprises eight authoritative 
 | 10 | Statistical Lift Methodology       | 100% RECONCILED       | Population scaling normalizes realized sample size variance   |
 |    |                                    |                       | but does NOT eliminate bias or confounding (SUTVA, ITT/TOT).  |
 +----+------------------------------------+-----------------------+---------------------------------------------------------------+
-| 11 | NFR-006 Storage Capacity Model     | 100% RECONCILED       | Disaggregated 10-component storage model: ~872 GB primary DB  |
-|    |                                    |                       | volume; ~1.34 TB multi-volume infrastructure layout.          |
+| 11 | NFR-006 Storage Capacity Model     | 100% RECONCILED       | Disaggregated 8-component model totaling exactly 872 GB for   |
+|    | (Primary DB Volume Reconciliation) |                       | primary DB volume; ~1.34 TB multi-volume infrastructure.      |
 +----+------------------------------------+-----------------------+---------------------------------------------------------------+
 | 12 | BDL-04 Read-Only System Boundary   | 100% PRESERVED        | SELECT-only application access; zero operational writeback    |
 |    |                                    |                       | DML to POS, ERP, or payment gateway source systems.           |
@@ -96,24 +98,39 @@ In `control.control_campaign_assignment_registry`:
 * **Canonical Natural Unique Constraint (`UNIQUE (campaign_id, customer_sk)`):** Enforces enterprise uniqueness across immutable upstream business keys (CRM campaign code + customer phone HMAC-SHA256 pseudonym digest), guaranteeing that real-world customers cannot be enrolled multiple times into the same campaign regardless of warehouse dimension re-keying or SCD-2 splits.
 * **Relational Surrogate Unique Constraint (`UNIQUE (campaign_key, customer_key)`):** Enforces 1:1 join integrity within the current dimensional surrogate star schema (`dim_campaign` and `dim_customer`), preventing Cartesian fan-out during Gold mart and Power BI queries.
 
-#### 4.2 Reconciled PostgreSQL 16 Heap Capacity Arithmetic (1,000,000 Records)
+#### 4.2 Explicit Campaign Registry to Fact Relational Architecture
+* **Distinct Identifiers:**
+  * `control.control_campaign_assignment_registry.assignment_id` (`BIGINT`): Authoritative assignment event surrogate identifier.
+  * `gold.fact_campaign_exposure.exposure_fact_key` (`BIGINT`): Independent analytical fact surrogate primary key.
+* **Explicit Foreign Key Relationship:**
+  * `gold.fact_campaign_exposure.assignment_id` (`BIGINT NOT NULL`)
+  * `CONSTRAINT fk_fact_exposure_assignment FOREIGN KEY (assignment_id) REFERENCES control.control_campaign_assignment_registry(assignment_id)`
+  * *PostgreSQL 16 Compatibility:* Declarative partitioned tables fully support foreign keys referencing unpartitioned parent tables.
+* **Partition-Compatible Constraint:**
+  * `CONSTRAINT uq_fact_exposure_assignment_partition UNIQUE (assignment_id, assignment_date_key)`
+  * Guarantees a strict **1-assignment-to-1-canonical-exposure** relationship across the entire platform.
+* **Control-Group Representation Without Dispatch:**
+  * Holdout control records are stored with `is_holdout_control_flag = TRUE`, `dispatch_status = 'NOT_DISPATCHED_HOLDOUT'`, `delivery_status = 'NOT_APPLICABLE_HOLDOUT'`, and `dispatch_timestamp = NULL`.
+  * Guarantees that 100% of audience assignments (treatment + control) are queryable in the single canonical fact table `gold.fact_campaign_exposure` without creating any additional fact table.
+
+#### 4.3 Reconciled PostgreSQL 16 Heap Capacity Arithmetic (Standardized CHAR(64) Hash)
 1. **Bytes per Row:**
    * 48 bytes (8-byte fixed: `assignment_id`, `customer_key`, `assignment_ts`, `load_ts`, `batch_id` UUID)
    * 10 bytes (4-byte & 1-byte: `campaign_key`, `date_key`, `is_holdout_flag`, `is_locked_flag`)
-   * ~105 bytes (varlena & numeric: `assignment_hash_value`, `holdout_key_version`, `campaign_id`, `customer_sk`)
-   * User Payload: $48 + 10 + 105 = 163$ bytes
+   * 154 bytes (strings: `assignment_hash_value` [CHAR(64), 65B], `customer_sk` [CHAR(64), 65B], `campaign_id` [VARCHAR(50), 21B], `holdout_key_version` [VARCHAR(20), 3B])
+   * User Payload: $48 + 10 + 154 = \mathbf{212 \text{ bytes}}$
    * Heap Tuple Header: 25 bytes aligned to 32 bytes (`MAXALIGN`)
-   * Total Tuple Size: 192 to 200 bytes per tuple
+   * Total Tuple Size: 240 to 248 bytes per tuple
    * Line Pointer: 4 bytes (`ItemIdData`)
-   * **Effective Row Footprint on Page:** **196 to 204 bytes**.
+   * **Effective Row Footprint on Page:** **244 to 252 bytes**.
 2. **Effective Rows per Page (8 KB Page, 90% Usable Capacity):**
    * Usable space at 90% fill factor: $\lfloor (8,192 - 24) \times 0.90 \rfloor = \mathbf{7,351 \text{ bytes}}$.
-   * Rows per page: $\lfloor 7,351 / 196 \rfloor = \mathbf{37 \text{ rows/page}}$ (or 36 rows/page at 204 B).
+   * Rows per page: $\lfloor 7,351 / 244 \rfloor = \mathbf{30 \text{ rows/page}}$ (or 29 rows/page at 252 B).
 3. **Required Heap Pages:**
-   * $\lceil 1,000,000 / 37 \rceil = \mathbf{27,028 \text{ pages}}$ (or 24,391 pages at 100% fill factor).
+   * $\lceil 1,000,000 / 30 \rceil = \mathbf{33,334 \text{ pages}}$ (or 34,483 pages at 29 rows/page; 30,304 to 31,250 at 100% fill factor).
 4. **Heap Storage in MB:**
-   * $27,028 \text{ pages} \times 8,192 \text{ bytes} = 221,413,376 \text{ bytes} = \mathbf{211.16 \text{ MiB}} \ (\approx 221.41 \text{ MB})$.
-   * Operating range: **~191 MiB to ~217 MiB** (~200 MB to ~227 MB).
+   * $33,334 \text{ pages} \times 8,192 \text{ bytes} = 273,072,128 \text{ bytes} \approx \mathbf{260.4 \text{ MiB}} \ (273.07 \text{ MB})$.
+   * Operating range: **~248 MB to ~283 MB** (~237 MiB to ~270 MiB).
 5. **Index Storage Estimates (B-Tree on 1,000,000 Rows):**
    * Primary Key Index (`assignment_id` BIGINT): ~35 MB to ~45 MB.
    * Unique Surrogate Index `(campaign_key, customer_key)`: ~30 MB to ~40 MB.
@@ -121,7 +138,21 @@ In `control.control_campaign_assignment_registry`:
    * Supporting Date Index `(assignment_date_key)`: ~20 MB to ~30 MB.
    * Total Index Footprint: **~165 MB to ~215 MB**.
 6. **Total Estimated Registry Footprint:**
-   * Heap (~200–227 MB) + Indexes (~165–215 MB) $\approx$ **~365 MB to ~442 MB**.
+   * Heap (~248–283 MB) + Indexes (~165–215 MB) $\approx$ **~413 MB to ~498 MB** (~0.41 GB to ~0.50 GB).
+
+#### 4.4 Primary Database Capacity Reconciliation (872 GB Total)
+Reconciled across eight discrete components:
+1. **Gold Relational Heap Storage:** **290 GB** (1.57 Billion rows across 9 facts & 8 dimensions over 5 years).
+2. **Indexes (B-Tree + BRIN Matrix):** **172 GB** (composite PKs, FK joins, date ranges).
+3. **TOAST Storage:** **15 GB** (JSONB error logs in audit metadata).
+4. **MVCC Bloat & Vacuum Buffer Headroom:** **85 GB** (dead tuple space and autovacuum slack).
+5. **Silver Conformed Staging Buffer:** **45 GB** (rolling 90-day operational ledger).
+6. **Bronze Ephemeral Landing Staging:** **25 GB** (rolling 14-day landing tables).
+7. **Write-Ahead Logging (WAL) Capacity:** **60 GB** (circular WAL buffer with checkpoint spike margin).
+8. **Operational Free-Space Allowance:** **180 GB** (mandatory ~20% safety margin for online VACUUM FULL & reindexing).
+* **Total Dedicated Primary Database Volume:** $290 + 172 + 15 + 85 + 45 + 25 + 60 + 180 = \mathbf{872 \text{ GB}}$.
+* **Auxiliary File Infrastructure (Outside Primary DB):** Compressed raw lake (~120 GB) + backup staging (~350 GB) = 470 GB.
+* **Total Combined Infrastructure:** $872 + 470 = \mathbf{1,342 \text{ GB} \ (\sim 1.34 \text{ TB})}$. Zero double-counting.
 
 ---
 
@@ -158,3 +189,4 @@ The following design parameters are formally documented as theoretical baselines
 * **Principal PostgreSQL 16 Database Architect:** Certified & Signed Off
 * **Data Governance & Architecture Reviewer:** Certified & Signed Off
 * **Project Status:** Ready for Stage 5.2B Authorization
+

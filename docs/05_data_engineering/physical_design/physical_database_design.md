@@ -33,7 +33,7 @@ This certified specification resolves all implementation-readiness findings:
 | 05 | fact_inventory_movements   | gold (Transaction)    | `date_key` (Year)   | `(movement_fact_key, date_key)`| Local UI: `(matdoc, line, date)` |
 | 06 | fact_reconciliation        | gold (Audit Fact)     | `date_key` (Year)   | `(recon_fact_key, date_key)`  | Local UI: `(date, domain, entity)`|
 | 07 | fact_marketing_performance | gold (Periodic Snap)  | `date_key` (Year)   | `(date_key, store_key, campaign_key)`| Enforced as Table Primary Key     |
-| 08 | fact_campaign_exposure     | gold (Event Fact)     | `assignment_date_key`| `(exposure_fact_key, assignment_date_key)`| Local UI: `(camp, cust, date)`|
+| 08 | fact_campaign_exposure     | gold (Event Fact)     | `assignment_date_key`| `(exposure_fact_key, assignment_date_key)`| Unique: `(assignment_id, date)`   |
 | 09 | fact_demand_forecast       | gold (Periodic Snap)  | `target_date_key`   | `(forecast_run_id, target_date_key, store_key, product_key)`     |
 +----+----------------------------+-----------------------+---------------------+-------------------------------+-----------------------------------+
 | 10 | dim_date                   | gold (Conformed Dim)  | None (Non-part.)    | `date_key`                    | `calendar_date`                   |
@@ -107,11 +107,21 @@ To guarantee absolute global assignment uniqueness without altering the 9-fact i
 |      - New Valid Assignments: Inserted into registry with `is_locked_flag = TRUE`.                                |
 |                                                                                                                   |
 |   4. Analytical Fact Population (`gold.fact_campaign_exposure`):                                                  |
-|      - Downstream fact rows are populated strictly from confirmed registry entries:                              |
+|      - Downstream analytical fact rows reference the canonical registry via foreign key:                          |
 |      INSERT INTO gold.fact_campaign_exposure (                                                                    |
-|          exposure_fact_key, assignment_date_key, campaign_key, customer_key, is_holdout_control_flag, ...          |
+|          exposure_fact_key, assignment_id, assignment_date_key, campaign_key, customer_key,                         |
+|          is_holdout_control_flag, dispatch_status, delivery_status, ...                                             |
 |      )                                                                                                            |
-|      SELECT reg.assignment_id, reg.assignment_date_key, reg.campaign_key, reg.customer_key, ...                   |
+|      SELECT                                                                                                       |
+|          nextval('gold.seq_exposure_fact_key'),                                                                   |
+|          reg.assignment_id,                                                                                       |
+|          reg.assignment_date_key,                                                                                 |
+|          reg.campaign_key,                                                                                        |
+|          reg.customer_key,                                                                                        |
+|          reg.is_holdout_control_flag,                                                                             |
+|          CASE WHEN reg.is_holdout_control_flag THEN 'NOT_DISPATCHED_HOLDOUT' ELSE 'PENDING' END,                  |
+|          CASE WHEN reg.is_holdout_control_flag THEN 'NOT_APPLICABLE_HOLDOUT' ELSE 'PENDING' END,                  |
+|          ...                                                                                                      |
 |      FROM control.control_campaign_assignment_registry reg                                                        |
 |      WHERE reg.ingestion_batch_id = :current_batch_id;                                                            |
 |                                                                                                                   |
@@ -158,8 +168,8 @@ Rather than silently masking incoming mismatches with an unconditional `ON CONFL
    * Incoming `ingestion_batch_id == registry.ingestion_batch_id` with matching payload.
    * *Resolution:* Logged as `BATCH_REPLAY_SKIPPED`; pipeline commits zero modifications and terminates successfully.
 
-#### 3.5 Physical Storage Footprint & Capacity Arithmetic
-A rigorous theoretical heap and index storage recalculation for **1,000,000 assignment records** (10 active campaigns $\times$ 100,000 targeted customers) under PostgreSQL 16 on a 64-bit architecture with 8 KB pages:
+#### 3.5 Physical Storage Footprint & Capacity Arithmetic (Standardized CHAR(64) Hash)
+A rigorous theoretical heap and index storage recalculation for **1,000,000 assignment records** (10 active campaigns $\times$ 100,000 targeted customers) under PostgreSQL 16 on a 64-bit architecture with 8 KB pages, standardizing `assignment_hash_value` on canonical `CHAR(64)`:
 
 ##### Step 1: Bytes Per Row (Tuple Payload, Header & Alignment)
 * **Fixed-Width Attributes (48 bytes):**
@@ -173,23 +183,23 @@ A rigorous theoretical heap and index storage recalculation for **1,000,000 assi
   * `assignment_date_key` (`INTEGER`): 4 bytes
   * `is_holdout_control_flag` (`BOOLEAN`): 1 byte
   * `is_locked_flag` (`BOOLEAN`): 1 byte
-* **Variable-Width & Numeric Attributes (~105 bytes):**
-  * `assignment_hash_value` (`NUMERIC(20, 0)`): ~16 bytes (8-byte varlena header + numeric digits)
-  * `holdout_key_version` (`VARCHAR(20)`): ~3 bytes (1-byte header + 2-byte `'v1'`)
-  * `campaign_id` (`VARCHAR(50)`): ~21 bytes (1-byte header + average 20-character campaign code)
-  * `customer_sk` (`CHAR(64)`): ~65 bytes (1-byte header + 64-character hex digest)
-* **Raw User Payload:** $48 + 10 + 105 = 163$ bytes.
+* **Character & String Attributes (154 bytes):**
+  * `assignment_hash_value` (`CHAR(64)` NOT NULL): ~65 bytes (1-byte varlena header + 64-character hex digest)
+  * `customer_sk` (`CHAR(64)` NOT NULL): ~65 bytes (1-byte varlena header + 64-character hex digest)
+  * `campaign_id` (`VARCHAR(50)` NOT NULL): ~21 bytes (1-byte header + average 20-character campaign code)
+  * `holdout_key_version` (`VARCHAR(20)` NOT NULL): ~3 bytes (1-byte header + 2-byte `'v1'`)
+* **Raw User Payload:** $48 + 10 + 154 = \mathbf{212 \text{ bytes}}$.
 * **Heap Tuple Header:**
   * Fixed `HeapTupleHeaderData`: 23 bytes
   * Null Bitmap (13 columns): $\lceil 13 / 8 \rceil = 2$ bytes
   * Unpadded Header Size: $23 + 2 = 25$ bytes
   * Aligned Header (`t_hoff` to 8-byte `MAXALIGN` boundary): **32 bytes** (or 24 bytes if packed with 1-byte bitmap).
 * **Total Tuple On-Disk Size:**
-  * Header (25–32 B) + Payload (163 B) = 188–195 bytes
-  * Aligned Tuple Size (`MAXALIGN` to 8-byte boundary): **192 to 200 bytes per tuple**.
+  * Header (25–32 B) + Payload (212 B) = 237–244 bytes
+  * Aligned Tuple Size (`MAXALIGN` to 8-byte boundary): **240 to 248 bytes per tuple**.
 * **Line Pointer Overhead:**
   * Each tuple requires an entry in the page line pointer array (`ItemIdData`): **4 bytes**.
-  * **Effective Storage per Row on Page:** $192 + 4 = \mathbf{196 \text{ bytes}}$ (minimum) to $200 + 4 = \mathbf{204 \text{ bytes}}$ (maximum).
+  * **Effective Storage per Row on Page:** $240 + 4 = \mathbf{244 \text{ bytes}}$ (minimum) to $248 + 4 = \mathbf{252 \text{ bytes}}$ (maximum).
 
 ##### Step 2: Usable Page Capacity & Effective Rows Per Page
 * Standard PostgreSQL page size: **8,192 bytes** (8 KB).
@@ -198,36 +208,31 @@ A rigorous theoretical heap and index storage recalculation for **1,000,000 assi
 * **At 90% Usable Page Capacity (Fillfactor = 90):**
   $$\text{Usable Page Space} = \lfloor 8,168 \times 0.90 \rfloor = \mathbf{7,351 \text{ bytes}}$$
 * **Effective Rows Per Page:**
-  * At 196 bytes/row: $\lfloor 7,351 / 196 \rfloor = \mathbf{37 \text{ rows per page}}$.
-  * At 204 bytes/row: $\lfloor 7,351 / 204 \rfloor = \mathbf{36 \text{ rows per page}}$.
-  * *(At 100% fill factor: $\lfloor 8,168 / 196 \rfloor = 41$ rows/page; $\lfloor 8,168 / 204 \rfloor = 40$ rows/page).*
+  * At 244 bytes/row: $\lfloor 7,351 / 244 \rfloor = \mathbf{30 \text{ rows per page}}$.
+  * At 252 bytes/row: $\lfloor 7,351 / 252 \rfloor = \mathbf{29 \text{ rows per page}}$.
+  * *(At 100% fill factor: $\lfloor 8,168 / 244 \rfloor = 33$ rows/page; $\lfloor 8,168 / 252 \rfloor = 32$ rows/page).*
 
 ##### Step 3: Required Heap Pages
-* **At 90% Usable Capacity (37 rows/page):**
-  $$\text{Required Heap Pages} = \left\lceil \frac{1,000,000}{37} \right\rceil = \mathbf{27,028 \text{ pages}}$$
-  *(At 36 rows/page: $\lceil 1,000,000 / 36 \rceil = 27,778$ pages; at 100% fill factor: $\lceil 1,000,000 / 41 \rceil = 24,391$ pages).*
+* **At 90% Usable Capacity (29 to 30 rows/page):**
+  $$\text{Required Heap Pages} = \left\lceil \frac{1,000,000}{30} \right\rceil = \mathbf{33,334 \text{ pages}} \quad (\text{at 29 rows/page: } 34,483 \text{ pages})$$
+  *(At 100% fill factor: $\lceil 1,000,000 / 33 \rceil = 30,304$ pages; at 32 rows/page: 31,250 pages).*
 
 ##### Step 4: Heap Storage in MB
-* **At 90% Usable Capacity (27,028 pages):**
-  $$\text{Heap Size} = 27,028 \times 8,192 \text{ bytes} = 221,413,376 \text{ bytes} \approx \mathbf{211.16 \text{ MiB}} \ (221.41 \text{ MB})$$
-* **Heap Storage Operating Range:** **~191 MiB to ~217 MiB** (~200 MB to ~227 MB).
+* **At 90% Usable Capacity:**
+  * 33,334 pages $\times$ 8,192 bytes $= 273,072,128\text{ bytes} \approx \mathbf{260.4\text{ MiB}} \ (273.07\text{ MB})$.
+  * 34,483 pages $\times$ 8,192 bytes $= 282,484,736\text{ bytes} \approx \mathbf{269.4\text{ MiB}} \ (282.48\text{ MB})$.
+* **Heap Storage Operating Range:** **~248 MB to ~283 MB** (~237 MiB to ~270 MiB).
 
 ##### Step 5: Index Storage Estimates (B-Tree on 1,000,000 Rows)
-* **Primary Key Index (`assignment_id` BIGINT):**
-  * 8-byte key + 6-byte TID + 8-byte header = ~24 bytes aligned + 2-byte line pointer $\approx$ 26 bytes/entry.
-  * At standard ~70% B-tree leaf fill factor: ~4,500–5,500 pages $\approx$ **~35 MB to ~45 MB**.
-* **Unique Surrogate Index on `(campaign_key, customer_key)`:**
-  * 4-byte int + 8-byte bigint = 12-byte key + 6-byte TID + header $\approx$ 32 bytes aligned.
-  * At ~70% B-tree leaf fill factor: ~4,000–5,000 pages $\approx$ **~30 MB to ~40 MB**.
-* **Unique Canonical Index on `(campaign_id, customer_sk)`:**
-  * ~21-byte varchar + 65-byte char = ~86-byte key + 6-byte TID + header $\approx$ 104 bytes aligned.
-  * At ~70% B-tree leaf fill factor: ~10,000–12,500 pages $\approx$ **~80 MB to ~100 MB**.
+* **Primary Key Index (`assignment_id` BIGINT):** ~26 B/entry $\to$ at ~70% B-tree leaf fill factor: **~35 MB to ~45 MB**.
+* **Unique Surrogate Index on `(campaign_key, customer_key)`:** ~32 B/entry aligned $\to$ **~30 MB to ~40 MB**.
+* **Unique Canonical Index on `(campaign_id, customer_sk)`:** ~104 B/entry aligned $\to$ **~80 MB to ~100 MB**.
 * **Supporting Date B-Tree Index on `(assignment_date_key)`:** **~20 MB to ~30 MB**.
 * **Total Estimated Index Footprint:** **~165 MB to ~215 MB**.
 
 ##### Step 6: Total Estimated Registry Footprint & Empirical Uncertainty Boundary
 * **Total Physical Footprint (Heap + Indexes):**
-  $$\text{Total Storage} = \text{Heap (200–227 MB)} + \text{Indexes (165–215 MB)} \approx \mathbf{365 \text{ MB to } 442 \text{ MB}}$$
+  $$\text{Total Storage} = \text{Heap (248–283 MB)} + \text{Indexes (165–215 MB)} \approx \mathbf{413 \text{ MB to } 498 \text{ MB}} \ (\sim 0.41 \text{ GB to } 0.50 \text{ GB})$$
 * **Vacuum & Maintenance Headroom:** Autovacuum maintains a 10–20% dead-tuple threshold during batch staging merges.
 * **Empirical Measurement Limitation & Governance Boundary:**
   * *Notice:* All index sizes and page packing ratios are theoretical engineering ranges based on standard PostgreSQL 16 heuristics.
@@ -237,6 +242,35 @@ A rigorous theoretical heap and index storage recalculation for **1,000,000 assi
            pg_size_pretty(pg_total_relation_size('control.control_campaign_assignment_registry')) AS total_size;
     ```
   * Zero unsupported artificial precision is assumed.
+
+---
+
+#### 3.6 Primary Database Capacity Reconciliation (872 GB Dedicated DB Volume)
+To satisfy `NFR-006`'s 5-year active transactional history mandate without double-counting, the primary database storage footprint is reconciled across eight discrete, non-overlapping components:
+
+```
++----+------------------------------------+----------+--------------------+---------------------------------------------------------------+
+| #  | Primary DB Storage Component       | Nature   | Allocation (GB)    | Architectural Basis & Component Function                      |
++----+------------------------------------+----------+--------------------+---------------------------------------------------------------+
+| 01 | Gold Relational Heap Storage       | Active   | **290 GB**         | 1.57 Billion rows across 9 facts & 8 dimensions (5-year heap).|
+| 02 | Indexes (B-Tree + BRIN Matrix)     | Active   | **172 GB**         | Foreign key lookups, composite PKs, unique constraints, BRIN. |
+| 03 | TOAST Storage                      | Active   | **15 GB**          | Out-of-line storage for JSONB logs & long audit descriptors.  |
+| 04 | MVCC Bloat & Vacuum Buffer Headroom| Active   | **85 GB**          | Dead tuple slack, fillfactor margin, autovacuum workspace.   |
+| 05 | Silver Conformed Staging Buffer    | Staging  | **45 GB**          | Rolling 90-day conformed ledger & intermediate ELT merges.   |
+| 06 | Bronze Ephemeral Landing Staging   | Staging  | **25 GB**          | Rolling 14-day raw landing tables prior to promotion/purge.   |
+| 07 | Write-Ahead Logging (WAL) Capacity | Journal  | **60 GB**          | Circular WAL buffer (max_wal_size=32GB + checkpoint spikes).  |
+| 08 | Operational Free-Space Allowance   | Safety   | **180 GB**         | Mandatory ~20% safety margin for online VACUUM FULL & reindex.|
++----+------------------------------------+----------+--------------------+---------------------------------------------------------------+
+|    | **TOTAL PRIMARY DATABASE VOLUME**  | Dedicated| **872 GB**         | **Total Dedicated PostgreSQL Storage Mount (/var/lib/data)**   |
++----+------------------------------------+----------+--------------------+---------------------------------------------------------------+
+```
+
+##### Categorical Storage Disaggregation:
+1. **Active Core Database Storage (562 GB):** Heap (290 GB) + Indexes (172 GB) + TOAST (15 GB) + MVCC/Vacuum (85 GB). Represents the permanently active, queryable 5-year Gold analytical mart. Zero cold demotion.
+2. **Persistent Staging Storage (70 GB):** Bronze landing (25 GB) + Silver conformed staging (45 GB).
+3. **Transactional Journaling (60 GB):** Dedicated WAL headroom.
+4. **Filesystem Operational Safety Headroom (180 GB):** Ensures the filesystem never exceeds 80% utilization, preventing database crash-stops during table reorganizations.
+5. **Decoupled Secondary Infrastructure (470 GB outside Primary DB):** Compressed raw lake files (`data/raw/`, ~120 GB) and local backup staging (`/mnt/backups/`, ~350 GB) reside on separate storage mounts, totaling **~1,342 GB (~1.34 TB)** across the enterprise infrastructure. Zero double-counting.
 
 ---
 
@@ -294,7 +328,7 @@ erDiagram
         BIGINT customer_key FK
         INTEGER assignment_date_key FK
         BOOLEAN is_holdout_control_flag
-        NUMERIC assignment_hash_value
+        CHAR assignment_hash_value
         VARCHAR holdout_key_version
         BOOLEAN is_locked_flag
     }
@@ -302,8 +336,9 @@ erDiagram
     fact_campaign_exposure {
         BIGINT exposure_fact_key PK
         INTEGER assignment_date_key PK_FK
+        BIGINT assignment_id FK
         INTEGER campaign_key FK
-        INTEGER customer_key FK
+        BIGINT customer_key FK
         BOOLEAN is_holdout_control_flag
         VARCHAR dispatch_status
         TIMESTAMPTZ dispatch_timestamp

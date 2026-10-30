@@ -43,15 +43,19 @@
 |    |                                    |                       | delivery failures, campaign cross-talk, and macro effects.    |
 +----+------------------------------------+-----------------------+---------------------------------------------------------------+
 | 05 | Campaign Registry Capacity         | RESOLVED & GROUNDED   | Reassessed storage using PostgreSQL 16 tuple alignment, page  |
-|    | Assessment & Empirical Governance  |                       | layout, and B-tree indexes (~211 MiB heap, ~365–440 MB total). |
+|    | Assessment & Empirical Governance  |                       | layout, and CHAR(64) hash (~248–283 MB heap, ~413–498 MB total)|
 |    |                                    |                       | Explicitly removed ungrounded 3.2 MB figure and labeled exact  |
 |    |                                    |                       | volume as pending empirical measurement in Stage 5.3.         |
 +----+------------------------------------+-----------------------+---------------------------------------------------------------+
-| 06 | NFR-006 Capacity Accounting        | RESOLVED & RECONCILED | Disaggregated capacity into a transparent 10-component model: |
-|    | (Storage Disaggregation & Pruning) |                       | Primary DB volume (~872 GB), auxiliary raw lake (~120 GB), and|
-|    |                                    |                       | backup staging (~350 GB), eliminating double-counting of raw  |
-|    |                                    |                       | 420 GB source data. Rigorously separated planner partition    |
-|    |                                    |                       | pruning (<5ms) from downstream query execution latencies.     |
+| 06 | NFR-006 Primary DB Capacity        | RESOLVED & RECONCILED | Disaggregated primary DB volume to exact 872 GB sum: Gold heap|
+|    | (8-Component Disaggregation)       |                       | (290GB), Indexes (172GB), TOAST (15GB), MVCC (85GB), Silver   |
+|    |                                    |                       | (45GB), Bronze (25GB), WAL (60GB), Free-space margin (180GB). |
+|    |                                    |                       | Auxiliary data lake (120GB) & backup (350GB) cleanly decoupled|
++----+------------------------------------+-----------------------+---------------------------------------------------------------+
+| 07 | Campaign Registry to Fact Linkage  | RESOLVED & CONFORMED  | Defined explicit 1:1 foreign key relationship:                |
+|    | (exposure_fact_key vs assignment_id)|                      | gold.fact_campaign_exposure.assignment_id REFERENCES registry. |
+|    |                                    |                       | UNIQUE (assignment_id, date_key) partition constraint;        |
+|    |                                    |                       | preserves exposure_fact_key as independent fact surrogate PK. |
 +----+------------------------------------+-----------------------+---------------------------------------------------------------+
 ```
 
@@ -121,7 +125,7 @@ The following design assumptions are explicitly recorded for empirical validatio
 1. **ERP Interface Movement Codes (`ODQ-03`):** Movement types `251` and `451` remain provisional pending physical schema dumps from the central ERP.
 2. **Empirical Query Benchmarking (`NFR-003`):** Synthetic volume testing in Stage 5.3 must benchmark whether Power BI DAX queries scanning 11.3M rows in a single partition meet the 2.0-second SLA without pre-aggregated summary rollups.
 3. **Database Disk Allocation:** In the Docker development environment, `northstar_postgres_data` resides on local host disk; production deployment requires provisioning a dedicated **1.0 TB NVMe volume** for the primary database.
-4. **Campaign Registry Empirical Storage Measurement:** Physical footprint modeled at ~365–440 MB (~211 MiB heap + ~165–215 MB indexes for 1M records) must be empirically measured via `pg_total_relation_size()` during Stage 5.3 synthetic scale testing.
+4. **Campaign Registry Empirical Storage Measurement:** Physical footprint modeled at ~413–498 MB (~248–283 MB heap + ~165–215 MB indexes for 1M records with CHAR(64) hash) must be empirically measured via `pg_total_relation_size()` during Stage 5.3 synthetic scale testing.
 
 ---
 

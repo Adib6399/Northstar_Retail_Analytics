@@ -124,10 +124,12 @@
 * **Exact Business Grain:** **One row represents one customer treatment or holdout control assignment record for a marketing campaign.**
 * **Partition Key:** `assignment_date_key` (Range partitioned by Year).
   * *Critical Architectural Justification:* In a marketing experiment, **control-group customers are intentionally quarantined from communication** and therefore **never dispatched**. If partitioned on dispatch date, control records would possess a NULL partition key, violating PostgreSQL 16 partitioning rules. Partitioning on `assignment_date_key` (the calendar date the audience cohort was locked) guarantees that both treatment and control populations are stored, partitioned, and queried uniformly.
-* **Physical Primary Key:** Composite Key `(exposure_fact_key, assignment_date_key)`.
-* **Business Key & Global Uniqueness Architecture:** `campaign_key + customer_key`.
+* **Physical Primary Key:** Composite Key `(exposure_fact_key, assignment_date_key)` where `exposure_fact_key` is an independent synthetic fact surrogate (`BIGINT GENERATED ALWAYS AS IDENTITY`).
+* **Authoritative Registry Link & Global Uniqueness:**
+  * *Foreign Key to Registry:* `assignment_id` (`BIGINT NOT NULL`) references `control.control_campaign_assignment_registry(assignment_id)`.
+  * *Partition-Compatible Unique Constraint:* `CONSTRAINT uq_fact_exposure_assignment_partition UNIQUE (assignment_id, assignment_date_key)`.
   * *Intra-Partition Constraint:* Enforced via a local unique index on `(campaign_key, customer_key, assignment_date_key)`.
-  * *Global Cross-Partition Gatekeeper:* Enforced strictly by the unpartitioned control table `control.control_campaign_assignment_registry` via `UNIQUE (campaign_key, customer_key)`. Downstream analytical fact rows in `fact_campaign_exposure` are populated exclusively from confirmed registry entries, eliminating duplicate or drifting cohort assignments across dates.
+  * *1:1 Relationship:* The combination of global registry uniqueness on `assignment_id` and the partition-compatible unique constraint guarantees a strict **one-assignment-to-one-canonical-exposure** relationship across the platform. Control-group assignments are represented with `dispatch_status = 'NOT_DISPATCHED_HOLDOUT'` and `delivery_status = 'NOT_APPLICABLE_HOLDOUT'`, preserving the approved 9 fact tables.
 
 ##### 2.8.1 Cryptographic HMAC-SHA256 Holdout Hashing & Integer Threshold Specification
 To eliminate hashing collisions, non-uniform distributions, and floating-point normalization anomalies:
@@ -158,7 +160,7 @@ To eliminate hashing collisions, non-uniform distributions, and floating-point n
      * *Campaign Contamination:* Overlapping concurrent campaigns on the same customer can cause attribution cross-talk unless cross-campaign suppression rules are maintained.
      * *Exogenous Confounding:* Regional seasonality, macroeconomic shocks, and price elasticity affect cohorts differently over multi-week measurement windows.
 5. **Historical Assignment Preservation & Key Rotation Resilience:**
-   * Cohort assignment is persisted immutably in `control.control_campaign_assignment_registry` alongside $U$ (`assignment_hash_value`) and `holdout_key_version`.
+   * Cohort assignment is persisted immutably in `control.control_campaign_assignment_registry` alongside the complete 64-character hexadecimal digest `assignment_hash_value` (`CHAR(64)`) and `holdout_key_version`.
    * **Rotation Invariant:** Historical assignments are **never recomputed** when `CAMPAIGN_HOLDOUT_SECRET` is rotated. Audits verify cohort validity directly from the stored database record without re-evaluating the hash or exposing the secret key.
 6. **Strict Dispatch Quarantine:**
    The dispatch execution query explicitly enforces `WHERE is_holdout_control_flag = FALSE`. Control customers are strictly excluded from outbound dispatch queues.
