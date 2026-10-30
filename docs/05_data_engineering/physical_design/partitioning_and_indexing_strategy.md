@@ -1,13 +1,13 @@
 # Northstar Retail Group — Enterprise Retail Analytics Platform
-## Stage 5.2A: Partitioning & Indexing Strategy Specification (Revised Post-Audit)
+## Stage 5.2A: Partitioning & Indexing Strategy Specification (Final Certified Baseline)
 
 ---
 
 ### 1. Document Control & Performance Mandates
 
-* **Document Identifier:** `NRG-PDD-5.2A-006-REV2`
-* **Phase:** Stage 5.2A — Physical Database Design (Post-Audit Revisions)
-* **Scope:** Declarative range partitioning, PostgreSQL 16 constraint compliance, local vs. global indexing mechanics, BRIN performance optimization, and partition pruning parameters.
+* **Document Identifier:** `NRG-PDD-5.2A-006-REV3`
+* **Phase:** Stage 5.2A — Physical Database Design (Final Post-Review Reconciliation)
+* **Scope:** Declarative range partitioning, PostgreSQL 16 constraint compliance, local vs. global indexing mechanics, BRIN performance optimization, and rigorous performance boundary definitions.
 * **Governing Requirements:**
   * `NFR-001`: Nightly batch window $\le 210 \text{ minutes}$ (01:00–04:30 IST).
   * `NFR-002`: Executive dashboard load latency $\le 3.0 \text{ seconds}$ ($P_{95}$).
@@ -18,7 +18,7 @@
 
 ### 2. Declarative Partitioning & Constraint Topology
 
-PostgreSQL 16 enforces a strict constraint rule on declaratively partitioned tables: **Any `PRIMARY KEY` or `UNIQUE` constraint declared on a partitioned table must include all columns in the table's partition key.**
+PostgreSQL 16 enforces that **any `PRIMARY KEY` or `UNIQUE` constraint declared on a partitioned table must include all columns in the table's partition key**.
 
 ```
 +----+----------------------------+-----------------------+---------------------+-------------------------------+-----------------------------------+
@@ -31,7 +31,7 @@ PostgreSQL 16 enforces a strict constraint rule on declaratively partitioned tab
 | 05 | fact_inventory_movements   | 15k – 30k moves/day   | Annual Range        | `(movement_fact_key, date_key)`| Local UI: `(matdoc, line, date)` |
 | 06 | fact_reconciliation        | 5k – 10k audits/day   | Annual Range        | `(recon_fact_key, date_key)`  | Local UI: `(date, domain, entity)`|
 | 07 | fact_marketing_performance | 500 – 1.5k rows/day   | Annual Range        | `(date_key, store_key, campaign_key)`| Enforced as Table Primary Key     |
-| 08 | fact_campaign_exposure     | 50k – 200k rows/drop  | Annual Range        | `(exposure_fact_key, dispatch_date_key)`| Local UI: `(camp, cust, date)` |
+| 08 | fact_campaign_exposure     | 50k – 200k rows/drop  | Annual Range        | `(exposure_fact_key, assignment_date_key)`| Local UI: `(camp, cust, date)`|
 | 09 | fact_demand_forecast       | 450k projections/day  | Monthly Range       | `(forecast_run_id, target_date_key, store_key, product_key)`     |
 +----+----------------------------+-----------------------+---------------------+-------------------------------+-----------------------------------+
 ```
@@ -44,58 +44,62 @@ PostgreSQL 16 enforces a strict constraint rule on declaratively partitioned tab
 * **Business Key Uniqueness:** `pos_invoice_number + pos_line_number`.
   * *Intra-Partition:* Enforced via a unique local B-tree index on `(pos_invoice_number, pos_line_number, date_key)`.
   * *Cross-Partition:* Enforced in Silver staging via window deduplication prior to insertion.
-* **Foreign Keys:** Fully supported in PostgreSQL 16; child partitions automatically inherit foreign keys referencing `dim_date`, `dim_store`, `dim_product`, `dim_customer`, and `dim_promotion`.
+* **Foreign Keys:** Child partitions automatically inherit foreign keys referencing `dim_date`, `dim_store`, `dim_product`, `dim_customer`, and `dim_promotion`.
 
 ##### B. `gold.fact_inventory_snapshot`
 * **Partition Key:** `date_key` (Monthly range).
-* **Declarative Primary Key:** `PRIMARY KEY (date_key, store_key, product_key)`.
-* **Business Key Uniqueness:** Exactly identical to the primary key. Because `date_key` is the partition key, PostgreSQL 16 directly enforces uniqueness across each monthly child table.
+* **Declarative Primary Key:** `PRIMARY KEY (date_key, store_key, product_key)`. Directly enforced across monthly partitions.
 
-##### C. `gold.fact_demand_forecast`
+##### C. `gold.fact_campaign_exposure`
+* **Partition Key:** `assignment_date_key` (Annual range).
+* **Declarative Primary Key:** `PRIMARY KEY (exposure_fact_key, assignment_date_key)`.
+* **Architectural Rationale:** Ensures holdout control customers (who are intentionally quarantined from communication and never dispatched) are stored in the correct temporal partition alongside treatment records.
+* **Business Key Uniqueness:** Local unique index on `(campaign_key, customer_key, assignment_date_key)`.
+
+##### D. `gold.fact_demand_forecast`
 * **Partition Key:** `target_date_key` (Monthly range).
 * **Declarative Primary Key:** `PRIMARY KEY (forecast_run_id, target_date_key, store_key, product_key)`.
 * **Business Key Uniqueness:** Enforces that within any single forecast run (`forecast_run_id`), exactly one projection exists per Store per SKU for a target date.
 
-##### D. `gold.fact_campaign_exposure`
-* **Partition Key:** `dispatch_date_key` (Annual range).
-* **Declarative Primary Key:** `PRIMARY KEY (exposure_fact_key, dispatch_date_key)`.
-* **Business Key Uniqueness:** Local unique index on `(campaign_key, customer_key, dispatch_date_key)`.
-
 ---
 
-### 3. Sub-Second Partition Pruning Architecture (`NFR-003`, `NFR-006`)
+### 3. Rigorous Separation of Partition Pruning vs. Query Execution Performance
 
-To guarantee that 5 years of historical transactional data (1.57 billion rows) can be queried in under 2.0 seconds:
+> [!IMPORTANT]
+> **Performance Architecture Principle:**  
+> **Partition pruning does NOT guarantee sub-second end-to-end query execution.**  
+> The physical architecture rigorously separates planner pruning efficiency from downstream relational query execution:
 
 ```
 +-------------------------------------------------------------------------------------------------------------------+
-|                                  POSTGRESQL 16 PARTITION PRUNING EXECUTION PATH                                   |
+|                                     QUERY EXECUTION PIPELINE PERFORMANCE STAGES                                   |
 +-------------------------------------------------------------------------------------------------------------------+
 |                                                                                                                   |
-|   1. Analytical Query Submitted (e.g. Power BI Trailing 30-Day Store DSR):                                        |
-|      SELECT store_key, SUM(net_sales_amount)                                                                      |
-|      FROM gold.fact_sales                                                                                         |
-|      WHERE date_key BETWEEN 20261001 AND 20261030                                                                 |
-|      GROUP BY store_key;                                                                                          |
+|   STAGE 1: PLANNER PARTITION PRUNING (Sub-Millisecond Engine Overhead)                                            |
+|   - Planner evaluates WHERE clause against partition boundary catalog (`enable_partition_pruning = ON`).         |
+|   - Out of 60 monthly partitions for FactSales, 59 are excluded.                                                  |
+|   - Time Spent: < 5 milliseconds.                                                                                 |
 |                                                                                                                   |
-|   2. Engine Planner Check: `enable_partition_pruning = ON`                                                        |
-|      - Total Partitions Defined: 60 monthly partitions (5 Years * 12 Months)                                      |
-|      - Evaluates Query WHERE predicate against partition boundary metadata:                                       |
-|        Bounds: `fact_sales_y2026m10` [20261001, 20261101)                                                         |
+|   STAGE 2: CHILD RELATION HEAP & INDEX SCAN (Query Execution Latency)                                             |
+|   - The single scanned partition (`fact_sales_y2026m10`) contains ~11.3 million rows (~2.5 GB data).              |
+|   - Scanning this partition depends entirely on:                                                                  |
+|     a) Index Selectivity (B-Tree filter on `store_key` vs full partition scan).                                   |
+|     b) Buffer Cache State (Pages warm in `shared_buffers` vs cold NVMe disk I/O).                                 |
+|     c) Aggregation Complexity (SUM, GROUP BY, and distinct counts).                                               |
+|   - Time Spent: 0.15s to 1.80s (depending on selectivity).                                                        |
 |                                                                                                                   |
-|   3. Pruning Result:                                                                                              |
-|      - 59 Monthly Partitions (representing ~665 Million Rows) are COMPLETELY BYPASSED.                            |
-|      - Scan is restricted strictly to `fact_sales_y2026m10` (~15 Million Rows).                                   |
-|      - Execution Time: 0.18 seconds (Sub-second scan via local B-Tree store index).                               |
+|   STAGE 3: CLIENT-SIDE RENDERING & SEMANTIC LAYER (NFR-003 Validation)                                            |
+|   - Materialization of results across Power BI tabular engine / API network roundtrip.                            |
+|   - Target: Total end-to-end latency <= 2.0s (NFR-003) and dashboard render <= 3.0s (NFR-002).                    |
 |                                                                                                                   |
 +-------------------------------------------------------------------------------------------------------------------+
 ```
+
+*Architectural Conclusion:* Partition pruning is a necessary architectural prerequisite to eliminate 98% of table I/O, but sub-2-second query performance (`NFR-003`) relies on the coordinated deployment of **targeted B-tree indexes, covering indexes, and memory caching**, which must be empirically validated in Stage 5.3.
 
 ---
 
 ### 4. Hybrid Indexing Strategy: B-Tree vs. BRIN Matrix
-
-To prevent runaway index storage on massive fact tables while optimizing query paths:
 
 ```
 +------------------------------------------------------------------------------------------------------------------------+
@@ -129,7 +133,11 @@ To prevent runaway index storage on massive fact tables while optimizing query p
 3. **`fact_reconciliation` (Annual):**
    * Composite B-Tree on `(recon_domain_key, store_key)`
    * **Partial B-Tree Index** on `(recon_fact_key, discrepancy_ticket_id)` `WHERE (ticket_generated_flag = TRUE AND investigation_status = 'PENDING_REVIEW')`.
-4. **`fact_demand_forecast` (Monthly):**
+4. **`fact_campaign_exposure` (Annual):**
+   * B-Tree on `(campaign_key)`
+   * B-Tree on `(customer_key)`
+   * **Partial B-Tree Index** on `(campaign_key, customer_key)` `WHERE (is_holdout_control_flag = TRUE)` for rapid holdout population audits.
+5. **`fact_demand_forecast` (Monthly):**
    * Composite B-Tree on `(store_key, product_key)`
    * B-Tree on `(model_version)` for algorithmic drift analysis.
 

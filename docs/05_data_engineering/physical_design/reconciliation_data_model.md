@@ -1,11 +1,11 @@
 # Northstar Retail Group — Enterprise Retail Analytics Platform
-## Stage 5.2A: Reconciliation Data Model Specification (Revised Post-Audit)
+## Stage 5.2A: Reconciliation Data Model Specification (Final Certified Baseline)
 
 ---
 
 ### 1. Document Control & Governance Mandates
 
-* **Document Identifier:** `NRG-PDD-5.2A-007-REV2`
+* **Document Identifier:** `NRG-PDD-5.2A-007-REV3`
 * **Phase:** Stage 5.2A — Physical Database Design (Post-Audit Revisions)
 * **Scope:** Physical data structures, financial precision rules, matching keys, configurable discrepancy thresholds, and decoupled audit architectures for the **4-Way Decoupled Reconciliation Hub**.
 * **Governing Architectural Decisions:**

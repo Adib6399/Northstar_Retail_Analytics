@@ -1,12 +1,12 @@
 # Northstar Retail Group — Enterprise Retail Analytics Platform
-## Stage 5.2A: Master Physical Data Dictionary (Revised Post-Audit)
+## Stage 5.2A: Master Physical Data Dictionary (Final Certified Baseline)
 
 ---
 
 ### 1. Document Overview & Dictionary Standards
 
-* **Document Identifier:** `NRG-PDD-5.2A-002-REV2`
-* **Phase:** Stage 5.2A — Physical Database Design
+* **Document Identifier:** `NRG-PDD-5.2A-002-REV3`
+* **Phase:** Stage 5.2A — Physical Database Design (Final Post-Review Reconciliation)
 * **Scope:** Physical column-level specifications for all 9 Fact Tables, 8 Dimension Tables, and 5 Control/Reference Tables in PostgreSQL 16.
 * **Typing Standards:**
   * Monetary Amounts: `NUMERIC(15, 2)` (Paise precision, range $\pm ₹9,999,999,999,999.99$).
@@ -239,20 +239,23 @@
 
 ---
 
-#### 2.8 Table: `gold.fact_campaign_exposure` (Range Partitioned by Year on `dispatch_date_key`)
-* **Physical PK:** `(exposure_fact_key, dispatch_date_key)`
-* **Intra-Partition Unique Index:** `(campaign_key, customer_key, dispatch_date_key)`
-* **Grain:** Strictly one customer assignment & dispatch record per campaign.
+#### 2.8 Table: `gold.fact_campaign_exposure` (Range Partitioned by Year on `assignment_date_key`)
+* **Physical PK:** `(exposure_fact_key, assignment_date_key)`
+* **Intra-Partition Unique Index:** `(campaign_key, customer_key, assignment_date_key)`
+* **Grain:** Strictly one customer assignment & communication dispatch record per campaign.
 
 | Column Name | PostgreSQL Data Type | Nullable | Key Type | Default Value | Business Description / Derivation Rule |
 | :--- | :--- | :---: | :---: | :--- | :--- |
 | `exposure_fact_key` | `BIGINT` | NO | PK (Part) | `GENERATED ALWAYS AS IDENTITY` | Synthetic surrogate primary key component |
-| `dispatch_date_key` | `INTEGER` | NO | PK/FK | None | Broadcast dispatch date referencing `dim_date.date_key` |
+| `assignment_date_key` | `INTEGER` | NO | PK/FK | None | Date cohort was locked referencing `dim_date.date_key` (Partition Key)|
 | `campaign_key` | `INTEGER` | NO | FK | None | Campaign referencing `dim_campaign.campaign_key` |
 | `customer_key` | `INTEGER` | NO | FK | None | Pseudonymized customer referencing `dim_customer` |
-| `communication_channel` | `VARCHAR(20)` | NO | Degenerate | None | Delivery channel: `SMS`, `WHATSAPP`, `EMAIL` |
 | `is_holdout_control_flag`| `BOOLEAN` | NO | Non-Add | `FALSE` | `TRUE` if assigned to 10% uncontacted control group (`FR-018`) |
-| `delivery_status` | `VARCHAR(20)` | NO | None | `'PENDING'` | `'PENDING'`, `'DELIVERED'`, `'FAILED_BOUNCED'`, `'QUARANTINED'`|
+| `communication_channel` | `VARCHAR(20)` | NO | Degenerate | None | Channel: `SMS`, `WHATSAPP`, `EMAIL` |
+| `dispatch_status` | `VARCHAR(30)` | NO | None | `'PENDING'` | `'PENDING'`, `'DISPATCHED'`, `'NOT_DISPATCHED_HOLDOUT'`, `'DISPATCH_FAILED'` |
+| `dispatch_timestamp` | `TIMESTAMPTZ` | YES | None | NULL | Outbound broadcast push timestamp (NULL for holdout) |
+| `dispatch_attempt_count`| `SMALLINT` | NO | None | `0` | Number of outbound dispatch attempts made |
+| `delivery_status` | `VARCHAR(30)` | NO | None | `'PENDING'` | `'NOT_APPLICABLE_HOLDOUT'`, `'PENDING'`, `'DELIVERED'`, `'BOUNCED'`, `'UNDELIVERED'` |
 | `delivery_timestamp` | `TIMESTAMPTZ` | YES | None | NULL | Webhook confirmation timestamp from SMS/WhatsApp gateway |
 | `coupon_redeemed_flag` | `BOOLEAN` | NO | Non-Add | `FALSE` | `TRUE` if linked coupon voucher was redeemed at checkout |
 | `redemption_date_key` | `INTEGER` | YES | FK | NULL | Foreign key referencing `dim_date` (NULL if unredeemed) |
@@ -270,7 +273,7 @@
 
 #### 2.9 Table: `gold.fact_demand_forecast` (Range Partitioned by Month on `target_date_key`)
 * **Physical PK:** `(forecast_run_id, target_date_key, store_key, product_key)`
-* **Grain:** **One forecast run × one Store × one SKU × one future target date.** (Preserves complete run-over-run projection history).
+* **Grain:** **One forecast run × one Store × one SKU × one future target date.**
 
 | Column Name | PostgreSQL Data Type | Nullable | Key Type | Default Value | Business Description / Derivation Rule |
 | :--- | :--- | :---: | :---: | :--- | :--- |

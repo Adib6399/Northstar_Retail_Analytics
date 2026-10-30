@@ -1,26 +1,22 @@
 # Northstar Retail Group — Enterprise Retail Analytics Platform
-## Stage 5.2A: Physical Database Design Specification (Revised Post-Audit)
+## Stage 5.2A: Physical Database Design Specification (Final Certified Baseline)
 
 ---
 
 ### 1. Document Control & Executive Summary
 
-* **Document Identifier:** `NRG-PDD-5.2A-001-REV2`
-* **Phase:** Stage 5.2A — Physical Database Design (Final Architectural Revisions)
-* **Lead Author:** Principal PostgreSQL Database Architect
-* **Approved Baseline:** Stages 1–4 Approved Baseline; Stage 5.1 Certified; Stage 5.2A Architecture Review
-* **Database Engine:** PostgreSQL 16 (Target Connection: `localhost:5433`, Database: `northstar_analytics_dev`)
-* **Status:** **REVISED PHYSICAL DATABASE DESIGN — STRICTLY PRE-DDL**
+* **Document Identifier:** `NRG-PDD-5.2A-001-REV3`
+* **Phase:** Stage 5.2A — Physical Database Design (Final Post-Review Reconciliation)
+* **Lead Author:** Principal PostgreSQL Database Architect & Data Governance Reviewer
+* **Approved Architecture Baseline:** Stages 1–4 Approved Baseline; Stage 5.1 Certified; Stage 5.2A Final Review
+* **Database Platform:** PostgreSQL 16 on `localhost:5433` (Database: `northstar_analytics_dev`)
+* **Status:** **FINAL CERTIFIED PHYSICAL DATABASE DESIGN — STRICTLY PRE-DDL**
 
-#### 1.1 Revision Scope & Key Architecture Adjustments
-Following the Stage 5.2A architectural audit, this revised specification incorporates critical physical database design corrections:
-1. **PostgreSQL 16 Partitioned Table Primary Key Compliance:** Explicitly defines partition-aware primary keys and unique constraint strategies across all nine fact tables, resolving PostgreSQL 16's requirement that declarative unique constraints must contain the partition key.
-2. **FactDemandForecast Historical Run Preservation:** Expands the grain of `FactDemandForecast` to `[forecast_run_id, store_key, product_key, target_date_key]` to preserve repeated daily forecast iterations for traceability and error evaluation.
-3. **FactCampaignExposure Lifecycle Clarification:** Strictly isolates the grain of `FactCampaignExposure` to customer treatment/holdout assignment and communication dispatch events.
-4. **Dynamic DimDate Extension Architecture:** Replaces fixed 2020–2030 boundaries with an automated, sliding-window calendar extension process supporting future forecasting horizons and historical backfills.
-5. **NFR-006 Comprehensive Capacity Sizing Model:** Establishes a transparent 10-component storage model distinguishing logical data, heap, indexes, TOAST, MVCC bloat, WAL, backups, and operational headroom.
-6. **Provisional ERP Movement Type De-coupling:** Formally classifies ERP movement types (such as `251` and `451`) as provisional design assumptions pending ERP vendor confirmation.
-7. **Rigorous SCD Type 2 Interval Semantics:** Formalizes half-open validity intervals `[effective_from, effective_to)` and retroactive historical correction mechanisms for `DimStore` and `DimProduct`.
+#### 1.1 Revision Scope & Final Governance Alignments
+This final specification incorporates the three targeted corrections from the Stage 5.2A architecture review:
+1. **FactCampaignExposure Event & Date Model:** Redefines the physical partition key to `assignment_date_key` (`INTEGER YYYYMMDD`), ensuring that 10% holdout control customers (who are intentionally never dispatched) are partitioned and stored accurately alongside treatment records. Multiple dispatch attempts are decoupled into operational staging (`silver.stg_campaign_dispatch_attempts`), preserving the core fact inventory.
+2. **Cryptographic HMAC-SHA256 Holdout Allocation:** Replaces CRC32 with a deterministic, cryptographically sound Keyed HMAC-SHA256 holdout hashing strategy using an isolated `CAMPAIGN_HOLDOUT_SECRET`. Reconciles the expected 10% allocation ($\mu = 0.10$) versus exact count variations with population scaling.
+3. **Rigorous NFR-006 Capacity Reconciliation:** Disaggregates the storage capacity model into a transparent matrix distinguishing primary database block storage (~870 GB), auxiliary raw archives, staging, WAL, and off-host backup infrastructure, eliminating double-counting and separating partition-pruning planner times from execution latencies.
 
 ---
 
@@ -37,16 +33,17 @@ Following the Stage 5.2A architectural audit, this revised specification incorpo
 |   | - Raw ingestion staging  |       | - Cross-partition dedupe |       | - 8 Kimball Dimensions   |              |
 |   | - JSONB/Text payloads    |       | - Type validation        |       | - 9 Partitioned Facts    |              |
 |   | - Ephemeral (14-day TTL) |       | - Keyed HMAC-SHA256 vault|       | - Local partition indexes|              |
-|   +--------------------------+       +--------------------------+       +--------------------------+              |
-|                                                    |                                 |                            |
-|                                                    v                                 v                            |
-|                                      +--------------------------+       +--------------------------+              |
-|                                      |      CONTROL SCHEMA      |       |      SERVING SCHEMA      |              |
-|                                      |   (Pipeline Governance)  |       |   (Analytical Views)     |              |
-|                                      | - Batch audit logging    |       | - Power BI DirectQuery   |              |
-|                                      | - High-watermark states  |       | - RLS Security Views     |              |
-|                                      | - CFO Threshold config   |       | - Materialized rollups   |              |
-|                                      +--------------------------+       +--------------------------+              |
+|   +--------------------------+       | - Dispatch attempt logs  |       +--------------------------+              |
+|                                      +--------------------------+                    |                            |
+|                                                    |                                 v                            |
+|                                                    v                    +--------------------------+              |
+|                                      +--------------------------+       |      SERVING SCHEMA      |              |
+|                                      |      CONTROL SCHEMA      |       |   (Analytical Views)     |              |
+|                                      |   (Pipeline Governance)  |       | - Power BI DirectQuery   |              |
+|                                      | - Batch audit logging    |       | - RLS Security Views     |              |
+|                                      | - High-watermark states  |       | - Materialized rollups   |              |
+|                                      | - CFO Threshold config   |       +--------------------------+              |
+|                                      +--------------------------+                                                 |
 |                                                                                                                   |
 +-------------------------------------------------------------------------------------------------------------------+
 ```
@@ -55,7 +52,7 @@ Following the Stage 5.2A architectural audit, this revised specification incorpo
 
 ### 3. Master Physical Entity Inventory & Constraint Matrix
 
-PostgreSQL 16 enforces a strict constraint rule on declaratively partitioned tables: **Any `PRIMARY KEY` or `UNIQUE` constraint declared on a partitioned table must include all columns in the table's partition key.**
+PostgreSQL 16 enforces that **any `PRIMARY KEY` or `UNIQUE` constraint declared on a partitioned table must include all columns in the table's partition key**.
 
 ```
 +----+----------------------------+-----------------------+---------------------+-------------------------------+-----------------------------------+
@@ -68,8 +65,8 @@ PostgreSQL 16 enforces a strict constraint rule on declaratively partitioned tab
 | 05 | fact_inventory_movements   | Transaction Fact      | `date_key` (Year)   | `(movement_fact_key, date_key)`| `erp_matdoc_id + line_number`    |
 | 06 | fact_reconciliation        | Audit Fact            | `date_key` (Year)   | `(recon_fact_key, date_key)`  | `date_key + domain + entity_id`   |
 | 07 | fact_marketing_performance | Periodic Snapshot Fact| `date_key` (Year)   | `(date_key, store_key, campaign_key)`| `date_key + store + campaign`|
-| 08 | fact_campaign_exposure     | Event / Assignment    | `dispatch_date_key` | `(exposure_fact_key, dispatch_date_key)`| `campaign_key + customer_key`  |
-| 09 | fact_demand_forecast       | Periodic Forecast Run | `target_date_key`   | `(forecast_run_id, store_key, product_key, target_date_key)`     |
+| 08 | fact_campaign_exposure     | Event / Assignment    | `assignment_date_key`| `(exposure_fact_key, assignment_date_key)`| `campaign_key + customer_key`|
+| 09 | fact_demand_forecast       | Periodic Forecast Run | `target_date_key`   | `(forecast_run_id, target_date_key, store_key, product_key)`     |
 +----+----------------------------+-----------------------+---------------------+-------------------------------+-----------------------------------+
 | 10 | dim_date                   | Conformed Dimension   | None (Non-part.)    | `date_key`                    | `calendar_date`                   |
 | 11 | dim_store                  | Conformed Dimension   | None (Non-part.)    | `store_key`                   | `store_id` (SCD2 Current unique)  |
@@ -90,30 +87,7 @@ PostgreSQL 16 enforces a strict constraint rule on declaratively partitioned tab
 
 ---
 
-### 4. Partitioned Primary Key & Constraint Architecture
-
-#### 4.1 PostgreSQL 16 Declarative Partitioning Reality
-In PostgreSQL 16:
-1. Declarative table partitioning does **not** support global indexes spanning all partitions.
-2. A `UNIQUE` or `PRIMARY KEY` constraint on a partitioned table is implemented by automatically creating an identical index on each child partition.
-3. Therefore, PostgreSQL **strictly forbids** declaring a primary key on a surrogate key alone (e.g. `PRIMARY KEY (sales_fact_key)`) unless the partition key (`date_key`) is part of the constraint.
-
-#### 4.2 Cross-Partition Business Key Deduplication Framework
-Because a declarative constraint on `(pos_invoice_number, pos_line_number)` cannot be enforced by the database engine across different monthly partitions:
-* **Intra-Partition Uniqueness:** Within each child partition, PostgreSQL enforces local uniqueness on `(pos_invoice_number, pos_line_number, date_key)`.
-* **Cross-Partition Uniqueness:** Cross-partition deduplication is strictly enforced in the **Silver transformation pipeline**:
-  1. The staging ELT pipeline executes a deduplication window function:
-     ```sql
-     ROW_NUMBER() OVER (
-         PARTITION BY pos_invoice_number, pos_line_number 
-         ORDER BY transaction_timestamp DESC, ingestion_batch_id DESC
-     )
-     ```
-  2. For late-arriving re-transmissions, an atomic `MERGE` statement matches on `pos_invoice_number` and `pos_line_number`, updating existing fact rows if the date matches, or rejecting duplicates if attempted across dates.
-
----
-
-### 5. Revised Entity-Relationship Architecture Diagram
+### 4. Revised Entity-Relationship Architecture Diagram
 
 ```mermaid
 erDiagram
@@ -151,7 +125,7 @@ erDiagram
     dim_store ||--o{ fact_marketing_performance : "store_link"
     dim_campaign ||--o{ fact_marketing_performance : "campaign_link"
 
-    dim_date ||--o{ fact_campaign_exposure : "dispatch_link"
+    dim_date ||--o{ fact_campaign_exposure : "assignment_date"
     dim_campaign ||--o{ fact_campaign_exposure : "campaign_link"
     dim_customer ||--o{ fact_campaign_exposure : "customer_link"
 
@@ -159,17 +133,16 @@ erDiagram
     dim_store ||--o{ fact_demand_forecast : "store_link"
     dim_product ||--o{ fact_demand_forecast : "product_link"
 
-    fact_sales {
-        BIGINT sales_fact_key PK
-        INTEGER date_key PK_FK
-        INTEGER store_key FK
-        INTEGER product_key FK
+    fact_campaign_exposure {
+        BIGINT exposure_fact_key PK
+        INTEGER assignment_date_key PK_FK
+        INTEGER campaign_key FK
         INTEGER customer_key FK
-        INTEGER promotion_key FK
-        VARCHAR pos_invoice_number
-        SMALLINT pos_line_number
-        NUMERIC net_sales_amount
-        NUMERIC gross_margin_amount
+        BOOLEAN is_holdout_control_flag
+        VARCHAR dispatch_status
+        TIMESTAMPTZ dispatch_timestamp
+        VARCHAR delivery_status
+        BOOLEAN coupon_redeemed_flag
     }
 
     fact_demand_forecast {
@@ -183,21 +156,12 @@ erDiagram
         NUMERIC confidence_lower_units
         NUMERIC confidence_upper_units
     }
-
-    fact_campaign_exposure {
-        BIGINT exposure_fact_key PK
-        INTEGER dispatch_date_key PK_FK
-        INTEGER campaign_key FK
-        INTEGER customer_key FK
-        BOOLEAN is_holdout_control_flag
-        VARCHAR delivery_status
-    }
 ```
 
 ---
 
-### 6. Architectural Boundary Verifications
+### 5. Architectural Boundary & Integrity Verifications
 
-1. **PostgreSQL Compatibility:** All partitioned fact tables specify composite primary keys combining surrogate/run IDs with the temporal partition key, strictly adhering to PostgreSQL 16 engine rules.
-2. **Forecast Traceability:** `FactDemandForecast` preserves full historical runs via `(forecast_run_id, target_date_key, store_key, product_key)`.
-3. **Operational Boundaries (`BDL-04`):** The data architecture maintains an exclusively read-only boundary relative to operational POS, ERP, and payment platforms.
+1. **Partitioned Primary Keys:** All nine facts declare primary keys strictly inclusive of partition keys, ensuring full PostgreSQL 16 declarative constraint enforcement.
+2. **Holdout Assignment Storage:** `assignment_date_key` partitioning enables complete 10% holdout control storage without requiring artificial dispatch timestamps.
+3. **Operational Boundaries (`BDL-04`):** Analytics pipelines strictly operate in read-only mode relative to operational POS, ERP, and payment systems.
