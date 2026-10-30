@@ -27,7 +27,7 @@ The implementation baseline consists of 9 sequential, schema-qualified PostgreSQ
 | 003 | 003_create_reference_tables.sql         | gold              | 3 static reference domain tables + seed reference data.         |
 | 004 | 004_create_dimensions.sql               | gold              | 8 conformed dimensions with SCD2 partial unique indexes.        |
 | 005 | 005_create_fact_tables.sql              | gold              | 9 range-partitioned fact parent tables with audit blocks.       |
-| 006 | 006_create_partitions.sql               | control, gold     | 58 initial active child partitions (monthly/annual 2024-2027).  |
+| 006 | 006_create_partitions.sql               | control, gold     | 223 active child partitions (monthly/annual 2021-2027 per NFR-006). |
 | 007 | 007_create_constraints.sql              | gold, control     | 44 foreign key constraints (all marts, composite registry FK).   |
 | 008 | 008_create_indexes.sql                  | gold, control     | 46 B-tree, BRIN, composite, and partial exception indexes.      |
 | 009 | 009_create_security_and_permissions.sql | All Schemas       | 5 RBAC roles, schema grants, and Tier-1 immutability revokes.   |
@@ -47,8 +47,8 @@ The implementation baseline consists of 9 sequential, schema-qualified PostgreSQ
   5. `control.control_campaign_assignment_audit_log` (Append-only governance ledger, surrogate PK: `audit_log_id`, FK: `assignment_id`).
 * **Triggers & Functions (1):**
   * Function `control.fn_prevent_locked_assignment_mutation()` and `TRIGGER trg_prevent_locked_assignment_mutation` enforcing Tier-2 engine immutability on locked campaign assignments.
-* **Child Partitions (4):**
-  * `control_batch_audit_y2024`, `control_batch_audit_y2025`, `control_batch_audit_y2026`, `control_batch_audit_y2027`.
+* **Child Partitions (7):**
+  * `control_batch_audit_y2021` through `control_batch_audit_y2027` (Annual partitions covering 2021-01-01 to 2028-01-01).
 
 #### 3.2 Schema: `gold` (Kimball Star Schemas & Presentation Tier)
 * **Conformed Dimensions (8):**
@@ -74,16 +74,16 @@ The implementation baseline consists of 9 sequential, schema-qualified PostgreSQ
   7. `gold.fact_marketing_performance` (Annual on `date_key`, PK: `(date_key, store_key, campaign_key)`).
   8. `gold.fact_campaign_exposure` (Annual on `assignment_date_key`, PK: `(exposure_fact_key, assignment_date_key)`, composite FK: `(assignment_id, assignment_date_key)`, `customer_key BIGINT NOT NULL`).
   9. `gold.fact_demand_forecast` (Monthly on `target_date_key`, PK: `(forecast_run_id, target_date_key, store_key, product_key)`).
-* **Fact Child Partitions (54):**
-  * `fact_sales`: 12 monthly partitions (`y2026m01`–`y2026m12`).
-  * `fact_inventory_snapshot`: 12 monthly partitions (`y2026m01`–`y2026m12`).
-  * `fact_demand_forecast`: 6 monthly partitions (`y2026m10`–`y2027m03`).
-  * `fact_payments`: 4 annual partitions (`y2024`–`y2027`).
-  * `fact_returns`: 4 annual partitions (`y2024`–`y2027`).
-  * `fact_inventory_movements`: 4 annual partitions (`y2024`–`y2027`).
-  * `fact_reconciliation`: 4 annual partitions (`y2024`–`y2027`).
-  * `fact_marketing_performance`: 4 annual partitions (`y2024`–`y2027`).
-  * `fact_campaign_exposure`: 4 annual partitions (`y2024`–`y2027`).
+* **Fact Child Partitions (216):**
+  * `fact_sales`: 84 monthly partitions (`y2021m01`–`y2027m12`, covering 5-year active history 2021–2025 + 2026 baseline + 2027 future per NFR-006).
+  * `fact_inventory_snapshot`: 84 monthly partitions (`y2021m01`–`y2027m12`, covering 5-year active history 2021–2025 + 2026 baseline + 2027 future per NFR-006).
+  * `fact_demand_forecast`: 6 monthly forward-looking partitions (`y2026m10`–`y2027m03`, supporting operational T+1 to T+14 forecast horizon per FR-024 without artificial historical backfills).
+  * `fact_payments`: 7 annual partitions (`y2021`–`y2027`, covering 2021-01-01 to 2028-01-01).
+  * `fact_returns`: 7 annual partitions (`y2021`–`y2027`, covering 2021-01-01 to 2028-01-01).
+  * `fact_inventory_movements`: 7 annual partitions (`y2021`–`y2027`, covering 2021-01-01 to 2028-01-01).
+  * `fact_reconciliation`: 7 annual partitions (`y2021`–`y2027`, covering 2021-01-01 to 2028-01-01).
+  * `fact_marketing_performance`: 7 annual partitions (`y2021`–`y2027`, covering 2021-01-01 to 2028-01-01).
+  * `fact_campaign_exposure`: 7 annual partitions (`y2021`–`y2027`, covering 2021-01-01 to 2028-01-01 on `assignment_date_key`).
 
 #### 3.3 Schemas: `bronze`, `silver`, `serving`
 * Created in `001_create_schemas.sql` to establish Medallion boundaries.

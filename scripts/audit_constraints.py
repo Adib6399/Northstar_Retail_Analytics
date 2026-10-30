@@ -105,3 +105,4 @@ for ui in unique_indexes:
 print(f"\nSupporting Indexes:        {len(supporting_indexes)}")
 for si in supporting_indexes:
     print(f"  - {si[0]}: {si[1]} ON {si[2]} USING {si[3]} ({si[4]})" + (f" WHERE {si[5]}" if si[5] else ""))
+

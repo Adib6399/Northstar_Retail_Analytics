@@ -105,32 +105,86 @@ Under PostgreSQL 16, declaring a `PRIMARY KEY` or `UNIQUE` constraint on a parti
 
 ---
 
-### 5. Partition Coverage Audit
+### 5. Partition Coverage Audit & NFR-006 5-Year Reconciliation
+
+#### 5.1 Comprehensive Partition Coverage Matrix (Planning Date: 2026-10-31)
+
+Per `NFR-006`, the platform mandates active retention of at least **5 years of historical transactional data** (beginning no later than `2021-10-31`). To prevent temporal misalignment across transactional facts and Indian fiscal year boundaries (FY2021-22), historical coverage is standardized to begin on `2021-01-01` (`20210101`).
 
 ```
-+----+----------------------------+-----------------------+--------+------------+-----------------------+---------------------+
-| #  | Table Name                 | Partition Column      | Method | Child Pts  | Boundary Coverage     | Gaps / Status       |
-+----+----------------------------+-----------------------+--------+------------+-----------------------+---------------------+
-| 01 | control_batch_audit        | batch_start_timestamp | RANGE  | 4 Annual   | 2024-01-01–2028-01-01 | Continuous. No gaps.|
-| 02 | fact_sales                 | date_key              | RANGE  | 12 Monthly | 2026-01-01–2027-01-01 | Continuous in 2026. |
-| 03 | fact_payments              | date_key              | RANGE  | 4 Annual   | 2024-01-01–2028-01-01 | Continuous. No gaps.|
-| 04 | fact_returns               | date_key              | RANGE  | 4 Annual   | 2024-01-01–2028-01-01 | Continuous. No gaps.|
-| 05 | fact_inventory_snapshot    | date_key              | RANGE  | 12 Monthly | 2026-01-01–2027-01-01 | Continuous in 2026. |
-| 06 | fact_inventory_movements   | date_key              | RANGE  | 4 Annual   | 2024-01-01–2028-01-01 | Continuous. No gaps.|
-| 07 | fact_reconciliation        | date_key              | RANGE  | 4 Annual   | 2024-01-01–2028-01-01 | Continuous. No gaps.|
-| 08 | fact_marketing_performance | date_key              | RANGE  | 4 Annual   | 2024-01-01–2028-01-01 | Continuous. No gaps.|
-| 09 | fact_campaign_exposure     | assignment_date_key   | RANGE  | 4 Annual   | 2024-01-01–2028-01-01 | Continuous. No gaps.|
-| 10 | fact_demand_forecast       | target_date_key       | RANGE  | 6 Monthly  | 2026-10-01–2027-04-01 | 6-Month Rollout.    |
-+----+----------------------------+-----------------------+--------+------------+-----------------------+---------------------+
++----+----------------------------+-----------------------+--------+-----------------------+-----------------------+-----------------------+--------------------------------------+-----------------------+-------------------------------------+
+| #  | Parent Table               | Partition Key         | Method | Existing Coverage     | Required 5-Yr Coverage| Missing Date Ranges   | Proposed Additional Partitions       | Future Coverage       | Continuous Non-Overlapping Bounds   |
++----+----------------------------+-----------------------+--------+-----------------------+-----------------------+-----------------------+--------------------------------------+-----------------------+-------------------------------------+
+| 01 | control_batch_audit        | batch_start_timestamp | RANGE  | 2024-01-01–2028-01-01 | 2021-10-31–2026-10-31 | 2021-01-01–2024-01-01 | +3 Annual (y2021, y2022, y2023)      | y2027 (thru 2028-01)  | VERIFIED (TIMESTAMPTZ annual range) |
+| 02 | fact_sales                 | date_key              | RANGE  | 2026-01-01–2027-01-01 | 2021-10-31–2026-10-31 | 2021-01-01–2026-01-01 | +60 Hist Mo (y2021m01–y2025m12)      | +12 Mo (y2027m01–m12) | VERIFIED (INTEGER monthly range)    |
+| 03 | fact_payments              | date_key              | RANGE  | 2024-01-01–2028-01-01 | 2021-10-31–2026-10-31 | 2021-01-01–2024-01-01 | +3 Annual (y2021, y2022, y2023)      | y2027 (thru 2028-01)  | VERIFIED (INTEGER annual range)     |
+| 04 | fact_returns               | date_key              | RANGE  | 2024-01-01–2028-01-01 | 2021-10-31–2026-10-31 | 2021-01-01–2024-01-01 | +3 Annual (y2021, y2022, y2023)      | y2027 (thru 2028-01)  | VERIFIED (INTEGER annual range)     |
+| 05 | fact_inventory_snapshot    | date_key              | RANGE  | 2026-01-01–2027-01-01 | 2021-10-31–2026-10-31 | 2021-01-01–2026-01-01 | +60 Hist Mo (y2021m01–y2025m12)      | +12 Mo (y2027m01–m12) | VERIFIED (INTEGER monthly range)    |
+| 06 | fact_inventory_movements   | date_key              | RANGE  | 2024-01-01–2028-01-01 | 2021-10-31–2026-10-31 | 2021-01-01–2024-01-01 | +3 Annual (y2021, y2022, y2023)      | y2027 (thru 2028-01)  | VERIFIED (INTEGER annual range)     |
+| 07 | fact_reconciliation        | date_key              | RANGE  | 2024-01-01–2028-01-01 | 2021-10-31–2026-10-31 | 2021-01-01–2024-01-01 | +3 Annual (y2021, y2022, y2023)      | y2027 (thru 2028-01)  | VERIFIED (INTEGER annual range)     |
+| 08 | fact_marketing_performance | date_key              | RANGE  | 2024-01-01–2028-01-01 | 2021-10-31–2026-10-31 | 2021-01-01–2024-01-01 | +3 Annual (y2021, y2022, y2023)      | y2027 (thru 2028-01)  | VERIFIED (INTEGER annual range)     |
+| 09 | fact_campaign_exposure     | assignment_date_key   | RANGE  | 2024-01-01–2028-01-01 | 2021-10-31–2026-10-31 | 2021-01-01–2024-01-01 | +3 Annual (y2021, y2022, y2023)      | y2027 (thru 2028-01)  | VERIFIED (INTEGER annual range)     |
+| 10 | fact_demand_forecast       | target_date_key       | RANGE  | 2026-10-01–2027-04-01 | Forward-Looking Only  | None (Intentionally 0) | None (Preserve 6 Mo Forward)          | y2026m10–y2027m03      | VERIFIED (INTEGER monthly range)    |
++----+----------------------------+-----------------------+--------+-----------------------+-----------------------+-----------------------+--------------------------------------+-----------------------+-------------------------------------+
 ```
 
-#### Investigation of Six Monthly Partitions for `fact_demand_forecast`:
-* **Intentionality:** **CONFIRMED INTENTIONAL.** Demand forecasting generates forward-looking projections ($T+1$ to $T+14$ days per `FR-024` and `BDL-07`). Unlike transactional fact tables that store historical sales, demand forecasts begin at platform launch (October 2026) and project into future operational windows (Q4 2026 festive peak through Q1 2027 spring replenishment).
-* **Future Expansion Option:** If historical back-casts from legacy models are required for training comparison, 9 historical partitions (`y2026m01`–`y2026m09`) can be formally authorized and created.
+#### 5.2 Architectural Separation of Demand Forecast Partitions
+* **Separation Principle:** `gold.fact_demand_forecast` stores statistical forward projections generated by automated forecasting models (Prophet/LightGBM) over operational lead times ($T+1$ to $T+14$ days per `FR-024` and `BDL-07`).
+* **Why Historical Partitions Are Omitted:** Unlike transactional fact tables that record historical operational events, historical demand forecasts do not represent transactional truth. Model retraining datasets are derived from historical sales (`fact_sales`), not stored historical forecast runs. Backfilling artificial historical forecast partitions would inject fabricated analytical records, distort baseline accuracy metrics, and waste heap/index storage.
+* **Rolling Horizon Maintenance:** In production, a monthly maintenance job rolls the forward forecast window by dropping partitions older than retention thresholds and creating upcoming target month partitions.
 
 ---
 
-### 6. Live Database State Audit Confirmation
+### 6. Customer Sentinel-Key Integrity Check (`customer_key = -1`)
+
+#### 6.1 Architectural Alignment
+* **Design Specification:** `docs/05_data_engineering/physical_design/dimension_design_specification.md` (lines 136–151) explicitly defines a pre-allocated negative sentinel member:
+  * `customer_key = -1`
+  * `natural_key = 'GUEST_WALK_IN'`
+  * Semantic: Anonymous cash shopper with no registered loyalty account.
+* **Referencing Foreign Keys:**
+  * `gold.fact_sales.customer_key BIGINT NOT NULL DEFAULT -1`
+  * `gold.fact_payments.customer_key BIGINT NOT NULL DEFAULT -1`
+  * `gold.fact_returns.customer_key BIGINT NOT NULL DEFAULT -1`
+  * Foreign key constraints (`fk_fact_sales_customer`, `fk_fact_payments_customer`, `fk_fact_returns_customer`) enforce referential integrity to `gold.dim_customer(customer_key)`.
+
+#### 6.2 PostgreSQL 16 `IDENTITY` Constraint Mechanics
+* `gold.dim_customer.customer_key` is declared as:
+  `customer_key BIGINT GENERATED ALWAYS AS IDENTITY`
+* By default, PostgreSQL rejects explicit value insertions into `GENERATED ALWAYS` columns.
+* **Required Implementation Treatment:**
+  To seed the sentinel row without constraint violation, the initialization seed script must explicitly invoke `OVERRIDING SYSTEM VALUE`:
+  ```sql
+  INSERT INTO gold.dim_customer (
+      customer_key,
+      customer_sk,
+      registration_store_id,
+      loyalty_tier,
+      rfm_recency_score,
+      rfm_frequency_score,
+      rfm_monetary_score,
+      rfm_segment_name,
+      churn_risk_flag,
+      lifetime_net_spend_inr
+  ) OVERRIDING SYSTEM VALUE VALUES (
+      -1,
+      '0000000000000000000000000000000000000000000000000000000000000000', -- Fixed 64-char sentinel digest
+      'STORE_SYSTEM',
+      'BRONZE',
+      1, 1, 1,
+      'ANONYMOUS_WALKIN',
+      FALSE,
+      0.00
+  ) ON CONFLICT (customer_key) DO NOTHING;
+  ```
+* **Execution Sequencing:**
+  This sentinel seed statement must execute immediately following `004_create_dimensions.sql` (or as Step 1 of dimension bootstrap seeding) prior to ingesting any rows into `fact_sales`, `fact_payments`, or `fact_returns`. This guarantees that default `-1` values cannot trigger a foreign key violation.
+* **Governance Boundary Compliance:**
+  In accordance with Stage 5.2B.1 safety boundaries, **zero DDL or DML statements were executed against live PostgreSQL**; this requirement is statically documented and validated for the upcoming initialization phase.
+
+---
+
+### 7. Live Database State Audit Confirmation
 
 To ensure strict compliance with the Stage 5.2B.1 safety boundaries, the live PostgreSQL database was verified:
 * **Zero DDL statements (`CREATE`, `ALTER`, `DROP`, `TRUNCATE`, `INSERT`, `UPDATE`, `DELETE`) were executed against PostgreSQL.**

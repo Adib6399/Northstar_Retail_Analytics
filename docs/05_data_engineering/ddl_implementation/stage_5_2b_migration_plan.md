@@ -24,7 +24,7 @@ flowchart TD
     M3["003_create_reference_tables.sql<br/>(Creates & seeds ref_recon, ref_movement, ref_reason)"]
     M4["004_create_dimensions.sql<br/>(Creates 8 conformed dimensions: date, store, product, etc.)"]
     M5["005_create_fact_tables.sql<br/>(Creates 9 range-partitioned fact parent tables)"]
-    M6["006_create_partitions.sql<br/>(Creates 58 active child partitions)"]
+    M6["006_create_partitions.sql<br/>(Creates 223 active child partitions)"]
     M7["007_create_constraints.sql<br/>(Creates 41 foreign key constraints across marts)"]
     M8["008_create_indexes.sql<br/>(Creates 46 B-tree, BRIN, composite & partial indexes)"]
     M9["009_create_security_and_permissions.sql<br/>(Creates 5 RBAC roles & grants privileges)"]
@@ -66,7 +66,7 @@ flowchart TD
 | 03  | 003_create_reference_tables.sql         | Step 01 (gold schema exists)      | Single Transaction. Verify 3 tables + 14 seeds.   |
 | 04  | 004_create_dimensions.sql               | Step 01, 03 (gold schema, ref)    | Single Transaction. Verify 8 dimensions exist.    |
 | 05  | 005_create_fact_tables.sql              | Step 04 (dimensions exist)        | Single Transaction. Verify 9 parent facts exist.  |
-| 06  | 006_create_partitions.sql               | Step 02, 05 (parent tables exist) | Single Transaction. Verify 58 partitions attach.  |
+| 06  | 006_create_partitions.sql               | Step 02, 05 (parent tables exist) | Single Transaction. Verify 223 partitions attach. |
 | 07  | 007_create_constraints.sql              | Step 06 (partitions attached)     | Single Transaction. Verify FKs applied to marts.  |
 | 08  | 008_create_indexes.sql                  | Step 06, 07 (tables/FKs in place) | Single Transaction. Verify 46 indexes built.      |
 | 09  | 009_create_security_and_permissions.sql | Step 01–08 complete               | Single Transaction. Verify 5 roles + grants.      |
