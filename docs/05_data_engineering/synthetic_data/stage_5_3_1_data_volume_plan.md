@@ -40,17 +40,17 @@
 +-----------------------------------+--------------------+------------------------+------------------------+----------------------------+
 | 09. control.campaign_registry     | 400 assignments    | 50,000 assignments     | 1,200,000 assignments  | 5,000,000 assignments      |
 | 10. gold.fact_sales               | 10,500 lines       | 1,380,000 lines        | 27,400,000 lines       | 547,000,000 lines          |
-| 11. gold.fact_payments            | 3,500 tenders      | 460,000 tenders        | 9,130,000 tenders      | 182,000,000 tenders        |
+| 11. gold.fact_payments            | 3,780 tenders       | 496,800 tenders         | 9,855,000 tenders       | 197,100,000 tenders         |
 | 12. gold.fact_returns             | 260 return lines   | 34,500 return lines    | 685,000 return lines   | 13,675,000 return lines    |
 | 13. gold.fact_inventory_snapshot  | 1,750 balances     | 1,380,000 balances     | 21,900,000 balances    | 273,900,000 balances       |
 | 14. gold.fact_inventory_movements | 350 movements      | 92,000 movements       | 1,825,000 movements    | 36,500,000 movements       |
 | 15. gold.fact_reconciliation      | 140 audits         | 11,040 audits          | 43,800 audits          | 219,120 audits             |
 | 16. gold.fact_marketing_performance| 70 rows           | 1,840 rows             | 7,300 rows             | 36,500 rows                |
 | 17. gold.fact_campaign_exposure   | 400 drops          | 50,000 drops           | 1,200,000 drops        | 5,000,000 drops            |
-| 18. gold.fact_demand_forecast     | 3,500 projections  | 105,000 projections    | 420,000 projections    | 2,100,000 projections      |
+| 18. gold.fact_demand_forecast     | 3,500 projections  | 210,000 projections    | 840,000 projections    | 2,100,000 projections      |
 +-----------------------------------+--------------------+------------------------+------------------------+----------------------------+
-| TOTAL ESTIMATED FACT ROWS         | ~20,470 rows       | ~3,514,380 rows        | ~62,611,100 rows       | ~1,060,430,620 rows        |
-| ESTIMATED DATABASE DISK FOOTPRINT | ~15 MB             | ~850 MB – 1.2 GB       | ~18 GB – 24 GB         | ~280 GB – 350 GB           |
+| TOTAL ESTIMATED FACT ROWS         | ~20,750 rows       | ~3,656,180 rows        | ~63,756,100 rows       | ~1,075,530,620 rows        |
+| ESTIMATED DATABASE DISK FOOTPRINT | ~15 MB             | ~900 MB – 1.3 GB       | ~19 GB – 25 GB         | ~285 GB – 355 GB           |
 | TARGET GENERATION EXECUTION TIME  | < 10 Seconds       | 3 – 6 Minutes          | 45 – 90 Minutes        | Multi-Hour Pipeline        |
 +-----------------------------------+--------------------+------------------------+------------------------+----------------------------+
 ```
@@ -106,11 +106,12 @@
    * BENCH: $9,125,000 \times 3.0 = 27,375,000$ rows (rounded to 27.4M).
    * 5-YR: $182,500,000 \times 3.0 = 547,500,000$ rows (modeled as 547M).
 3. **Payment Tenders (`gold.fact_payments`):**
-   $$N_{\text{payments}} = N_{\text{receipts}} \times (1.0 + P_{\text{split}})$$
-   * DEV: $3,500 \times 1.0 = 3,500$ rows.
-   * INT: $460,000 \times 1.0 = 460,000$ rows.
-   * BENCH: $9,125,000 \times 1.0005 = 9,130,000$ rows.
-   * 5-YR: $182,500,000 \times 1.0 = 182,000,000$ rows.
+   $$N_{\text{payments}} = N_{\text{receipts}} \times (1.0 + \text{split-tender rate}) = N_{\text{receipts}} \times 1.08$$
+   *(Assumes 92% single-tender receipts $\times 1$ tender + 8% split-tender receipts $\times 2$ tenders = 1.08 tenders/receipt).*
+   * DEV: $3,500 \times 1.08 = \mathbf{3,780}$ rows.
+   * INT: $460,000 \times 1.08 = \mathbf{496,800}$ rows.
+   * BENCH: $9,125,000 \times 1.08 = \mathbf{9,855,000}$ rows.
+   * 5-YR: $182,500,000 \times 1.08 = \mathbf{197,100,000}$ rows.
 4. **Returns (`gold.fact_returns`):**
    $$N_{\text{returns}} = N_{\text{sales}} \times r_{\text{return}}$$
    * DEV: $10,500 \times 2.476\% = 260$ rows.
@@ -141,10 +142,10 @@
    * BENCH: $12 \times 100,000 = 1,200,000$ rows.
    * 5-YR: $50 \times 100,000 = 5,000,000$ rows.
 9. **Demand Forecast Projections (`gold.fact_demand_forecast`):**
-   $$N_{\text{forecast}} = S \times P \times 14 \text{ days forward}$$
-   * DEV: $5 \times 50 \times 14 = 3,500$ rows.
-   * INT: $30 \times 500 \times 7 \text{ days forward} = 105,000$ rows.
-   * BENCH: $30 \times 2,000 \times 7 \text{ days forward} \times 2 \text{ runs} = 420,000$ rows.
+   $$N_{\text{forecast}} = S \times P \times \text{Forecast horizon days (14 days forward per FR-024)}$$
+   * DEV: $5 \times 50 \times 14 = \mathbf{3,500}$ rows.
+   * INT: $30 \times 500 \times 14 = \mathbf{210,000}$ rows.
+   * BENCH: $30 \times 2,000 \times 14 = \mathbf{840,000}$ rows. *(Resolves prior discrepancy: a 7-day horizon yielded 420,000 rows, whereas the approved 14-day operational horizon yields exactly 840,000 rows).*
    * 5-YR: Maintains rolling operational window only (~2.1M rows); zero historical backfills.
 
 #### 4.3 Mathematical Relationship Between Benchmark (62.6M) and 5-Year Extrapolation (1.06B)

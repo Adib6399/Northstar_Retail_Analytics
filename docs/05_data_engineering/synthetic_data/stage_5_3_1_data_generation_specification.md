@@ -143,20 +143,31 @@
 #### 2.8 Domain H: Inventory Snapshots & Movements
 * **Target Tables:** `gold.fact_inventory_snapshot` (Daily periodic balances) and `gold.fact_inventory_movements` (ERP material movement ledger).
 * **Distinct Physical Inventory States:**
-  1. **Saleable Stock (`stock_on_hand_units`):** Prime merchandise physically present on display shelves and stockroom, available for POS sale.
-  2. **Quarantine / Returned Stock (`blocked_damaged_units`):** Customer merchandise returned at customer service desk awaiting technical inspection, defect testing, or repackaging. **Returned items are NEVER counted as immediately available saleable stock.**
+  1. **Saleable Stock (`stock_on_hand_units`):** Prime merchandise physically present on display shelves and stockrooms available for immediate POS sale.
+  2. **Quarantine / Returned Stock (`blocked_damaged_units`):** Returned customer merchandise received at customer service desk awaiting technical inspection, defect testing, or repackaging. **Returned items are NEVER counted as immediately available saleable stock.**
   3. **Released Stock:** Inspected returns meeting quality standards released back into saleable inventory (transfers units from `blocked_damaged_units` to `stock_on_hand_units`).
-  4. **Damaged / Scrapped Stock:** Inspected returns identified as defective, expired, or non-repairable written off or sent for salvage liquidation.
+  4. **Damaged / Scrapped Stock:** Inspected returns identified as defective, expired, or non-repairable written off or liquidated.
   5. **In-Transit Stock (`in_transit_units`):** Merchandise dispatched via inter-store transfers or distribution center logistics, not yet received at destination.
-* **Approved Movement Types (`gold.ref_inventory_movement_type`):**
-  * **Code `101` (`GOODS_RECEIPT`):** Vendor purchase order receipt ($+1$ signed effect on `stock_on_hand_units`).
-  * **Code `251` (`SALES_DECREMENT`):** Goods issue for POS sales scans ($-1$ signed effect on `stock_on_hand_units`).
-  * **Code `252` (`SALES_REVERSAL`):** Immediate reversal of POS sale void before till close ($+1$ signed effect on `stock_on_hand_units`).
-  * **Code `451` (`RETURNS_QUARANTINE_RECEIPT`):** Customer return received into blocked quarantine ($+1$ signed effect on `blocked_damaged_units`, $0$ effect on `stock_on_hand_units`).
-  * **Code `301` (`STORE_TRANSFER`):** Inter-store stock transfer relocation ($-1$ at origin store, transitions to `in_transit_units`, $+1$ at destination store upon receipt).
+* **Eight Core Inventory Operations & Reference Data Completeness:**
+  1. **Vendor Goods Receipt:** Supported by Movement Type Key 4 (`provisional_movement_code = '101'`, `canonical_movement_category = 'GOODS_RECEIPT'`, `stock_impact_direction = +1`). Increments `stock_on_hand_units`.
+  2. **POS Sales Decrement:** Supported by Movement Type Key 1 (`provisional_movement_code = '251'`, `canonical_movement_category = 'SALES_DECREMENT'`, `stock_impact_direction = -1`). Decrements `stock_on_hand_units`.
+  3. **Sales Reversal:** Supported by Movement Type Key 2 (`provisional_movement_code = '252'`, `canonical_movement_category = 'SALES_REVERSAL'`, `stock_impact_direction = +1`). Increments `stock_on_hand_units`.
+  4. **Customer Return into Quarantine:** Supported by Movement Type Key 3 (`provisional_movement_code = '451'`, `canonical_movement_category = 'RETURNS_QUARANTINE_RECEIPT'`, `stock_impact_direction = +1`). Increments `blocked_damaged_units`, $0$ impact on `stock_on_hand_units`.
+  5. **Quarantine Release into Saleable Stock:**
+     * *Reference Data Limitation:* No dedicated release code exists in `gold.ref_inventory_movement_type` (e.g. SAP `321`).
+     * *Current Physical Handling:* Represented in `gold.fact_inventory_snapshot` as a balanced intra-snapshot transition: $\Delta\text{stock\_on\_hand\_units} = +\delta$, $\Delta\text{blocked\_damaged\_units} = -\delta$, resulting in zero net change to `total_inventory_units`.
+     * *Controlled Proposal for Stakeholder Approval:* Add provisional code `321` (`QUARANTINE_RELEASE`, category `STOCK_TRANSFER`, `direction = +1`) in Stage 5.3.2.
+  6. **Damaged or Expired Stock Write-Off:**
+     * *Reference Data Limitation:* No dedicated scrap code exists in `gold.ref_inventory_movement_type` (e.g. SAP `551`).
+     * *Current Physical Handling:* Represented in `gold.fact_inventory_snapshot` as a deduction from `blocked_damaged_units`.
+     * *Controlled Proposal for Stakeholder Approval:* Add provisional code `551` (`SCRAP_WRITE_OFF`, category `STOCK_ADJUSTMENT`, `direction = -1`) in Stage 5.3.2.
+  7. **Inter-Store Transfer Outflow:** Supported by Movement Type Key 5 (`provisional_movement_code = '301'`, `canonical_movement_category = 'STORE_TRANSFER'`, `stock_impact_direction = -1`). Decrements `stock_on_hand_units` at `source_store_key`.
+  8. **Inter-Store Transfer Inflow:**
+     * *Reference Data Limitation:* Code `301` has fixed `stock_impact_direction = -1`. There is no separate inflow code (e.g. `302`).
+     * *Current Physical Handling:* In `gold.fact_inventory_movements`, each row contains both `source_store_key` and `destination_store_key`. In `gold.fact_inventory_snapshot`, the destination store increments `in_transit_units` (or `stock_on_hand_units`), perfectly balancing the source store deduction.
 * **Rigorous Conservation Equations:**
-  $$\text{stock\_on\_hand\_units}_{t} = \text{stock\_on\_hand\_units}_{t-1} + \Delta\text{MVT\_101}_{t} - \Delta\text{MVT\_251}_{t} + \Delta\text{MVT\_252}_{t} + \Delta\text{Released\_from\_Quarantine}_{t} \pm \Delta\text{MVT\_301}_{t}$$
-  $$\text{blocked\_damaged\_units}_{t} = \text{blocked\_damaged\_units}_{t-1} + \Delta\text{MVT\_451}_{t} - \Delta\text{Released\_from\_Quarantine}_{t} - \Delta\text{Scrap\_WriteOff}_{t}$$
+  $$\text{stock\_on\_hand\_units}_{t} = \text{stock\_on\_hand\_units}_{t-1} + \Delta\text{MVT\_101}_{t} - \Delta\text{MVT\_251}_{t} + \Delta\text{MVT\_252}_{t} + \Delta\text{Quarantine\_Released}_{t} \pm \Delta\text{MVT\_301}_{t}$$
+  $$\text{blocked\_damaged\_units}_{t} = \text{blocked\_damaged\_units}_{t-1} + \Delta\text{MVT\_451}_{t} - \Delta\text{Quarantine\_Released}_{t} - \Delta\text{Scrap\_WriteOff}_{t}$$
   $$\text{total\_inventory\_units}_{t} = \text{stock\_on\_hand\_units}_{t} + \text{blocked\_damaged\_units}_{t} + \text{in\_transit\_units}_{t}$$
 * **Stockout Consistency:** `stockout_flag = TRUE` strictly if `stock_on_hand_units == 0.000`.
 
