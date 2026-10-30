@@ -131,9 +131,10 @@
 
 ##### 2.8.1 Cryptographic HMAC-SHA256 Holdout Hashing & Integer Threshold Specification
 To eliminate hashing collisions, non-uniform distributions, and floating-point normalization anomalies:
-1. **Canonical Input Construction:**
-   Formed by concatenating the business campaign ID and the customer's pseudonymized key separated by a colon:
+1. **Canonical Input Construction & Identifier Mapping:**
+   Formed by concatenating the immutable upstream campaign business ID and the customer's pseudonymized key separated by a colon:
    $$\text{canonical\_input} = \text{campaign\_id} \parallel ':' \parallel \text{customer\_sk}$$
+   * **Decoupling from DW Surrogate Keys:** The algorithm operates exclusively on stable canonical business identifiers (`campaign_id` VARCHAR, `customer_sk` CHAR(64)). It has **zero dependency on dimension surrogate keys** (`campaign_key`, `customer_key`). Rebuilding dimensions, re-keying surrogate sequences, or applying SCD Type 2 splits never invalidates or alters the cryptographic cohort assignment.
 2. **Secret-Key Management & Versioning:**
    The assignment engine utilizes a dedicated platform secret `CAMPAIGN_HOLDOUT_SECRET` (managed via the secure environment configuration / secrets vault, strictly isolated from the customer PII pepper secret). Key versioning is tracked via `holdout_key_version = 'v1'`.
 3. **Big-Endian 64-Bit Conversion & Integer-Threshold Logic:**
@@ -145,26 +146,33 @@ To eliminate hashing collisions, non-uniform distributions, and floating-point n
    * **Deterministic Integer Threshold Rule:**
      $$\text{is\_holdout\_control\_flag} = \begin{cases} \mathbf{TRUE} & \text{if } U < \text{0x1999999999999999} \quad (\text{Control Cohort: Quarantined}) \\ \mathbf{FALSE} & \text{if } U \ge \text{0x1999999999999999} \quad (\text{Treatment Cohort: Dispatched}) \end{cases}$$
    * *Benefit:* Pure 64-bit integer comparison eliminates floating-point division anomalies (where $(2^{64}-1)/(2^{64}-1)$ could yield 1.0) and guarantees bit-identical reproducibility across Python, SQL, and C runtime environments.
-4. **Expected versus Exact 10% Allocation:**
-   * **Governance Clarification:** Hashing into the uniform 64-bit integer domain $[0, 2^{64}-1]$ provides an **expected value of 10%** ($\mu = 0.10$), with a standard deviation governed by the binomial distribution $\sigma = \sqrt{N \cdot p \cdot (1-p)}$.
-   * An exact 10% count is neither claimed nor mathematically possible via independent cryptographic hashing. For an audience of $N = 100,000$, the realized control group is $10,000 \pm 190$ customers ($9.81\%$ to $10.19\%$ at $95\%$ confidence).
-   * **Attribution Normalization:** Closed-loop attribution in `FactMarketingPerformance` normalizes this slight variance mathematically by scaling control sales by the exact realized population ratio:
-     $$\text{Baseline Control Sales} = \text{Control Sales} \times \left( \frac{N_{\text{treatment}}}{N_{\text{control}}} \right)$$
+4. **Expected versus Exact 10% Allocation & Statistical Lift Limitations:**
+   * **Realized Cohort Sizing:** Hashing into the uniform 64-bit integer domain $[0, 2^{64}-1]$ provides an **expected value of 10%** ($\mu = 0.10$), with standard deviation governed by the binomial distribution $\sigma = \sqrt{N \cdot p \cdot (1-p)}$. For $N = 100,000$, the realized control group is $10,000 \pm 190$ customers ($9.81\%$ to $10.19\%$ at $95\%$ confidence).
+   * **Population Normalization:** In `FactMarketingPerformance`, baseline control revenue is scaled by the realized population ratio to adjust for unequal sample sizes:
+     $$\text{Baseline Scaled Control Sales} = \text{Control Sales} \times \left( \frac{N_{\text{treatment}}}{N_{\text{control}}} \right)$$
+   * **Critical Governance & Statistical Clarification:** Population ratio normalization adjusts solely for sample size discrepancy; it **does NOT automatically eliminate statistical bias, confounding, or estimation variance**. Analytical consumers must evaluate the following foundational assumptions:
+     * *Randomized Assignment:* Assumes HMAC-SHA256 distributes customer covariates (prior spend, RFM tenure, geography) uniformly between cohorts.
+     * *Control-Group Isolation (SUTVA):* Assumes control customers are isolated from campaign stimuli. In omnichannel retail, control customers may experience marketing spillover through social buzz, shared households, or in-store promotional displays.
+     * *Exposure Completeness (ITT vs TOT):* Assigning a customer to treatment does not guarantee delivery or engagement (bounced SMS, unread message). Models must report both Intention-to-Treat (ITT) and Treatment-on-the-Treated (TOT).
+     * *Delivery & Missing-Data Bias:* Excluding undelivered treatment customers while retaining all control customers introduces survivorship bias into TOT estimates, as message delivery failure correlates with customer inactivity.
+     * *Campaign Contamination:* Overlapping concurrent campaigns on the same customer can cause attribution cross-talk unless cross-campaign suppression rules are maintained.
+     * *Exogenous Confounding:* Regional seasonality, macroeconomic shocks, and price elasticity affect cohorts differently over multi-week measurement windows.
 5. **Historical Assignment Preservation & Key Rotation Resilience:**
    * Cohort assignment is persisted immutably in `control.control_campaign_assignment_registry` alongside $U$ (`assignment_hash_value`) and `holdout_key_version`.
    * **Rotation Invariant:** Historical assignments are **never recomputed** when `CAMPAIGN_HOLDOUT_SECRET` is rotated. Audits verify cohort validity directly from the stored database record without re-evaluating the hash or exposing the secret key.
 6. **Strict Dispatch Quarantine:**
    The dispatch execution query explicitly enforces `WHERE is_holdout_control_flag = FALSE`. Control customers are strictly excluded from outbound dispatch queues.
 
-##### 2.8.2 Control Registry Ingestion Behaviors
-The unpartitioned table `control.control_campaign_assignment_registry` governs all assignment operations:
-* **First-Time Assignments:** Inserted into registry; upon successful commit, downstream fact row is created in `gold.fact_campaign_exposure`.
-* **Duplicate Assignments:** Re-encountering an identical `(campaign_key, customer_key)` triggers `ON CONFLICT DO NOTHING`, safely suppressing duplicates.
-* **Conflicting Cohort Assignments:** If an incoming record claims treatment while the registry records control (or vice versa), the registry's locked assignment prevails. The record is flagged with `data_quality_status = 'QUARANTINED_CONFLICTING_COHORT'` in staging logs.
-* **Late-Arriving Assignments:** If a customer was not previously assigned, they are registered under the current date. If already assigned on an earlier date, the original assignment date and cohort are strictly preserved.
-* **Replayed Ingestion Batches:** Safely idempotent. Because the registry rejects duplicates on `(campaign_key, customer_key)`, downstream fact insertion queries produce zero duplicate rows.
+##### 2.8.2 Control Registry Ingestion Behaviors & Conflict Resolution
+The unpartitioned table `control.control_campaign_assignment_registry` acts as the gatekeeper for all campaign audience ingestion. The ingestion process explicitly categorizes incoming rows to prevent silent data loss:
+* **First-Time Assignments:** Inserted into registry with `is_locked_flag = TRUE`; upon successful commit, downstream fact row is created in `gold.fact_campaign_exposure`.
+* **Exact Duplicate Assignments:** Encountering an identical record with matching `(campaign_id, customer_sk, assignment_date_key, is_holdout_control_flag, hash, key_version)` is safely skipped as an idempotent no-op. Logged to batch metrics.
+* **Conflicting Cohort Assignments:** If an incoming record claims treatment while the registry records control (or vice versa), the registry's locked assignment prevails. The record is quarantined into `silver.stg_quarantined_records` with error code `ERR_CAMPAIGN_COHORT_CONFLICT` and an alert is raised.
+* **Conflicting Assignment Dates:** If incoming record has identical `(campaign_id, customer_sk)` but a different `assignment_date_key`, it is logged under `WARN_CAMPAIGN_DATE_MISMATCH`. The canonical initial assignment date in the registry is preserved.
+* **Conflicting Hash or Key Version:** Incoming record with mismatched hash or version is quarantined under `ERR_CAMPAIGN_HASH_TAMPER` (indicating secret drift or data corruption).
+* **Replayed Ingestion Batches:** Safely idempotent. Ingestion detects identical batch run and records `BATCH_REPLAY_SKIPPED` without creating duplicate fact rows.
 
-##### 2.8.2 Lifecycle Event Representation & Multiple Dispatch Attempts
+##### 2.8.3 Lifecycle Event Representation & Multiple Dispatch Attempts
 * **Fact Scope:** `FactCampaignExposure` represents the **Customer Cohort Assignment & Net Exposure Event**.
 * **Lifecycle Status Attributes:**
   * `dispatch_status`: `'NOT_DISPATCHED_HOLDOUT'` (for control), `'PENDING'`, `'DISPATCHED'`, `'DISPATCH_FAILED'`.

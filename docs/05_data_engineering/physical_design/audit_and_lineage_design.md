@@ -121,11 +121,15 @@ To satisfy corporate financial auditability requirements (`NFR-015`–`NFR-017`)
 
 To support reproducible A/B testing and incrementality measurement (`FR-018`) while adhering to data lineage and immutability standards:
 
-#### 5.1 Unpartitioned Global Assignment Registry (`control.control_campaign_assignment_registry`)
+#### 5.1 Unpartitioned Global Assignment Registry & Canonical Identifier Mapping
 Because `gold.fact_campaign_exposure` is range-partitioned on `assignment_date_key` (enforcing PostgreSQL local unique constraint `UNIQUE (campaign_key, customer_key, assignment_date_key)`), an unpartitioned gatekeeper table is maintained in the `control` schema:
 * **Table:** `control.control_campaign_assignment_registry`
-* **Global Constraint:** `UNIQUE (campaign_key, customer_key)` across all dates and execution batches.
-* **Function:** Serves as the authoritative point of record for initial cohort assignment. Once an assignment is registered, `is_locked_flag` is set to `TRUE`, freezing the assignment for the campaign lifecycle.
+* **Canonical Constraint:** `CONSTRAINT uq_campaign_customer_canonical UNIQUE (campaign_id, customer_sk)`
+* **Surrogate Constraint:** `CONSTRAINT uq_campaign_customer_surrogate UNIQUE (campaign_key, customer_key)`
+* **Canonical Mapping:**
+  * `campaign_id` (`VARCHAR(50)`): Natural campaign business identifier from upstream marketing systems.
+  * `customer_sk` (`CHAR(64)`): Cryptographic pseudonym generated at the ingestion boundary from customer phone number and `HMAC_PEPPER_SECRET`.
+  * **Lineage Decoupling:** Cryptographic holdout evaluation and audit verification use strictly `campaign_id || ':' || customer_sk`. They have **zero dependency on internal data warehouse surrogate keys** (`campaign_key`, `customer_key`). Re-indexing or re-generating surrogate keys during warehouse maintenance never alters historical cohort assignments.
 
 #### 5.2 Deterministic HMAC-SHA256 Integer-Threshold Algorithm
 Holdout allocation is computed deterministically at the pipeline ingestion boundary using the first 8 bytes of an HMAC-SHA256 digest:
@@ -141,13 +145,27 @@ The integer threshold for an exact 10% target holdout allocation is:
 $$\text{Threshold} = \lfloor 0.10 \times 2^{64} \rfloor = \text{0x1999999999999999} = 1,844,674,407,370,955,161$$
 
 * **Cohort Assignment Rule:**
-  $$\text{is\_holdout\_control\_flag} = \begin{cases} \text{TRUE} & \text{if } U < \text{0x1999999999999999} \\ \text{FALSE} & \text{otherwise} \end{cases}$$
+  $$\text{is\_holdout\_control\_flag} = \begin{cases} \text{TRUE} & \text{if } U < \text{0x1999999999999999} \quad (\text{Control Cohort: ~10\%}) \\ \text{FALSE} & \text{otherwise} \quad (\text{Treatment Cohort: ~90\%}) \end{cases}$$
 
-#### 5.3 Ingestion Idempotency & Edge-Case Handling
-1. **First-Time Ingestion:** Canonical assignment is inserted into `control.control_campaign_assignment_registry` and propagated to `gold.fact_campaign_exposure`.
-2. **Duplicate Ingestion (Same Batch/Date):** Skipped idempotently via `ON CONFLICT DO NOTHING`.
-3. **Conflicting Cohort Batch:** If an upstream file attempts to reassign a customer to a different cohort, the registry rejects the reassignment, writes a warning to the pipeline log, and retains the canonical historical assignment.
-4. **Late-Arriving / Replayed Batches:** Registry validates assignment date against campaign start; historical cohort assignment remains immutable.
-5. **Key Rotation & Versioning:** `holdout_key_version` (`v1`) is recorded on every registry row to ensure that historical assignments are never recalculated if the campaign holdout secret is rotated.
+#### 5.3 Three-Tier Immutability Enforcement & Ingestion Conflict Handling
+1. **Tier 1 (RBAC):** `UPDATE` and `DELETE` privileges are strictly `REVOKE`d from pipeline ingestion and reporting roles (`svc_ingestion_role`, `role_etl_writer`).
+2. **Tier 2 (Database Trigger):** Engine trigger `trg_prevent_locked_assignment_mutation` aborts any `DELETE`, and aborts `UPDATE` on locked records (`is_locked_flag = TRUE`) if core attributes (`campaign_id`, `customer_sk`, `campaign_key`, `customer_key`, `assignment_date_key`, `is_holdout_control_flag`, `assignment_hash_value`, `holdout_key_version`) are modified.
+3. **Tier 3 (Append-Only Audit Ledger):** Authorized operational corrections (e.g. statutory DPDPA opt-outs) are appended to `control.control_campaign_assignment_audit_log` without overwriting the historical assignment row.
+4. **Ingestion Conflict Resolution (No Silent Masking):**
+   * *Exact Duplicate:* Idempotent no-op logged in pipeline metrics.
+   * *Conflicting Cohort:* Mismatched incoming cohort rejected, quarantined to `silver.stg_quarantined_records` (`ERR_CAMPAIGN_COHORT_CONFLICT`), and alert emitted; canonical registry assignment remains locked.
+   * *Conflicting Date:* Warning logged (`WARN_CAMPAIGN_DATE_MISMATCH`); original assignment date preserved.
+   * *Conflicting Hash / Key Version:* Quarantined immediately under `ERR_CAMPAIGN_HASH_TAMPER`.
+   * *Batch Replay:* Idempotently logged (`BATCH_REPLAY_SKIPPED`); zero redundant rows committed.
+
+#### 5.4 Statistical Methodology & Incremental Lift Limitations
+* **Realized Cohort Variance:** Hashing provides an expected value of 10% ($\mu = 0.10$) with binomial variance $\sigma = \sqrt{N \cdot 0.10 \cdot 0.90}$.
+* **Sample Normalization:** Baseline control sales are scaled by the observed ratio $(N_{\text{treatment}} / N_{\text{control}})$ in `FactMarketingPerformance` to correct for sample size discrepancies.
+* **Limitations of Incremental Lift Estimation:** Scaling does **not** eliminate bias or confounding. Analytical attribution must account for:
+  1. *Randomized Assignment:* Assumes independent, identically distributed assignment without unobserved pre-treatment spending imbalances.
+  2. *Control-Group Isolation (SUTVA):* Omnichannel spillover (in-store promotion displays, shared households, word-of-mouth) can contaminate the control group.
+  3. *Exposure Completeness (ITT vs TOT):* Must evaluate both Intention-to-Treat (all assigned) and Treatment-on-the-Treated (confirmed message deliveries).
+  4. *Delivery / Missing-Data Bias:* Undelivered treatment messages correlate with inactive customer profiles; discarding undelivered treatment customers while retaining all control customers introduces survivorship bias.
+  5. *Campaign Contamination:* Concurrent overlapping campaigns on identical customers require cross-campaign suppression controls.
 
 

@@ -65,7 +65,8 @@ The database physical layout is partitioned into **five functional schemas** rep
   * `control.control_batch_audit`: Ingestion batch audit log capturing start/end times, rows loaded, and error payloads.
   * `control.control_threshold_config`: Dynamic system configuration table storing `PARAM_DISCREPANCY_THRESHOLD` (default ₹500 per `BDL-06`).
   * `control.control_pipeline_watermark`: High-watermark tracking table for incremental ELT runs.
-  * `control.control_campaign_assignment_registry`: **Unpartitioned Global Assignment Registry** enforcing cross-partition customer assignment uniqueness (`UNIQUE (campaign_key, customer_key)`), cohort assignment immutability, and duplicate suppression.
+  * `control.control_campaign_assignment_registry`: **Unpartitioned Global Assignment Registry** enforcing cross-partition customer assignment uniqueness (`UNIQUE (campaign_id, customer_sk)` and `UNIQUE (campaign_key, customer_key)`), cohort assignment immutability via RBAC and triggers, and explicit exception handling for conflicting cohorts/dates/hashes.
+  * `control.control_campaign_assignment_audit_log`: Append-only governance ledger recording authorized corrections and statutory opt-outs without mutating historical assignment rows in place.
 
 ---
 
@@ -73,9 +74,11 @@ The database physical layout is partitioned into **five functional schemas** rep
 
 ```
 +--------------------+------------------------------------+---------------------------------------------------------------+
-| Database Role      | Assigned Personas / Services       | Granted Privileges per Schema                                 |
+| Database Role      | Assigned Personas / Services       | Granted Privileges per Schema & Critical Tables               |
 +--------------------+------------------------------------+---------------------------------------------------------------+
-| `role_etl_writer`  | Airflow / Python Pipeline Runners  | `bronze`: ALL; `silver`: ALL; `gold`: ALL; `control`: ALL     |
+| `role_etl_writer`  | Airflow / Python Pipeline Runners  | `bronze`, `silver`, `gold`: ALL; `control`: ALL EXCEPT        |
+|                    |                                    | `control_campaign_assignment_registry` (SELECT, INSERT ONLY;  |
+|                    |                                    | UPDATE and DELETE strictly REVOKED).                          |
 | `role_dbt_runner`  | dbt Core Transformation Engine     | `silver`: ALL; `gold`: ALL; `serving`: DDL (Views); `ctrl`: R |
 | `role_bi_reader`   | Power BI Service / BI DirectQuery  | `serving`: SELECT; `gold`: SELECT (Dimensions & Facts Only)   |
 | `role_data_analyst`| FP&A / Commercial Category Analysts| `serving`: SELECT; `gold`: SELECT; `control`: SELECT          |

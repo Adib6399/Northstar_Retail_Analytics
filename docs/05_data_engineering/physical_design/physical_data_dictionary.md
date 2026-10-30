@@ -496,14 +496,19 @@
 
 #### 4.3 Table: `control.control_campaign_assignment_registry`
 * **Physical PK:** `assignment_id` (`UUID`)
-* **Global Unique Constraint:** `CONSTRAINT uq_campaign_customer_global UNIQUE (campaign_key, customer_key)`
-* **Role:** Unpartitioned authoritative state register guaranteeing global customer assignment uniqueness and cohort immutability across campaign dates.
+* **Canonical Unique Constraint:** `CONSTRAINT uq_campaign_customer_canonical UNIQUE (campaign_id, customer_sk)`
+* **Surrogate Unique Constraint:** `CONSTRAINT uq_campaign_customer_surrogate UNIQUE (campaign_key, customer_key)`
+* **Role:** Unpartitioned authoritative state register guaranteeing global customer assignment uniqueness, canonical HMAC reproducibility, and cohort immutability across campaign dates.
+* **Storage Footprint:** Modeled at ~155–190 MB heap + ~160–210 MB indexes (~315–400 MB total for 1,000,000 assignments); storage labeled as **pending empirical measurement during Stage 5.3 benchmarking** (`pg_total_relation_size`).
+* **Immutability Enforcement:** Role-based access control (REVOKE UPDATE/DELETE) combined with PostgreSQL engine trigger `trg_prevent_locked_assignment_mutation` preventing changes to locked attributes (`campaign_id`, `customer_sk`, `campaign_key`, `customer_key`, `assignment_date_key`, `is_holdout_control_flag`, `assignment_hash_value`, `holdout_key_version`).
 
 | Column Name | PostgreSQL Data Type | Nullable | Key Type | Default Value | Business Description |
 | :--- | :--- | :---: | :---: | :--- | :--- |
-| `assignment_id` | `UUID` | NO | PK | `gen_random_uuid()` | Canonical assignment identifier |
+| `assignment_id` | `UUID` | NO | PK | `gen_random_uuid()` | Canonical assignment surrogate identifier |
+| `campaign_id` | `VARCHAR(50)` | NO | Natural/Unique | None | Immutable upstream campaign business code (HMAC input 1) |
+| `customer_sk` | `CHAR(64)` | NO | Natural/Unique | None | Immutable customer cryptographic pseudonym digest (HMAC input 2) |
 | `campaign_key` | `INTEGER` | NO | FK/Unique | None | Foreign key referencing `dim_campaign.campaign_key` |
-| `customer_key` | `INTEGER` | NO | FK/Unique | None | Foreign key referencing `dim_customer.customer_key` |
+| `customer_key` | `BIGINT` | NO | FK/Unique | None | Foreign key referencing `dim_customer.customer_key` |
 | `assignment_date_key` | `INTEGER` | NO | FK | None | Locked assignment date referencing `dim_date.date_key` |
 | `assignment_timestamp` | `TIMESTAMPTZ` | NO | None | `CURRENT_TIMESTAMP` | Exact cohort generation timestamp |
 | `is_holdout_control_flag`| `BOOLEAN` | NO | None | None | Assigned cohort (`TRUE` = 10% Control, `FALSE` = Treatment) |
@@ -512,6 +517,24 @@
 | `is_locked_flag` | `BOOLEAN` | NO | None | `TRUE` | Immutability lock preventing post-launch reassignment |
 | `ingestion_batch_id` | `UUID` | NO | Audit | None | Pipeline run identifier that registered the assignment |
 | `load_timestamp` | `TIMESTAMPTZ` | NO | Audit | `CURRENT_TIMESTAMP` | System insertion timestamp |
+
+---
+
+#### 4.4 Table: `control.control_campaign_assignment_audit_log`
+* **Physical PK:** `audit_log_id` (`BIGINT GENERATED ALWAYS AS IDENTITY`)
+* **Role:** Append-only ledger recording authorized administrative overrides, corrections, and customer privacy opt-outs without mutating historical assignment rows in place.
+
+| Column Name | PostgreSQL Data Type | Nullable | Key Type | Default Value | Business Description |
+| :--- | :--- | :---: | :---: | :--- | :--- |
+| `audit_log_id` | `BIGINT` | NO | PK | `GENERATED ALWAYS AS IDENTITY` | Audit surrogate identifier |
+| `assignment_id` | `UUID` | NO | FK | None | Target record in `control_campaign_assignment_registry` |
+| `action_type` | `VARCHAR(30)` | NO | None | None | `'STATUTORY_OPT_OUT'`, `'FRAUD_INVALIDATION'`, `'OVERRIDE'` |
+| `performed_by_role` | `VARCHAR(50)` | NO | None | None | Executing database/service role |
+| `authorized_by_ticket`| `VARCHAR(50)` | NO | None | None | ITSM ticket reference (e.g. `'JIRA-SEC-8921'`) |
+| `old_values_json` | `JSONB` | NO | None | None | Pre-correction snapshot of attributes |
+| `new_values_json` | `JSONB` | NO | None | None | Post-correction snapshot of attributes |
+| `change_reason` | `TEXT` | NO | None | None | Business rationale and justification |
+| `change_timestamp` | `TIMESTAMPTZ` | NO | Audit | `CURRENT_TIMESTAMP` | Microsecond timestamp of change execution |
 
 ---
 

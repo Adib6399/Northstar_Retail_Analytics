@@ -26,19 +26,28 @@
 |    |                                    |                       | Multiple dispatch attempts decoupled into operational staging |
 |    |                                    |                       | (`silver.stg_campaign_dispatch_attempts`), preserving fact set.|
 +----+------------------------------------+-----------------------+---------------------------------------------------------------+
-| 02 | Global Campaign Assignment         | RESOLVED & DESIGNED   | Designed unpartitioned `control.control_campaign_assignment_  |
-|    | Uniqueness (Cross-Partition Gate)  |                       | registry` with `UNIQUE (campaign_key, customer_key)` to       |
-|    |                                    |                       | strictly prevent re-assignments across different dates,       |
-|    |                                    |                       | overcoming PostgreSQL 16 partitioned table constraint limits. |
-|    |                                    |                       | Canonical assignment ID, locked cohort, and replay idempotency.|
+| 02 | Campaign Registry Immutability &   | RESOLVED & ENFORCED   | Three-tier immutability architecture: RBAC (REVOKE UPDATE/    |
+|    | Conflict Classification            |                       | DELETE), engine trigger `trg_prevent_locked_assignment_      |
+|    |                                    |                       | mutation`, and append-only audit log. Ingestion replaces      |
+|    |                                    |                       | silent DO NOTHING with explicit 5-case conflict classification|
+|    |                                    |                       | (quarantines conflicting cohorts, dates, and hash drifts).    |
 +----+------------------------------------+-----------------------+---------------------------------------------------------------+
-| 03 | Campaign Holdout Hashing           | RESOLVED & SPECIFIED  | Deterministic Keyed HMAC-SHA256 with Big-Endian 64-bit uint   |
-|    | (Deterministic Integer Threshold)  |                       | conversion: U < floor(0.10 * 2^64) = 0x1999999999999999.      |
-|    |                                    |                       | Eliminates floating-point precision loss and boundary issues. |
-|    |                                    |                       | Key versioning (v1) and binomial variance normalization via   |
-|    |                                    |                       | population ratio scaling factors in FactMarketingPerformance.  |
+| 03 | Canonical HMAC Identifier Mapping  | RESOLVED & DECOUPLED  | HMAC input strictly mapped to immutable canonical identifiers: |
+|    | & Secret Key Isolation             |                       | `campaign_id || ':' || customer_sk`. Zero dependency on DW   |
+|    |                                    |                       | internal surrogate keys (`campaign_key`, `customer_key`).    |
+|    |                                    |                       | Historical assignments locked; rotation preserves past cohorts.|
 +----+------------------------------------+-----------------------+---------------------------------------------------------------+
-| 04 | NFR-006 Capacity Accounting        | RESOLVED & RECONCILED | Disaggregated capacity into a transparent 10-component model: |
+| 04 | Statistical Lift Methodology &     | RESOLVED & RECONCILED | Corrected claims: population scaling normalizes realized sample|
+|    | Bias Limitations Clarification     |                       | size variance but does NOT eliminate bias or confounding.     |
+|    |                                    |                       | Formally documented SUTVA, ITT vs TOT, survivorship bias from |
+|    |                                    |                       | delivery failures, campaign cross-talk, and macro effects.    |
++----+------------------------------------+-----------------------+---------------------------------------------------------------+
+| 05 | Campaign Registry Capacity         | RESOLVED & GROUNDED   | Reassessed storage using PostgreSQL 16 tuple alignment, page  |
+|    | Assessment & Empirical Governance  |                       | layout, and B-tree indexes (~315–400 MB total for 1M rows).   |
+|    |                                    |                       | Explicitly removed ungrounded 3.2 MB figure and labeled exact  |
+|    |                                    |                       | volume as pending empirical measurement in Stage 5.3.         |
++----+------------------------------------+-----------------------+---------------------------------------------------------------+
+| 06 | NFR-006 Capacity Accounting        | RESOLVED & RECONCILED | Disaggregated capacity into a transparent 10-component model: |
 |    | (Storage Disaggregation & Pruning) |                       | Primary DB volume (~872 GB), auxiliary raw lake (~120 GB), and|
 |    |                                    |                       | backup staging (~350 GB), eliminating double-counting of raw  |
 |    |                                    |                       | 420 GB source data. Rigorously separated planner partition    |
@@ -112,6 +121,7 @@ The following design assumptions are explicitly recorded for empirical validatio
 1. **ERP Interface Movement Codes (`ODQ-03`):** Movement types `251` and `451` remain provisional pending physical schema dumps from the central ERP.
 2. **Empirical Query Benchmarking (`NFR-003`):** Synthetic volume testing in Stage 5.3 must benchmark whether Power BI DAX queries scanning 11.3M rows in a single partition meet the 2.0-second SLA without pre-aggregated summary rollups.
 3. **Database Disk Allocation:** In the Docker development environment, `northstar_postgres_data` resides on local host disk; production deployment requires provisioning a dedicated **1.0 TB NVMe volume** for the primary database.
+4. **Campaign Registry Empirical Storage Measurement:** Physical footprint modeled at ~315–400 MB (heap + indexes for 1M records) must be empirically measured via `pg_total_relation_size()` during Stage 5.3 synthetic scale testing.
 
 ---
 
