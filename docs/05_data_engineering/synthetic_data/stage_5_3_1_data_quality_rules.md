@@ -26,14 +26,16 @@
 | 05 | Financial & Accounting     | Tender Balancing Identity           | SUM(tender_amount) per invoice == net_sales_inr of that invoice.        |
 | 06 | Returns & Refunds          | Return Line Item Referential Guard  | original_pos_invoice_number & line exist in fact_sales. Return <= Sale. |
 | 07 | Returns & Refunds          | Refund Amount Ceiling               | refund_amount_inr <= original net_sales_inr of returned line item.      |
-| 08 | Inventory Conservation     | Daily Balance Flow Equation         | Closing Stock_t == Opening_t + Receipts_t - Sales_t + Returns_t.        |
-| 09 | Inventory Conservation     | Stockout Flag Consistency           | stockout_flag == TRUE iff closing_stock_quantity == 0.                  |
-| 10 | Marketing Governance       | Deterministic Holdout Split         | Control Group ratio == 10% (+/- 0.5% tolerance at N >= 1,000).          |
-| 11 | Marketing Governance       | Holdout Quarantine Enforcement      | If is_holdout_control_flag == TRUE: dispatch_ts IS NULL & NOT_DISPATCHED.|
-| 12 | Marketing Governance       | Composite FK Linkage                | (assignment_id, assignment_date_key) exists in control registry.        |
-| 13 | 4-Way Reconciliation       | Variance Balance Identity           | variance_amount_inr == source_amount_inr - target_amount_inr.          |
-| 14 | 4-Way Reconciliation       | Discrepancy Ticket Logic            | ticket_generated_flag == TRUE iff ABS(variance) > tolerance_threshold. |
-| 15 | Platform Performance       | Partition Boundary Placement        | 100% of rows reside in partitions matching their temporal partition key.|
+| 08 | Inventory Conservation     | Daily Balance Flow Equation         | stock_on_hand_t == stock_on_hand_t-1 + Receipts(101) - Sales(251) + Reversals(252) + Released. |
+| 09 | Inventory Conservation     | Quarantine Returns Guard            | Customer Returns (451) increment blocked_damaged_units, NOT saleable stock_on_hand. |
+| 10 | Inventory Conservation     | Stockout Flag Consistency           | stockout_flag == TRUE iff stock_on_hand_units == 0.000.                  |
+| 11 | Marketing Governance       | Deterministic Holdout Split         | Control Group ratio == 10% (+/- 0.5% tolerance at N >= 1,000).          |
+| 12 | Marketing Governance       | Holdout Quarantine Enforcement      | If is_holdout_control_flag == TRUE: dispatch_ts IS NULL & NOT_DISPATCHED.|
+| 13 | Marketing Governance       | Composite FK Linkage                | (assignment_id, assignment_date_key) exists in control registry.        |
+| 14 | 4-Way Reconciliation       | BDL-02 4-Leg Integrity              | 100% of audits map to LEG1_TILL, LEG2_PAYMENT, LEG3_INVENTORY, LEG4_RETURNS.|
+| 15 | 4-Way Reconciliation       | Variance Balance Identity           | variance_amount == source_system_a_amount - source_system_b_amount.     |
+| 16 | 4-Way Reconciliation       | Discrepancy Ticket Logic            | ticket_generated_flag == TRUE iff absolute_variance_amount > threshold. |
+| 17 | Platform Performance       | Partition Boundary Placement        | 100% of rows reside in partitions matching their temporal partition key.|
 +----+----------------------------+-------------------------------------+-------------------------------------------------------------------------+
 ```
 
@@ -76,17 +78,33 @@
   ```
   *Assertion Requirement:* Exactly `0` rows returned.
 
-#### 3.3 Inventory Flow Conservation Checks
-* **Assertion 4 (Daily SKU Continuity):**
-  Across consecutive daily inventory snapshots for any store-SKU combination, the opening stock on day $t$ must equal the closing stock on day $t-1$:
+#### 3.3 Inventory Flow Conservation & Multi-State Integrity Checks
+* **Assertion 4a (Total Inventory Additive Identity):**
+  For every row in `gold.fact_inventory_snapshot`, the total physical units must equal the sum of saleable, blocked, and in-transit units:
   ```sql
-  SELECT curr.store_key, curr.product_key, curr.date_key, curr.opening_stock_quantity, prev.closing_stock_quantity
-  FROM gold.fact_inventory_snapshot curr
-  JOIN gold.fact_inventory_snapshot prev
-    ON curr.store_key = prev.store_key
-   AND curr.product_key = prev.product_key
-   AND curr.date_key = prev.date_key + 1
-  WHERE curr.opening_stock_quantity != prev.closing_stock_quantity;
+  SELECT date_key, store_key, product_key, stock_on_hand_units, blocked_damaged_units, in_transit_units, total_inventory_units
+  FROM gold.fact_inventory_snapshot
+  WHERE total_inventory_units != (stock_on_hand_units + blocked_damaged_units + in_transit_units);
+  ```
+  *Assertion Requirement:* Exactly `0` rows returned.
+
+* **Assertion 4b (Quarantine Returns Separation):**
+  Customer returns accepted under movement type `451` (`RETURNS_QUARANTINE_RECEIPT`) must increment `blocked_damaged_units`, NEVER `stock_on_hand_units`:
+  ```sql
+  SELECT s.date_key, s.store_key, s.product_key, m.movement_units, s.stock_on_hand_units, s.blocked_damaged_units
+  FROM gold.fact_inventory_movements m
+  JOIN gold.ref_inventory_movement_type rmt ON m.movement_type_key = rmt.movement_type_key
+  JOIN gold.fact_inventory_snapshot s ON m.date_key = s.date_key AND m.source_store_key = s.store_key AND m.product_key = s.product_key
+  WHERE rmt.provisional_movement_code = '451' AND s.blocked_damaged_units < m.movement_units;
+  ```
+  *Assertion Requirement:* Exactly `0` rows returned.
+
+* **Assertion 4c (Stockout Flag Accuracy):**
+  ```sql
+  SELECT date_key, store_key, product_key, stock_on_hand_units, stockout_flag
+  FROM gold.fact_inventory_snapshot
+  WHERE (stock_on_hand_units = 0.000 AND stockout_flag = FALSE)
+     OR (stock_on_hand_units > 0.000 AND stockout_flag = TRUE);
   ```
   *Assertion Requirement:* Exactly `0` rows returned.
 
@@ -115,6 +133,27 @@
   ```
   *Assertion Requirement:* Exactly `0` rows returned.
 
+#### 3.5 Operational 4-Way Reconciliation Checks (BDL-02)
+* **Assertion 7 (Approved Reconciliation Domain Scope):**
+  All records in `gold.fact_reconciliation` must reference one of the 4 approved domain keys (`1: LEG1_TILL`, `2: LEG2_PAYMENT`, `3: LEG3_INVENTORY`, `4: LEG4_RETURNS`). Marketing attribution records must NEVER be inserted into this table:
+  ```sql
+  SELECT recon_fact_key, date_key, store_key, recon_domain_key
+  FROM gold.fact_reconciliation
+  WHERE recon_domain_key NOT IN (1, 2, 3, 4);
+  ```
+  *Assertion Requirement:* Exactly `0` rows returned.
+
+* **Assertion 8 (Reconciliation Variance Balance & Threshold Identity):**
+  ```sql
+  SELECT recon_fact_key, date_key, store_key, source_system_a_amount, source_system_b_amount, 
+         variance_amount, absolute_variance_amount, discrepancy_threshold_applied, ticket_generated_flag
+  FROM gold.fact_reconciliation
+  WHERE variance_amount != (source_system_a_amount - source_system_b_amount)
+     OR absolute_variance_amount != ABS(variance_amount)
+     OR ticket_generated_flag != (absolute_variance_amount > discrepancy_threshold_applied);
+  ```
+  *Assertion Requirement:* Exactly `0` rows returned.
+
 ---
 
 ### 4. Foreign-Key Safe Ingestion Sequencing Graph
@@ -127,14 +166,15 @@ To eliminate foreign key constraint violations during bulk data generation, tabl
 +---------------------------------------------------------------------------------------------------+
 |                                                                                                   |
 |   TIER 1: CALENDARS & STATIC REFERENCE DATA                                                       |
-|   1. gold.dim_date (Pre-populated calendar dimension: 2021-01-01 to 2027-12-31)                   |
-|   2. gold.ref_reconciliation_domain (Pre-seeded: 4 rows)                                          |
-|   3. gold.ref_inventory_movement_type (Pre-seeded: 5 rows)                                        |
+|   1. gold.dim_date (Currently 0 rows in live database; to be populated via idempotent              |
+|      INSERT ... ON CONFLICT (date_key) DO NOTHING as Step 1 of Tier 1)                           |
+|   2. gold.ref_reconciliation_domain (Pre-seeded: 4 rows: LEG1_TILL, LEG2_PAYMENT, LEG3_INV, LEG4)  |
+|   3. gold.ref_inventory_movement_type (Pre-seeded: 5 rows: 101, 251, 252, 451, 301)               |
 |   4. gold.ref_return_reason (Pre-seeded: 5 rows)                                                  |
 |                                                                                                   |
 |   TIER 2: CONFORMED MASTER ENTITIES (Zero External Foreign Keys)                                  |
-|   5. gold.dim_supplier (50 vendors)                                                               |
-|   6. gold.dim_store (30 retail stores)                                                            |
+|   5. gold.dim_supplier (50 vendors, vendor_reliability_rating between 0.00 and 1.00)              |
+|   6. gold.dim_store (30 retail stores across KA, MH, TN, TS, GJ)                                  |
 |   7. gold.dim_payment_method (8 tender types)                                                     |
 |   8. gold.dim_promotion (Active promotional campaigns & vouchers)                                 |
 |   9. gold.dim_campaign (Marketing campaign definitions)                                           |
@@ -154,8 +194,9 @@ To eliminate foreign key constraint violations during bulk data generation, tabl
 |   17. gold.fact_inventory_movements (References sales reductions, receipts, store, product, date) |
 |   18. gold.fact_inventory_snapshot [Day t Closing Balance Update]                                 |
 |   19. gold.fact_campaign_exposure (References campaign registry composite key, campaign, customer)|
-|   20. gold.fact_reconciliation (References store, recon domain, date)                             |
+|   20. gold.fact_reconciliation (References store, recon domain 1-4, date)                         |
 |   21. gold.fact_demand_forecast (Forward projections: store, product, target_date)                |
 |                                                                                                   |
 +---------------------------------------------------------------------------------------------------+
 ```
+

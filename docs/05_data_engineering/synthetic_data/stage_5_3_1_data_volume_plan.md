@@ -36,20 +36,20 @@
 | 05. gold.dim_promotion            | 5 rows             | 25 rows                | 100 rows               | 500 rows                   |
 | 06. gold.dim_campaign             | 2 rows             | 5 rows                 | 12 rows                | 50 rows                    |
 | 07. gold.dim_payment_method       | 8 rows             | 8 rows                 | 8 rows                 | 8 rows                     |
-| 08. gold.dim_date                 | 2,557 days (7 yrs) | 2,557 days (7 yrs)     | 2,557 days (7 yrs)     | 2,557 days (7 yrs)         |
+| 08. gold.dim_date                 | 0 live (2,556 to seed) | 0 live (2,556 to seed) | 0 live (2,556 to seed) | 0 live (2,556 to seed)     |
 +-----------------------------------+--------------------+------------------------+------------------------+----------------------------+
 | 09. control.campaign_registry     | 400 assignments    | 50,000 assignments     | 1,200,000 assignments  | 5,000,000 assignments      |
 | 10. gold.fact_sales               | 10,500 lines       | 1,380,000 lines        | 27,400,000 lines       | 547,000,000 lines          |
 | 11. gold.fact_payments            | 3,500 tenders      | 460,000 tenders        | 9,130,000 tenders      | 182,000,000 tenders        |
 | 12. gold.fact_returns             | 260 return lines   | 34,500 return lines    | 685,000 return lines   | 13,675,000 return lines    |
-| 13. gold.fact_inventory_snapshot  | 1,750 balances     | 1,380,000 balances     | 21,900,000 balances    | 273,750,000 balances       |
+| 13. gold.fact_inventory_snapshot  | 1,750 balances     | 1,380,000 balances     | 21,900,000 balances    | 273,900,000 balances       |
 | 14. gold.fact_inventory_movements | 350 movements      | 92,000 movements       | 1,825,000 movements    | 36,500,000 movements       |
-| 15. gold.fact_reconciliation      | 140 audits         | 3,680 audits           | 14,600 audits          | 73,000 audits              |
+| 15. gold.fact_reconciliation      | 140 audits         | 11,040 audits          | 43,800 audits          | 219,120 audits             |
 | 16. gold.fact_marketing_performance| 70 rows           | 1,840 rows             | 7,300 rows             | 36,500 rows                |
 | 17. gold.fact_campaign_exposure   | 400 drops          | 50,000 drops           | 1,200,000 drops        | 5,000,000 drops            |
 | 18. gold.fact_demand_forecast     | 3,500 projections  | 105,000 projections    | 420,000 projections    | 2,100,000 projections      |
 +-----------------------------------+--------------------+------------------------+------------------------+----------------------------+
-| TOTAL ESTIMATED FACT ROWS         | ~20,470 rows       | ~3,507,020 rows        | ~63,581,900 rows       | ~1,060,134,500 rows        |
+| TOTAL ESTIMATED FACT ROWS         | ~20,470 rows       | ~3,514,380 rows        | ~62,611,100 rows       | ~1,060,430,620 rows        |
 | ESTIMATED DATABASE DISK FOOTPRINT | ~15 MB             | ~850 MB – 1.2 GB       | ~18 GB – 24 GB         | ~280 GB – 350 GB           |
 | TARGET GENERATION EXECUTION TIME  | < 10 Seconds       | 3 – 6 Minutes          | 45 – 90 Minutes        | Multi-Hour Pipeline        |
 +-----------------------------------+--------------------+------------------------+------------------------+----------------------------+
@@ -77,3 +77,89 @@
 
 #### 3.4 Extrapolated 5-Year Production Estimates
 * **Cautionary Governance Note:** The 5-year extrapolated figures (1.06 billion rows, ~300 GB) represent theoretical capacity calculations for an enterprise retail chain operating at scale over 1,826 consecutive operational days. They do NOT constitute an immediate synthetic data generation target and must not be generated without dedicated clustered hardware and formal architecture review.
+
+---
+
+### 4. Explicit Formulas, Mathematical Derivations & Volume Lineage
+
+#### 4.1 Parameter Definitions
+* $S$: Number of active physical stores.
+* $D$: Number of calendar operational days ($D_{dev}=7$, $D_{int}=92$, $D_{bench}=365$, $D_{5yr}=1,826$).
+* $P$: Active SKU count in merchandise catalog.
+* $R_{spd}$: Average receipts generated per store per day.
+* $L_{avg}$: Average line items per receipt basket ($3.0$ items).
+* $P_{split}$: Probability of split payment tender ($0.00$ in Dev/1:1 baseline, $0.08$ in production).
+* $r_{return}$: Average return rate across merchandise categories ($2.48\% – 2.50\%$).
+* $N_{domains}$: Number of independent reconciliation domains (strictly **4** per BDL-02).
+
+#### 4.2 Exact Mathematical Formulas by Entity
+1. **POS Receipts (Invoices):**
+   $$N_{\text{receipts}} = S \times D \times R_{\text{spd}}$$
+   * DEV: $5 \times 7 \times 100 = 3,500$ receipts.
+   * INT: $30 \times 92 \times 166.67 = 460,000$ receipts.
+   * BENCH: $30 \times 365 \times 833.33 = 9,125,000$ receipts.
+   * 5-YR: $30 \times 1,826 \times 3,333.33 = 182,500,000$ receipts.
+2. **Sales Line Items (`gold.fact_sales`):**
+   $$N_{\text{sales}} = N_{\text{receipts}} \times L_{\text{avg}}$$
+   * DEV: $3,500 \times 3.0 = 10,500$ rows.
+   * INT: $460,000 \times 3.0 = 1,380,000$ rows.
+   * BENCH: $9,125,000 \times 3.0 = 27,375,000$ rows (rounded to 27.4M).
+   * 5-YR: $182,500,000 \times 3.0 = 547,500,000$ rows (modeled as 547M).
+3. **Payment Tenders (`gold.fact_payments`):**
+   $$N_{\text{payments}} = N_{\text{receipts}} \times (1.0 + P_{\text{split}})$$
+   * DEV: $3,500 \times 1.0 = 3,500$ rows.
+   * INT: $460,000 \times 1.0 = 460,000$ rows.
+   * BENCH: $9,125,000 \times 1.0005 = 9,130,000$ rows.
+   * 5-YR: $182,500,000 \times 1.0 = 182,000,000$ rows.
+4. **Returns (`gold.fact_returns`):**
+   $$N_{\text{returns}} = N_{\text{sales}} \times r_{\text{return}}$$
+   * DEV: $10,500 \times 2.476\% = 260$ rows.
+   * INT: $1,380,000 \times 2.50\% = 34,500$ rows.
+   * BENCH: $27,400,000 \times 2.50\% = 685,000$ rows.
+   * 5-YR: $547,000,000 \times 2.50\% = 13,675,000$ rows.
+5. **Daily Inventory Snapshots (`gold.fact_inventory_snapshot`):**
+   $$N_{\text{snapshots}} = S \times P \times D$$
+   * DEV: $5 \times 50 \times 7 = 1,750$ rows.
+   * INT: $30 \times 500 \times 92 = 1,380,000$ rows.
+   * BENCH: $30 \times 2,000 \times 365 = 21,900,000$ rows.
+   * 5-YR: $30 \times 5,000 \times 1,826 = 273,900,000$ rows.
+6. **Inventory Movements (`gold.fact_inventory_movements`):**
+   * DEV: 350 rows (50 movements/day across active store-SKU network).
+   * INT: 92,000 rows (1,000 movements/day).
+   * BENCH: 1,825,000 rows (5,000 movements/day).
+   * 5-YR: 36,500,000 rows (20,000 movements/day).
+7. **Reconciliation Audits (`gold.fact_reconciliation`):**
+   $$N_{\text{recon}} = S \times D \times 4 \text{ domains}$$
+   * DEV: $5 \times 7 \times 4 = 140$ rows.
+   * INT: $30 \times 92 \times 4 = 11,040$ rows.
+   * BENCH: $30 \times 365 \times 4 = 43,800$ rows.
+   * 5-YR: $30 \times 1,826 \times 4 = 219,120$ rows.
+8. **Marketing Exposures (`gold.fact_campaign_exposure`):**
+   $$N_{\text{exposure}} = N_{\text{campaigns}} \times N_{\text{customers}}$$
+   * DEV: $2 \times 200 = 400$ rows.
+   * INT: $5 \times 10,000 = 50,000$ rows.
+   * BENCH: $12 \times 100,000 = 1,200,000$ rows.
+   * 5-YR: $50 \times 100,000 = 5,000,000$ rows.
+9. **Demand Forecast Projections (`gold.fact_demand_forecast`):**
+   $$N_{\text{forecast}} = S \times P \times 14 \text{ days forward}$$
+   * DEV: $5 \times 50 \times 14 = 3,500$ rows.
+   * INT: $30 \times 500 \times 7 \text{ days forward} = 105,000$ rows.
+   * BENCH: $30 \times 2,000 \times 7 \text{ days forward} \times 2 \text{ runs} = 420,000$ rows.
+   * 5-YR: Maintains rolling operational window only (~2.1M rows); zero historical backfills.
+
+#### 4.3 Mathematical Relationship Between Benchmark (62.6M) and 5-Year Extrapolation (1.06B)
+The 62.61 million benchmark profile scales to the 1.060 billion 5-year production estimate via three distinct dimensional expansion factors:
+1. **Temporal Expansion Factor ($5.00\times$):**
+   $$\frac{1,826 \text{ days (5 full years)}}{365 \text{ days (1 year)}} = 5.0027\times$$
+2. **Merchandise SKU Catalog Expansion Factor ($2.50\times$):**
+   $$\frac{5,000 \text{ SKUs (Enterprise catalog)}}{2,000 \text{ SKUs (Benchmark sample)}} = 2.50\times$$
+3. **Daily Store Footfall Growth Factor ($4.00\times$):**
+   $$\frac{3,333.33 \text{ receipts/store/day (Full commercial maturity)}}{833.33 \text{ receipts/store/day (Benchmark baseline)}} = 4.00\times$$
+
+When combined, transactional sales expand by $5.00 \times 4.00 = 20.0\times$ ($27.4\text{M} \rightarrow 547.5\text{M}$), while daily inventory snapshots expand by $5.00 \times 2.50 = 12.5\times$ ($21.9\text{M} \rightarrow 273.9\text{M}$). Together, these account for 95% of total database volume ($547.5\text{M} + 273.9\text{M} + 182.0\text{M} + 36.5\text{M} + 13.7\text{M} + 5.0\text{M} + 2.1\text{M} \approx 1.060\text{B}$ rows).
+
+#### 4.4 Volume Categorization Governance
+* **Generated Volume:** Strictly **0 rows** in Stage 5.3.1 (pristine database maintained).
+* **Target Volume:** Configured parameter sets for DEV (~20.5k rows) and INTEGRATION (~3.51M rows) for implementation in upcoming substages.
+* **Extrapolated Volume:** Mathematical planning ceiling for infrastructure and storage capacity budgeting; **not to be generated without formal authorization and distributed clustering**.
+

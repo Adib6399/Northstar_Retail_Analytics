@@ -32,3 +32,4 @@ def calculate_campaign_holdout(campaign_id: str, customer_sk: str, salt: str = "
     # Use first 8 hex characters (32 bits) modulo 100
     cohort_metric = int(digest[:8], 16) % 100
     return cohort_metric < 10
+

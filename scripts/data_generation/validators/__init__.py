@@ -4,3 +4,4 @@ Executes automated data quality assertions against generated tables and batches.
 """
 
 __all__ = ["data_quality_validator"]
+

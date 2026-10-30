@@ -23,49 +23,81 @@
   3. **Tamil Nadu:** 6 stores (Chennai 4, Coimbatore 1, Madurai 1) — South Region.
   4. **Telangana:** 4 stores (Hyderabad 4) — South Region.
   5. **Gujarat:** 4 stores (Ahmedabad 3, Surat 1) — West Region.
-* **Store Formats & Sizing Topology:**
-  * `HYPERMARKET`: 10 stores (Selling area: 35,000–60,000 sqft, POS terminals: 16–28).
-  * `SUPERMARKET`: 14 stores (Selling area: 12,000–25,000 sqft, POS terminals: 8–14).
-  * `EXPRESS`: 6 stores (Selling area: 3,000–6,000 sqft, POS terminals: 3–6).
-* **Store Tiers:** `TIER_1` (Flagship metros), `TIER_2` (Urban growth), `TIER_3` (Emerging suburban).
+* **Exact PostgreSQL Schema Columns & Generation Mapping:**
+  * `store_key`: `INTEGER GENERATED ALWAYS AS IDENTITY` (PK).
+  * `store_id`: `VARCHAR(20) NOT NULL UNIQUE` (e.g., `STR-KA-001` to `STR-GJ-004`).
+  * `store_name`: `VARCHAR(100) NOT NULL` (e.g., `Northstar Indiranagar Flagship`).
+  * `store_tier`: `VARCHAR(20) NOT NULL` (`TIER_1`, `TIER_2`, `TIER_3`).
+  * `city`: `VARCHAR(50) NOT NULL` (`Bengaluru`, `Mumbai`, `Chennai`, `Hyderabad`, `Ahmedabad`, etc.).
+  * `state`: `VARCHAR(50) NOT NULL` (`Karnataka`, `Maharashtra`, `Tamil Nadu`, `Telangana`, `Gujarat`).
+  * `region`: `VARCHAR(20) NOT NULL` (`SOUTH`, `WEST`).
+  * `carpet_area_sqft`: `NUMERIC(10,2) NOT NULL` (Selling floor: 2,500.00 – 45,000.00 sqft).
+  * `backroom_storage_sqft`: `NUMERIC(10,2) NOT NULL` (Stockroom: 800.00 – 15,000.00 sqft).
+  * `monthly_lease_rent_inr`: `NUMERIC(12,2) NOT NULL` (Commercial lease: ₹150,000.00 – ₹2,800,000.00).
+  * `daily_allocated_rent_inr`: `NUMERIC(10,2) NOT NULL` ($\text{monthly\_lease\_rent\_inr} / 30.0$).
+  * `store_manager_employee_id`: `VARCHAR(30) NOT NULL` (e.g., `MGR-KA-1001`).
+  * `operating_status`: `VARCHAR(20) NOT NULL DEFAULT 'OPEN'` (CHECK: `OPEN`, `REFURBISHMENT`, `DECOMMISSIONED`).
+  * `effective_from_timestamp`: `TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP`.
+  * `effective_to_timestamp`: `TIMESTAMPTZ NOT NULL DEFAULT '9999-12-31 23:59:59+00'`.
+  * `is_current_flag`: `BOOLEAN NOT NULL DEFAULT TRUE`.
 * **SCD Type 2 Modeling:**
   * Initial records: `effective_from_timestamp = '2020-01-01 00:00:00+00'`, `effective_to_timestamp = '9999-12-31 23:59:59+00'`, `is_current_flag = TRUE`.
-  * Simulated remodel / terminal expansion event for 3 stores in mid-2024 to exercise SCD2 partial unique indexing (`uq_dim_store_current`).
+  * Simulated lease renegotiation / backroom expansion event for 3 stores in mid-2024 to exercise SCD2 partial unique indexing (`uq_dim_store_current`).
 
 #### 2.2 Domain B: Product Merchandise Master (`gold.dim_product`)
 * **SKU Population:** Configurable from 50 SKUs (Dev), 500 SKUs (Integration), to 2,000 SKUs (Benchmark).
 * **Category Hierarchy (4 Core Merchandise Divisions):**
-  1. **Electronics (15% SKU mix):**
-     * Subcategories: `Mobile & Tablets`, `Audio & Wearables`, `Home Entertainment`, `IT Accessories`.
-     * Velocity: Class A/B. High MRP (₹1,500 – ₹75,000), Low gross margin (8% – 16%), GST slab: `0.18`.
-  2. **Clothing & Apparel (25% SKU mix):**
-     * Subcategories: `Menswear`, `Womenswear`, `Kids & Infant`, `Ethnic & Festival Wear`.
-     * Velocity: Class B/C. Medium MRP (₹499 – ₹6,999), High gross margin (38% – 58%), GST slabs: `0.05` (< ₹1,000) / `0.12` ($\ge$ ₹1,000).
-  3. **Groceries & FMCG (45% SKU mix):**
-     * Subcategories: `Staples & Grains`, `Packaged Foods`, `Beverages & Tea`, `Personal Care`, `Home Hygiene`.
-     * Velocity: Class A. High turn, Low MRP (₹20 – ₹1,200), Thin margin (6% – 18%), GST slabs: `0.00` (unbranded grains), `0.05`, `0.12`, `0.18`.
-  4. **Home & Kitchen (15% SKU mix):**
-     * Subcategories: `Cookware`, `Small Kitchen Appliances`, `Storage & Organization`, `Home Decor`.
-     * Velocity: Class B/C. Medium MRP (₹350 – ₹8,500), Healthy margin (28% – 45%), GST slab: `0.18`.
+  1. **Electronics (`ELEC`):** Subcategories: `Mobile & Tablets`, `Audio & Wearables`, `Home Entertainment`, `IT Accessories`. GST: `0.1800`. MRP: ₹1,500 – ₹75,000. Margin: 8% – 16%.
+  2. **Clothing & Apparel (`APPR`):** Subcategories: `Menswear`, `Womenswear`, `Kids & Infant`, `Ethnic Wear`. GST: `0.0500` / `0.1200`. MRP: ₹499 – ₹6,999. Margin: 38% – 58%.
+  3. **Groceries & FMCG (`FMCG`):** Subcategories: `Staples & Grains`, `Packaged Foods`, `Beverages`, `Personal Care`. GST: `0.0000` / `0.0500` / `0.1200`. MRP: ₹20 – ₹1,200. Margin: 6% – 18%.
+  4. **Home & Kitchen (`HOME`):** Subcategories: `Cookware`, `Small Kitchen Appliances`, `Storage`, `Decor`. GST: `0.1800`. MRP: ₹350 – ₹8,500. Margin: 28% – 45%.
+* **Exact PostgreSQL Schema Columns & Generation Mapping:**
+  * `product_key`: `INTEGER GENERATED ALWAYS AS IDENTITY` (PK).
+  * `sku_id`: `VARCHAR(50) NOT NULL UNIQUE` (e.g., `SKU-ELEC-00101`).
+  * `sku_name`: `VARCHAR(150) NOT NULL` (e.g., `Pro Sound Wireless ANC Headphones`).
+  * `category_id`: `VARCHAR(20) NOT NULL` (`ELEC`, `APPR`, `FMCG`, `HOME`).
+  * `category_name`: `VARCHAR(50) NOT NULL` (`Electronics`, `Clothing & Apparel`, `Groceries & FMCG`, `Home & Kitchen`).
+  * `subcategory_name`: `VARCHAR(50) NOT NULL` (Standardized subcategory).
+  * `hsn_code`: `VARCHAR(10) NOT NULL` (Valid 4-to-8 digit Indian GST HSN codes, e.g., `8518`, `6109`, `1006`).
+  * `gst_rate_pct`: `NUMERIC(6,4) NOT NULL DEFAULT 0.1800` (`0.0000`, `0.0500`, `0.1200`, `0.1800`, `0.2800`).
+  * `standard_cost_price`: `NUMERIC(14,4) NOT NULL DEFAULT 0.0000` ($\text{MRP} \times (1 - \text{margin})$).
+  * `mrp`: `NUMERIC(14,4) NOT NULL DEFAULT 0.0000` (Maximum Retail Price).
+  * `pack_size`: `NUMERIC(8,2) NOT NULL DEFAULT 1.00` (Pack/case quantity).
+  * `unit_of_measure`: `VARCHAR(10) NOT NULL DEFAULT 'EACH'` (`EACH`, `KG`, `LTR`, `PACK`).
+  * `abc_velocity_class`: `CHAR(1) NOT NULL DEFAULT 'B'` (CHECK: `A`, `B`, `C`).
+  * `primary_supplier_key`: `INTEGER NULL` (FK referencing `gold.dim_supplier.supplier_key`).
+  * `effective_from_timestamp`: `TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP`.
+  * `effective_to_timestamp`: `TIMESTAMPTZ NOT NULL DEFAULT '9999-12-31 23:59:59+00'`.
+  * `is_current_flag`: `BOOLEAN NOT NULL DEFAULT TRUE`.
 * **Mathematical Pricing Integrity:**
-  * $\text{Standard Cost Price} = \text{MRP} \times (1 - \text{Target Margin Rate})$.
-  * Strict check constraint enforcement: `standard_cost_price >= 0.0000 AND mrp >= 0.0000`.
+  * $\text{standard\_cost\_price} = \text{mrp} \times (1.0000 - \text{margin\_pct})$.
+  * Strict check constraint: `standard_cost_price >= 0.0000 AND mrp >= 0.0000`.
 
 #### 2.3 Domain C: Customer Master (`gold.dim_customer`)
 * **Population:** Configurable from 200 (Dev), 10,000 (Integration), to 100,000 (Benchmark).
-* **Pseudonymization Framework (FR-014 Compliance):**
-  * Zero PII: No real names, phone numbers, email addresses, or Aadhaar numbers.
-  * Synthetic customer natural key: `CUST-IND-YYYY-XXXXXXX`.
-  * `customer_sk CHAR(64)`: Generated deterministically via keyed HMAC-SHA256:
-    $$\text{customer\_sk} = \text{HMAC-SHA256}(\text{Key}=\text{PEPPER\_SECRET}, \text{Msg}=\text{Synthetic Natural ID})$$
-* **Loyalty & RFM Distribution:**
-  * Loyalty Tiers: `BRONZE` (60%), `SILVER` (25%), `GOLD` (12%), `PLATINUM` (3%).
-  * RFM Scores: Quintiles 1 to 5 mapped to 10 standard segment names (`CHAMPIONS`, `LOYAL`, `POTENTIAL_LOYALIST`, `HIBERNATING`, `AT_RISK`, etc.).
-  * Sentinel Member: Pre-allocated `customer_key = -1`, `customer_sk = '0000...0000'`, `GUEST_WALK_IN` permanently preserved.
+* **Exact PostgreSQL Schema Columns & Generation Mapping:**
+  * `customer_key`: `BIGINT GENERATED ALWAYS AS IDENTITY` (PK).
+  * `customer_sk`: `CHAR(64) NOT NULL UNIQUE` (Keyed HMAC-SHA256 hex digest, zero PII per FR-014).
+  * `registration_store_id`: `VARCHAR(20) NULL` (References `store_id` e.g. `STR-KA-001`, or `STORE_SYSTEM`).
+  * `loyalty_tier`: `VARCHAR(20) NOT NULL DEFAULT 'BRONZE'` (CHECK: `BRONZE`, `SILVER`, `GOLD`, `PLATINUM`).
+  * `rfm_recency_score`: `SMALLINT NOT NULL DEFAULT 1` (CHECK: `BETWEEN 1 AND 5`).
+  * `rfm_frequency_score`: `SMALLINT NOT NULL DEFAULT 1` (CHECK: `BETWEEN 1 AND 5`).
+  * `rfm_monetary_score`: `SMALLINT NOT NULL DEFAULT 1` (CHECK: `BETWEEN 1 AND 5`).
+  * `rfm_segment_name`: `VARCHAR(30) NOT NULL DEFAULT 'HIBERNATING'` (`CHAMPIONS`, `LOYAL`, `POTENTIAL_LOYALIST`, `HIBERNATING`, `AT_RISK`, `ANONYMOUS_WALKIN`).
+  * `churn_risk_flag`: `BOOLEAN NOT NULL DEFAULT FALSE`.
+  * `lifetime_net_spend_inr`: `NUMERIC(15,2) NOT NULL DEFAULT 0.00`.
+* **Technical Sentinel Member:** Pre-allocated `customer_key = -1`, `customer_sk = '0000...0000'`, `registration_store_id = 'STORE_SYSTEM'`, `loyalty_tier = 'BRONZE'`, `rfm_segment_name = 'ANONYMOUS_WALKIN'` permanently preserved.
 
 #### 2.4 Domain D: Supplier Master (`gold.dim_supplier`)
 * **Supplier Population:** Exactly **50 national and regional merchandise vendors**.
-* **Attributes:** `vendor_id` (`VND-001` to `VND-050`), corporate registration state, payment terms (`NET30`, `NET45`, `NET60`), compliance rating (1.00 to 5.00).
+* **Exact PostgreSQL Schema Columns & Generation Mapping:**
+  * `supplier_key`: `INTEGER GENERATED ALWAYS AS IDENTITY` (PK).
+  * `vendor_id`: `VARCHAR(30) NOT NULL UNIQUE` (e.g., `VND-001` to `VND-050`).
+  * `vendor_name`: `VARCHAR(150) NOT NULL` (e.g., `Apex Electronics India Ltd`).
+  * `gstin_number`: `CHAR(15) NOT NULL` (Valid 15-character Indian GSTIN format, e.g. `29AAAAA0000A1Z5`).
+  * `payment_terms_days`: `SMALLINT NOT NULL DEFAULT 30` (`15`, `30`, `45`, `60`, `90`).
+  * `trailing_avg_lead_time_days`: `NUMERIC(5,2) NOT NULL DEFAULT 7.00` (Delivery lead time: 2.00 – 21.00 days).
+  * `vendor_reliability_rating`: `NUMERIC(3,2) NOT NULL DEFAULT 1.00` (CHECK: `BETWEEN 0.00 AND 1.00`, e.g. `0.92`, `0.85`).
 
 #### 2.5 Domain E: Sales Transactions (`gold.fact_sales`)
 * **Grain:** One row per POS invoice line item.
@@ -109,16 +141,24 @@
 * **Unreferenced Returns:** 2% of returns flagged as unreferenced (`is_unreferenced_return_flag = TRUE`), requiring manager authorization (`authorizing_manager_id`).
 
 #### 2.8 Domain H: Inventory Snapshots & Movements
-* **Tables:** `gold.fact_inventory_snapshot` (Daily balances) and `gold.fact_inventory_movements` (ERP goods movements).
-* **Movement Types (`gold.ref_inventory_movement_type`):**
-  * `MVT_PO_RECEIPT`: Purchase order warehouse receipt (+ impact).
-  * `MVT_STORE_TRANSFER`: Inter-store stock transfer (+/- impact).
-  * `MVT_CUSTOMER_SALE`: POS sale stock deduction (- impact).
-  * `MVT_CUSTOMER_RETURN`: Customer return stock replenishment (+ impact).
-  * `MVT_STOCK_ADJUSTMENT`: Cycle count shrink/write-off (- impact).
-* **Daily Conservation Identity:**
-  $$\text{Closing Stock}_{t} = \text{Opening Stock}_{t} + \text{Receipts}_{t} - \text{Sales}_{t} + \text{Returns}_{t} - \text{Shrinkage}_{t}$$
-* **Stockout Flags:** `stockout_flag = TRUE` when $\text{Closing Stock} = 0$; `safety_stock_breach_flag = TRUE` when $\text{Closing Stock} < \text{Safety Threshold}$.
+* **Target Tables:** `gold.fact_inventory_snapshot` (Daily periodic balances) and `gold.fact_inventory_movements` (ERP material movement ledger).
+* **Distinct Physical Inventory States:**
+  1. **Saleable Stock (`stock_on_hand_units`):** Prime merchandise physically present on display shelves and stockroom, available for POS sale.
+  2. **Quarantine / Returned Stock (`blocked_damaged_units`):** Customer merchandise returned at customer service desk awaiting technical inspection, defect testing, or repackaging. **Returned items are NEVER counted as immediately available saleable stock.**
+  3. **Released Stock:** Inspected returns meeting quality standards released back into saleable inventory (transfers units from `blocked_damaged_units` to `stock_on_hand_units`).
+  4. **Damaged / Scrapped Stock:** Inspected returns identified as defective, expired, or non-repairable written off or sent for salvage liquidation.
+  5. **In-Transit Stock (`in_transit_units`):** Merchandise dispatched via inter-store transfers or distribution center logistics, not yet received at destination.
+* **Approved Movement Types (`gold.ref_inventory_movement_type`):**
+  * **Code `101` (`GOODS_RECEIPT`):** Vendor purchase order receipt ($+1$ signed effect on `stock_on_hand_units`).
+  * **Code `251` (`SALES_DECREMENT`):** Goods issue for POS sales scans ($-1$ signed effect on `stock_on_hand_units`).
+  * **Code `252` (`SALES_REVERSAL`):** Immediate reversal of POS sale void before till close ($+1$ signed effect on `stock_on_hand_units`).
+  * **Code `451` (`RETURNS_QUARANTINE_RECEIPT`):** Customer return received into blocked quarantine ($+1$ signed effect on `blocked_damaged_units`, $0$ effect on `stock_on_hand_units`).
+  * **Code `301` (`STORE_TRANSFER`):** Inter-store stock transfer relocation ($-1$ at origin store, transitions to `in_transit_units`, $+1$ at destination store upon receipt).
+* **Rigorous Conservation Equations:**
+  $$\text{stock\_on\_hand\_units}_{t} = \text{stock\_on\_hand\_units}_{t-1} + \Delta\text{MVT\_101}_{t} - \Delta\text{MVT\_251}_{t} + \Delta\text{MVT\_252}_{t} + \Delta\text{Released\_from\_Quarantine}_{t} \pm \Delta\text{MVT\_301}_{t}$$
+  $$\text{blocked\_damaged\_units}_{t} = \text{blocked\_damaged\_units}_{t-1} + \Delta\text{MVT\_451}_{t} - \Delta\text{Released\_from\_Quarantine}_{t} - \Delta\text{Scrap\_WriteOff}_{t}$$
+  $$\text{total\_inventory\_units}_{t} = \text{stock\_on\_hand\_units}_{t} + \text{blocked\_damaged\_units}_{t} + \text{in\_transit\_units}_{t}$$
+* **Stockout Consistency:** `stockout_flag = TRUE` strictly if `stock_on_hand_units == 0.000`.
 
 #### 2.9 Domain I: Marketing Campaigns & Deterministic Holdout Exposure
 * **Campaign Registry Table:** `control.control_campaign_assignment_registry` (Unpartitioned, authoritative).
@@ -132,13 +172,27 @@
   * Control Records: Must exist in `fact_campaign_exposure` with `is_holdout_control_flag = TRUE`, `dispatch_timestamp IS NULL`, `delivery_status = 'NOT_DISPATCHED'`.
   * Treatment Records: `is_holdout_control_flag = FALSE`, valid dispatch timestamp, delivery statuses (`DELIVERED`, `OPENED`, `CLICKED`, `BOUNCED`).
   * Composite FK: `(assignment_id, assignment_date_key)` strictly enforced against registry.
+* **Separation from Financial Reconciliation:** Marketing campaign attribution is an independent analytical measurement framework evaluating customer incremental lift and ROMI (`gold.fact_marketing_performance`). It is not a financial ledger reconciliation process.
 
-#### 2.10 Domain J: 4-Way Reconciliation Hub (`gold.fact_reconciliation`)
-* **Four Independent Reconciliation Domains:**
-  1. `POS_VS_CASH`: Daily physical cash safe count vs. POS cash tender total.
-  2. `POS_VS_BANK`: Daily card/UPI gateway batch settlement vs. POS electronic tender total.
-  3. `POS_VS_ERP`: Daily physical merchandise sales issue vs. SAP/ERP inventory reduction.
-  4. `MKTG_VS_LOGS`: Marketing vendor dispatch count vs. exposure event log count.
+#### 2.10 Domain J: 4-Way Operational Reconciliation Hub (`gold.fact_reconciliation`)
+* **Approved 4-Way Reconciliation Processes (BDL-02 & `gold.ref_reconciliation_domain`):**
+  1. **Domain Key 1 (`LEG1_TILL`):** `POS Sales Line vs Store Till Journal`
+     * System A: Store POS Transaction Log (`pos_invoice_number` line item net amount).
+     * System B: Physical Store Till Journal Tape (Aggregated till register cash/tender drawer total).
+     * Reconciles: Unrecorded transactions, till operator entry errors, offline slip discrepancies.
+  2. **Domain Key 2 (`LEG2_PAYMENT`):** `Payment Tender vs Bank Merchant Settlement`
+     * System A: Store POS Electronic Tender Ledger (`tender_amount_inr` by acquirer reference number).
+     * System B: Bank Gateway Batch Settlement Feed (Settled merchant settlement payout ledger).
+     * Reconciles: In-flight gateway drops, settlement fee variances, merchant capture rejections.
+  3. **Domain Key 3 (`LEG3_INVENTORY`):** `POS Scanned Units vs ERP Inventory Decrement`
+     * System A: POS Barcode Scanner Sales Volume (Units sold by SKU at cash register).
+     * System B: Central SAP/ERP Material Ledger (Goods Issue movement `251` decrements).
+     * Reconciles: Asynchronous queue integration failures, EDI batch communication drops, barcode mismatch.
+  4. **Domain Key 4 (`LEG4_RETURNS`):** `Customer Returns vs Quarantine / Refund Ledgers`
+     * System A: POS Customer Return & Refund Vouchers Issued (`gold.fact_returns`).
+     * System B: Warehouse/Backroom ERP Quarantine Material Ledger (Movement `451` receipts).
+     * Reconciles: Phantom return vouchers, physical goods not deposited into quarantine, restocking variance.
 * **Controlled Exception Injection:**
-  * 98.5% of reconciliation audits match within tolerance ($\text{variance} \le \text{threshold}$).
+  * 98.5% of daily reconciliation audits match within established threshold tolerance ($\text{variance} \le \text{threshold}$).
   * 1.5% injected discrepancies generate exception tickets (`ticket_generated_flag = TRUE`, `investigation_status = 'PENDING_REVIEW'`), exercising the partial index `idx_fact_recon_pending_discrepancy`.
+

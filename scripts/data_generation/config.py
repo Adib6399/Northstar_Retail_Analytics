@@ -65,7 +65,7 @@ PROFILES: Dict[ProfileType, GenerationProfileConfig] = {
         supplier_count=50,
         campaign_count=5,
         promotion_count=25,
-        daily_transactions_per_store_avg=200,
+        daily_transactions_per_store_avg=167,
         items_per_transaction_min=1,
         items_per_transaction_max=10,
         batch_size=5000,
@@ -82,7 +82,7 @@ PROFILES: Dict[ProfileType, GenerationProfileConfig] = {
         supplier_count=50,
         campaign_count=12,
         promotion_count=100,
-        daily_transactions_per_store_avg=800,
+        daily_transactions_per_store_avg=833,
         items_per_transaction_min=1,
         items_per_transaction_max=14,
         batch_size=20000,
@@ -94,3 +94,4 @@ PROFILES: Dict[ProfileType, GenerationProfileConfig] = {
 def get_profile_config(profile: ProfileType = ProfileType.DEV) -> GenerationProfileConfig:
     """Retrieve the generation profile configuration."""
     return PROFILES[profile]
+
