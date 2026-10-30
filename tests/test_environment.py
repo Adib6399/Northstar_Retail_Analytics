@@ -4,11 +4,13 @@ Provides test cases across configuration, directory foundation, logging security
 Docker compose specifications, and database connectivity.
 """
 
+import os
 import sys
 import logging
 import unittest
 from pathlib import Path
-from config.base import get_settings, PROJECT_ROOT
+from unittest.mock import patch
+from config.base import Settings, get_settings, PROJECT_ROOT
 from config.database import get_database_url, check_database_connectivity
 from config.logging_config import setup_logging, PIIRedactionFilter
 
@@ -25,13 +27,27 @@ class TestConfigurationAndSettings(unittest.TestCase):
         )
 
     def test_settings_initialization(self):
-        """Verify application settings initialize and parse environment defaults."""
+        """Verify application settings initialize and parse environment configuration."""
         settings = get_settings()
         self.assertEqual(settings.app_name, "Northstar_Retail_Analytics")
-        self.assertEqual(settings.postgres_port, 5432)
+        expected_port = int(os.getenv("POSTGRES_PORT", "5432"))
+        self.assertEqual(settings.postgres_port, expected_port)
         self.assertEqual(settings.param_discrepancy_threshold, 500.0)
         self.assertEqual(settings.pipeline_timezone, "Asia/Kolkata")
         self.assertTrue(settings.is_development)
+
+    def test_default_postgres_port_without_override(self):
+        """Verify default PostgreSQL port is 5432 when no environment override exists."""
+        with patch.dict(os.environ):
+            os.environ.pop("POSTGRES_PORT", None)
+            settings = Settings()
+            self.assertEqual(settings.postgres_port, 5432)
+
+    def test_explicit_postgres_port_override(self):
+        """Verify PostgreSQL port is overridden when POSTGRES_PORT is explicitly set in environment."""
+        with patch.dict(os.environ, {"POSTGRES_PORT": "5433"}):
+            settings = Settings()
+            self.assertEqual(settings.postgres_port, 5433)
 
     def test_database_url_generation(self):
         """Verify standard database URL construction and password masking."""
