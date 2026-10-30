@@ -339,6 +339,9 @@ python3 -m unittest discover tests
 * **Stage 3 Status:** `Stage 3: Business Process Modelling & Governance Reconciliation — OFFICIALLY APPROVED & CERTIFIED`
 * **Stage 4 Status:** `Stage 4: Technical Architecture & Data Strategy — OFFICIALLY APPROVED & BASELINE FROZEN`
 * **Stage 5.1 Status:** `Stage 5.1: Development Environment & Repository Foundation — OFFICIALLY CERTIFIED`
-* **Next Stage:** `Stage 5.2: Data Generation & Physical DDL Schemas` (Gated upon formal stakeholder review and approval of Stage 5.1 deliverables)
-* **Strict Phase Boundary Standstill:** Zero application tables, physical SQL DDL, mock datasets, ingestion pipelines, or dashboards have been created. Development is halted pending formal authorization.
+* **Stage 5.2A Status:** `Stage 5.2A: Physical Database Design — OFFICIALLY APPROVED & FROZEN`
+* **Stage 5.2B.1 Status:** `Stage 5.2B.1: Physical DDL Preparation & Static Validation — OFFICIALLY APPROVED & CLOSED`
+* **Stage 5.2B.2 Status:** `Stage 5.2B.2: Live DDL Execution & PostgreSQL Catalog Validation — OFFICIALLY COMPLETED & CERTIFIED`
+* **Next Stage:** `Stage 5.3: Synthetic Data Generation & Performance Benchmarking` (Gated upon formal stakeholder review and authorization)
+* **Strict Phase Boundary Standstill:** Zero business data, synthetic retail records, or ingestion pipelines have been created. Fact tables remain empty (0 rows) pending formal authorization for Stage 5.3.
 
