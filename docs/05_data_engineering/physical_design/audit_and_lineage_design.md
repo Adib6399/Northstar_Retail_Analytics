@@ -127,7 +127,8 @@ Because `gold.fact_campaign_exposure` is range-partitioned on `assignment_date_k
 * **Surrogate Primary Key:** `CONSTRAINT pk_campaign_assignment_reg PRIMARY KEY (assignment_id)` (`BIGINT GENERATED ALWAYS AS IDENTITY`)
 * **Canonical Unique Constraint:** `CONSTRAINT uq_campaign_customer_canonical UNIQUE (campaign_id, customer_sk)`
 * **Surrogate Unique Constraint:** `CONSTRAINT uq_campaign_customer_surrogate UNIQUE (campaign_key, customer_key)`
-* **Analytical Exposure Linkage:** `gold.fact_campaign_exposure.assignment_id` (`BIGINT NOT NULL`) references `control.control_campaign_assignment_registry(assignment_id)` with partition-compatible constraint `UNIQUE (assignment_id, assignment_date_key)`. This establishes an authoritative 1-assignment-to-1-canonical-exposure relationship across all marketing cohorts, including uncontacted control groups.
+* **Composite Assignment Date Unique Constraint:** `CONSTRAINT uq_campaign_assignment_date UNIQUE (assignment_id, assignment_date_key)`
+* **Analytical Exposure Linkage:** `gold.fact_campaign_exposure(assignment_id, assignment_date_key)` references `control.control_campaign_assignment_registry(assignment_id, assignment_date_key)` via composite foreign key with partition-compatible constraint `UNIQUE (assignment_id, assignment_date_key)`. Database constraints enforce that each fact row references a valid registry assignment ($1..1$) and at most one fact row can exist per registry assignment ($0..1$). Platform-level $1..1$ completeness is enforced through atomic pipeline transactions and daily automated reconciliation checks. Control-group assignments are preserved with `dispatch_status = 'NOT_DISPATCHED_HOLDOUT'`.
 * **Canonical Mapping:**
   * `campaign_id` (`VARCHAR(50)`): Natural campaign business identifier from upstream marketing systems.
   * `customer_sk` (`CHAR(64)`): Cryptographic pseudonym generated at the ingestion boundary from customer phone number and `HMAC_PEPPER_SECRET`.

@@ -85,11 +85,32 @@ To eliminate double-counting and reconcile the 1.2 TB columnar assumption with P
 
 #### 4.1 Reconciliation of the 1.7–1.8 TB Estimate
 * **Clarification of Previous Estimate:** The previously cited **1.7 TB – 1.8 TB** figure represented the total disk footprint under the assumption of a **monolithic single-disk deployment** where the primary database, raw data lake archives, local backup staging, and a 25% safety buffer were all co-located on a single shared physical volume (`872 GB DB + 120 GB Raw + 350 GB Backup + 350 GB Headroom = ~1.69 TB`).
-* **Architectural Best Practice (Multi-Volume Layout):** In a production enterprise deployment, database storage is cleanly decoupled:
-  1. **Primary Database SSD Volume (`/var/lib/postgresql/data`):** Requires **~900 GB** of high-performance NVMe block storage.
-  2. **Backup Storage Volume (`/mnt/backups`):** Requires **~400 GB** of standard throughput-optimized block storage.
-  3. **Raw Data Lake Storage (`/mnt/datalake/raw`):** Requires **~150 GB** of standard object/file storage.
+* **Architectural Best Practice (Multi-Volume Layout):** In a production enterprise deployment, database storage is cleanly decoupled across dedicated infrastructure mounts:
+  1. **Primary Database Block Volume (`/var/lib/postgresql/data`):** Sized for **1.2 TB** of dedicated NVMe block storage.
+  2. **Backup Storage Volume (`/mnt/backups`):** Sized for **~400 GB** of throughput-optimized block storage.
+  3. **Raw Data Lake Storage (`/mnt/datalake/raw`):** Sized for **~150 GB** of standard object/file storage.
 * **Zero Double-Counting:** The 420 GB logical source volume is stored exclusively in compressed format on the file data lake (~120 GB). It does **not** consume space on the PostgreSQL database volume.
+
+#### 4.2 Storage Provisioning & 80% Utilization Target Reconciliation
+1. **Consumption vs. Provisioned Capacity:**
+   * Estimated primary DB consumption = **872 GB** (decimal: $872 \times 10^9$ bytes) $\approx$ **812.11 GiB** (binary: $872 \times 10^9 / 2^{30}$ bytes).
+   * Governance target: The primary database filesystem must not exceed **80% utilization**.
+2. **Minimum Volume Calculation:**
+   $$\text{Minimum Provisioned Capacity} = \frac{872 \text{ GB}}{0.80} = \mathbf{1,090 \text{ GB}} \quad (\approx 1,015.14 \text{ GiB})$$
+3. **Correction of 1.0 TB Recommendation:**
+   * An arbitrary **1.0 TB (1,000 GB)** volume yields:
+     $$\text{Utilization} = \frac{872 \text{ GB}}{1,000 \text{ GB}} = \mathbf{87.2\%} \quad (\text{strictly violates the } \le 80\% \text{ utilization ceiling})$$
+     Even at 1 TiB (1,024 GiB $\approx$ 1,099.5 GB), utilization is $79.3\%$, leaving virtually zero growth margin.
+4. **Recommended Provisioning Baseline (1.2 TB NVMe):**
+   * Recommend provisioning a **1.2 TB (1,200 GB / ~1,117.6 GiB)** dedicated NVMe block storage volume.
+   * Realized operating utilization:
+     $$\frac{872 \text{ GB}}{1,200 \text{ GB}} = \mathbf{72.67\%} \quad (\le 80\% \text{ target guaranteed})$$
+   * Unallocated filesystem headroom: **328 GB (27.3%)**.
+5. **Component Allocation & Non-Overlapping Verification:**
+   * **MVCC / Vacuum Allowance (85 GB):** Operational planning buffer representing steady-state dead tuple bloat and page fillfactor slack within active PostgreSQL tables before autovacuum reclamation (~15–18% of heap + indexes).
+   * **Operational Free-Space Allowance (180 GB):** Filesystem-level unallocated workspace for `VACUUM FULL`, `REINDEX CONCURRENTLY`, and temporary sort files (`work_mem` spills). Completely distinct from MVCC internal bloat (zero double-counting).
+   * **WAL Storage Dynamics (60 GB):** In PostgreSQL, `max_wal_size` (default target 32 GB) is a checkpoint triggering target, not a hard filesystem reservation. During peak festive ingestion spikes, WAL volume temporarily expands. Accounting for 60 GB provides a safe cushion within `/var/lib/postgresql/data/pg_wal`.
+   * **Decoupled Auxiliary Mounts (470 GB outside Primary DB):** GZIP compressed raw archives (`data/raw/`, ~120 GB) and local backup staging (`/mnt/backups/`, ~350 GB) reside on separate filesystem volumes. Total enterprise infrastructure: $872 \text{ GB (DB)} + 470 \text{ GB (Aux)} = \mathbf{1,342 \text{ GB} \ (\sim 1.34 \text{ TB})}$.
 
 ---
 
@@ -135,5 +156,5 @@ Because partition pruning alone does not guarantee sub-second end-to-end perform
 ### 6. Architectural Decision Summary for Stage 5.2B
 
 * **Approved Implementation Baseline:** **Option A (Native PostgreSQL 16 with Declarative Monthly Partitioning + BRIN Indexing)**.
-* **Storage Allocation Mandate:** Provision a dedicated **1.0 TB NVMe volume** for the primary PostgreSQL database container (`northstar_postgres_data`), with auxiliary storage allocated on host mounts for raw archives and local backups.
+* **Storage Allocation Mandate:** Provision a dedicated **1.2 TB NVMe volume** (1,200 GB / ~1,118 GiB) for the primary PostgreSQL database mount (`/var/lib/postgresql/data`), guaranteeing $\le 72.7\%$ utilization against the 872 GB active footprint, with auxiliary storage allocated on host mounts for raw archives (~150 GB) and local backups (~400 GB).
 * **Governance Status:** Fully satisfies `NFR-006` without cold-storage demotion or third-party extension complexity.

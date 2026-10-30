@@ -31,7 +31,7 @@ PostgreSQL 16 enforces that **any `PRIMARY KEY` or `UNIQUE` constraint declared 
 | 05 | fact_inventory_movements   | 15k – 30k moves/day   | Annual Range        | `(movement_fact_key, date_key)`| Local UI: `(matdoc, line, date)` |
 | 06 | fact_reconciliation        | 5k – 10k audits/day   | Annual Range        | `(recon_fact_key, date_key)`  | Local UI: `(date, domain, entity)`|
 | 07 | fact_marketing_performance | 500 – 1.5k rows/day   | Annual Range        | `(date_key, store_key, campaign_key)`| Enforced as Table Primary Key     |
-| 08 | fact_campaign_exposure     | 50k – 200k rows/drop  | Annual Range        | `(exposure_fact_key, assignment_date_key)`| Local UI: `(camp, cust, date)`|
+| 08 | fact_campaign_exposure     | 50k – 200k rows/drop  | Annual Range        | `(exposure_fact_key, assignment_date_key)`| `(assignment_id, date)` + `(camp, cust, date)` |
 | 09 | fact_demand_forecast       | 450k projections/day  | Monthly Range       | `(forecast_run_id, target_date_key, store_key, product_key)`     |
 +----+----------------------------+-----------------------+---------------------+-------------------------------+-----------------------------------+
 ```
@@ -53,8 +53,10 @@ PostgreSQL 16 enforces that **any `PRIMARY KEY` or `UNIQUE` constraint declared 
 ##### C. `gold.fact_campaign_exposure`
 * **Partition Key:** `assignment_date_key` (Annual range).
 * **Declarative Primary Key:** `PRIMARY KEY (exposure_fact_key, assignment_date_key)`.
-* **Architectural Rationale:** Ensures holdout control customers (who are intentionally quarantined from communication and never dispatched) are stored in the correct temporal partition alongside treatment records.
+* **Registry Composite Foreign Key:** `FOREIGN KEY (assignment_id, assignment_date_key) REFERENCES control.control_campaign_assignment_registry(assignment_id, assignment_date_key)`.
+* **Partition-Compatible Unique Constraint:** `CONSTRAINT uq_fact_exposure_assignment_partition UNIQUE (assignment_id, assignment_date_key)`.
 * **Business Key Uniqueness:** Local unique index on `(campaign_key, customer_key, assignment_date_key)`.
+* **Architectural Rationale:** Ensures holdout control customers (who are intentionally quarantined from communication and never dispatched) are stored in the correct temporal partition alongside treatment records. Relational cardinality enforces $0..1$ (registry to fact) and $1..1$ (fact to registry); end-to-end platform completeness is guaranteed via atomic pipeline transactions.
 
 ##### D. `gold.fact_demand_forecast`
 * **Partition Key:** `target_date_key` (Monthly range).

@@ -47,15 +47,17 @@
 |    |                                    |                       | Explicitly removed ungrounded 3.2 MB figure and labeled exact  |
 |    |                                    |                       | volume as pending empirical measurement in Stage 5.3.         |
 +----+------------------------------------+-----------------------+---------------------------------------------------------------+
-| 06 | NFR-006 Primary DB Capacity        | RESOLVED & RECONCILED | Disaggregated primary DB volume to exact 872 GB sum: Gold heap|
-|    | (8-Component Disaggregation)       |                       | (290GB), Indexes (172GB), TOAST (15GB), MVCC (85GB), Silver   |
-|    |                                    |                       | (45GB), Bronze (25GB), WAL (60GB), Free-space margin (180GB). |
-|    |                                    |                       | Auxiliary data lake (120GB) & backup (350GB) cleanly decoupled|
+| 06 | NFR-006 Primary DB Capacity        | RESOLVED & RECONCILED | Disaggregated primary DB volume to exact 872 GB (812.1 GiB):   |
+|    | (8-Component Disaggregation)       |                       | Gold heap (290GB), Indexes (172GB), TOAST (15GB), MVCC (85GB), |
+|    |                                    |                       | Silver (45GB), Bronze (25GB), WAL (60GB), Free-space (180GB).  |
+|    |                                    |                       | Re-provisioned at 1.2 TB NVMe (1,200 GB) ensuring 72.7% util.  |
+|    |                                    |                       | Auxiliary data lake (120GB) & backup (350GB) cleanly decoupled.|
 +----+------------------------------------+-----------------------+---------------------------------------------------------------+
-| 07 | Campaign Registry to Fact Linkage  | RESOLVED & CONFORMED  | Defined explicit 1:1 foreign key relationship:                |
-|    | (exposure_fact_key vs assignment_id)|                      | gold.fact_campaign_exposure.assignment_id REFERENCES registry. |
-|    |                                    |                       | UNIQUE (assignment_id, date_key) partition constraint;        |
-|    |                                    |                       | preserves exposure_fact_key as independent fact surrogate PK. |
+| 07 | Campaign Registry to Fact Linkage  | RESOLVED & CONFORMED  | Defined composite foreign key: gold.fact_campaign_exposure    |
+|    | (exposure_fact_key vs assignment_id)|                      | (assignment_id, assignment_date_key) REFERENCES registry.     |
+|    |                                    |                       | Supported by UNIQUE (assignment_id, date_key) on registry.    |
+|    |                                    |                       | 0..1 registry->fact and 1..1 fact->registry relational rules;  |
+|    |                                    |                       | completeness guaranteed by pipeline atomicity & daily recon.  |
 +----+------------------------------------+-----------------------+---------------------------------------------------------------+
 ```
 
@@ -124,7 +126,7 @@ All affected design artifacts under `docs/05_data_engineering/physical_design/` 
 The following design assumptions are explicitly recorded for empirical validation in Stage 5.3:
 1. **ERP Interface Movement Codes (`ODQ-03`):** Movement types `251` and `451` remain provisional pending physical schema dumps from the central ERP.
 2. **Empirical Query Benchmarking (`NFR-003`):** Synthetic volume testing in Stage 5.3 must benchmark whether Power BI DAX queries scanning 11.3M rows in a single partition meet the 2.0-second SLA without pre-aggregated summary rollups.
-3. **Database Disk Allocation:** In the Docker development environment, `northstar_postgres_data` resides on local host disk; production deployment requires provisioning a dedicated **1.0 TB NVMe volume** for the primary database.
+3. **Database Disk Allocation:** In the Docker development environment, `northstar_postgres_data` resides on local host disk; production deployment requires provisioning a dedicated **1.2 TB NVMe volume (1,200 GB / ~1,118 GiB)** for the primary database, ensuring $\le 80\%$ disk utilization (72.7% utilization against the 872 GB active 5-year footprint with 328 GB / 27.3% unallocated headroom).
 4. **Campaign Registry Empirical Storage Measurement:** Physical footprint modeled at ~413–498 MB (~248–283 MB heap + ~165–215 MB indexes for 1M records with CHAR(64) hash) must be empirically measured via `pg_total_relation_size()` during Stage 5.3 synthetic scale testing.
 
 ---

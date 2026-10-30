@@ -47,7 +47,7 @@ This certified specification resolves all implementation-readiness findings:
 +----+----------------------------+-----------------------+---------------------+-------------------------------+-----------------------------------+
 | 18 | control_batch_audit        | control (Pipeline)    | `batch_start_ts`    | `(batch_id, batch_start_ts)`  | `batch_id`                        |
 | 19 | control_threshold_config   | control (System)      | None (Non-part.)    | `threshold_config_key`        | `parameter_name` (SCD2)           |
-| 20 | control_campaign_assignment_registry | control (Registry) | None (Non-part.) | `assignment_id` | **GLOBAL UNIQUE: (campaign_key, customer_key)** |
+| 20 | control_campaign_assignment_registry | control (Registry) | None (Non-part.) | `assignment_id` | **UNIQUE: (camp_id, cust_sk), (camp, cust), (id, date)** |
 | 21 | ref_reconciliation_domain  | gold (Reference)      | None (Non-part.)    | `recon_domain_key`            | `domain_code`                     |
 | 22 | ref_inventory_movement_type| gold (Reference)      | None (Non-part.)    | `movement_type_key`           | `provisional_movement_code`       |
 | 23 | ref_return_reason          | gold (Reference)      | None (Non-part.)    | `return_reason_key`           | `reason_code`                     |
@@ -67,17 +67,41 @@ To guarantee absolute global assignment uniqueness without altering the 9-fact i
 * **Surrogate Primary Key:** `CONSTRAINT pk_campaign_assignment_reg PRIMARY KEY (assignment_id)` (`BIGINT GENERATED ALWAYS AS IDENTITY`)
 * **Canonical Natural Unique Constraint:** `CONSTRAINT uq_campaign_customer_canonical UNIQUE (campaign_id, customer_sk)`
 * **Relational Surrogate Unique Constraint:** `CONSTRAINT uq_campaign_customer_surrogate UNIQUE (campaign_key, customer_key)`
+* **Composite Assignment Date Unique Constraint:** `CONSTRAINT uq_campaign_assignment_date UNIQUE (assignment_id, assignment_date_key)`
 
 ##### Architectural Distinction: Surrogate Primary Key vs Business Uniqueness Constraints
 1. **Surrogate Primary Key (`assignment_id` BIGINT GENERATED ALWAYS AS IDENTITY):**
    * *Function:* Provides an internal, immutable, compact 64-bit integer surrogate identifier for physical tuple addressing.
-   * *Technical Role:* Powers efficient B-tree index traversal, serves as a high-performance foreign key reference for audit logging (`control.control_campaign_assignment_audit_log.assignment_id`), and directly links to the analytical fact table surrogate key (`gold.fact_campaign_exposure.exposure_fact_key`).
+   * *Technical Role:* Powers efficient B-tree index traversal, serves as a high-performance foreign key reference for audit logging (`control.control_campaign_assignment_audit_log.assignment_id`), and directly links to the analytical fact table.
 2. **Canonical Natural Uniqueness Constraint (`UNIQUE (campaign_id, customer_sk)`):**
    * *Function:* Enforces enterprise business uniqueness against the real-world upstream entities: the natural campaign identifier (`campaign_id` VARCHAR) and the customer's permanent cryptographic pseudonym (`customer_sk` CHAR(64)).
    * *Technical Role:* Prevents a customer from being enrolled multiple times into the same marketing campaign across different dates or ingestion drops, regardless of warehouse surrogate re-sequencing, SCD Type 2 dimension splits, or warehouse rebuilds.
 3. **Relational Surrogate Uniqueness Constraint (`UNIQUE (campaign_key, customer_key)`):**
    * *Function:* Enforces relational 1:1 join integrity against the current dimensional star schema surrogate keys (`gold.dim_campaign` and `gold.dim_customer`).
    * *Technical Role:* Prevents Cartesian fan-out and double-counting during downstream star-schema SQL aggregations in Gold marts and Power BI DirectQuery models.
+4. **Composite Assignment Date Unique Constraint (`UNIQUE (assignment_id, assignment_date_key)`):**
+   * *Function:* Provides the referenced unique key on the unpartitioned registry required to support the composite foreign key from the partitioned fact table `gold.fact_campaign_exposure(assignment_id, assignment_date_key)`.
+   * *Technical Role:* Enforces that the analytical fact row cannot drift to a different assignment date than the one locked in the authoritative registry.
+
+##### Relational Cardinality & End-to-End Completeness Architecture
+* **Database Engine Cardinality:**
+  * *Registry to Fact:* A registry assignment record can have **at most one** canonical fact exposure row (enforced by `UNIQUE (assignment_id, assignment_date_key)` on the fact table). Database cardinality: $0..1$.
+  * *Fact to Registry:* A fact exposure row must reference **exactly one** valid registry assignment record with the identical assignment date (enforced by `FOREIGN KEY (assignment_id, assignment_date_key)`). Database cardinality: $1..1$.
+  * *Relational Limitation:* The database constraints do NOT independently guarantee that every registry assignment has a corresponding fact row (a registry row can exist without a fact row).
+* **Platform Completeness Guarantee ($1..1$ Operational Enforcement):**
+  1. *Atomic Pipeline Ingestion:* The campaign ingestion procedure performs the registry insert and downstream fact insert within a single atomic database transaction.
+  2. *Automated Reconciliation Check:* An automated daily reconciliation check (`reconciliation_check_missing_campaign_fact_exposure`) executes at the end of the batch window:
+     ```sql
+     SELECT reg.assignment_id, reg.assignment_date_key, reg.campaign_key, reg.customer_key
+     FROM control.control_campaign_assignment_registry reg
+     LEFT JOIN gold.fact_campaign_exposure fct
+       ON reg.assignment_id = fct.assignment_id 
+      AND reg.assignment_date_key = fct.assignment_date_key
+     WHERE fct.assignment_id IS NULL;
+     ```
+     Any identified discrepancy halts publication, routes the unpropagated records to `silver.stg_quarantined_records`, and alerts the engineering on-call engineer.
+* **Control-Group Representation Without Dispatch:**
+  * Control-group records are inserted into `gold.fact_campaign_exposure` with `is_holdout_control_flag = TRUE`, `dispatch_status = 'NOT_DISPATCHED_HOLDOUT'`, `delivery_status = 'NOT_APPLICABLE_HOLDOUT'`, and `dispatch_timestamp = NULL`. Both treatment and control cohorts are fully queryable in the single conformed fact table.
 
 ##### Canonical Identifier Mapping:
 * **Canonical Input (Stable & Immutable):**
@@ -245,7 +269,7 @@ A rigorous theoretical heap and index storage recalculation for **1,000,000 assi
 
 ---
 
-#### 3.6 Primary Database Capacity Reconciliation (872 GB Dedicated DB Volume)
+#### 3.6 Primary Database Capacity Reconciliation & Volume Sizing (80% Utilization Target)
 To satisfy `NFR-006`'s 5-year active transactional history mandate without double-counting, the primary database storage footprint is reconciled across eight discrete, non-overlapping components:
 
 ```
@@ -261,16 +285,33 @@ To satisfy `NFR-006`'s 5-year active transactional history mandate without doubl
 | 07 | Write-Ahead Logging (WAL) Capacity | Journal  | **60 GB**          | Circular WAL buffer (max_wal_size=32GB + checkpoint spikes).  |
 | 08 | Operational Free-Space Allowance   | Safety   | **180 GB**         | Mandatory ~20% safety margin for online VACUUM FULL & reindex.|
 +----+------------------------------------+----------+--------------------+---------------------------------------------------------------+
-|    | **TOTAL PRIMARY DATABASE VOLUME**  | Dedicated| **872 GB**         | **Total Dedicated PostgreSQL Storage Mount (/var/lib/data)**   |
+|    | **TOTAL PRIMARY DATABASE ESTIMATE**| Dedicated| **872 GB**         | **Total Estimated Storage Footprint (~812.11 GiB)**           |
 +----+------------------------------------+----------+--------------------+---------------------------------------------------------------+
 ```
 
-##### Categorical Storage Disaggregation:
-1. **Active Core Database Storage (562 GB):** Heap (290 GB) + Indexes (172 GB) + TOAST (15 GB) + MVCC/Vacuum (85 GB). Represents the permanently active, queryable 5-year Gold analytical mart. Zero cold demotion.
-2. **Persistent Staging Storage (70 GB):** Bronze landing (25 GB) + Silver conformed staging (45 GB).
-3. **Transactional Journaling (60 GB):** Dedicated WAL headroom.
-4. **Filesystem Operational Safety Headroom (180 GB):** Ensures the filesystem never exceeds 80% utilization, preventing database crash-stops during table reorganizations.
-5. **Decoupled Secondary Infrastructure (470 GB outside Primary DB):** Compressed raw lake files (`data/raw/`, ~120 GB) and local backup staging (`/mnt/backups/`, ~350 GB) reside on separate storage mounts, totaling **~1,342 GB (~1.34 TB)** across the enterprise infrastructure. Zero double-counting.
+##### 1. Distinguishing Estimated Storage Consumption from Provisioned Capacity:
+* **Estimated Storage Footprint:** **872 GB** (decimal: $872 \times 10^9$ bytes) $\approx$ **812.11 GiB** (binary: $872 \times 10^9 / 2^{30}$ bytes).
+* **Governance Mandate:** The primary database mount must operate with **utilization not exceeding 80%** to guarantee stability.
+
+##### 2. Recalculation of Minimum Provisioned Volume Size:
+$$\text{Minimum Provisioned Capacity} = \frac{872 \text{ GB}}{0.80} = \mathbf{1,090 \text{ GB}} \quad (\approx 1,015.14 \text{ GiB})$$
+
+##### 3. Correction of Previous 1.0 TB Provisioning Recommendation:
+* An arbitrary **1.0 TB** (1,000 GB) disk allocation results in:
+  $$\text{Utilization} = \frac{872 \text{ GB}}{1,000 \text{ GB}} = \mathbf{87.2\%} \quad (\text{strictly violates the } \le 80\% \text{ utilization ceiling})$$
+  Even if provisioned as 1 TiB (1,024 GiB $\approx$ 1,099.5 GB), utilization reaches $79.3\%$, leaving negligible operational headroom.
+
+##### 4. Recommended Provisioned Volume Size (1.2 TB NVMe):
+* **Recommended Volume Provisioning:** **1.2 TB** ($1,200 \text{ GB} \approx 1,117.6 \text{ GiB}$) dedicated NVMe block storage volume mounted at `/var/lib/postgresql/data`.
+* **Resulting Operating Headroom:**
+  $$\text{Target Operating Utilization} = \frac{872 \text{ GB}}{1,200 \text{ GB}} = \mathbf{72.67\%} \quad (\le 80\% \text{ ceiling guaranteed})$$
+* **Unallocated Physical Headroom:** Provides **328 GB (27.3%)** unallocated filesystem space.
+
+##### 5. Component Headroom & Non-Overlapping Verification:
+* **MVCC / Vacuum Allowance (85 GB):** Represents internal database slack (dead tuple versions and page fillfactor headroom) within active PostgreSQL relations before autovacuum space reclamation (~15–18% of heap + indexes).
+* **Operational Free-Space Allowance (180 GB):** Represents filesystem-level unallocated workspace for `VACUUM FULL`, `REINDEX CONCURRENTLY`, and temporary sort files (`work_mem` spills). Completely distinct from internal table bloat (zero double-counting).
+* **WAL Storage Dynamics (60 GB):** In PostgreSQL, `max_wal_size` (default target 32 GB) is a checkpoint triggering target, not a hard filesystem reservation. During peak festive ingestion spikes (e.g. Diwali sales), WAL volume temporarily expands. Accounting for 60 GB provides a safe cushion within `/var/lib/postgresql/data/pg_wal`.
+* **Decoupled Auxiliary Mounts (470 GB outside Primary DB):** GZIP compressed raw archives (`data/raw/`, ~120 GB) and local backup staging (`/mnt/backups/`, ~350 GB) reside on separate filesystem volumes. Total enterprise infrastructure: $872 \text{ GB (DB)} + 470 \text{ GB (Aux)} = \mathbf{1,342 \text{ GB} \ (\sim 1.34 \text{ TB})}$.
 
 ---
 
@@ -314,7 +355,7 @@ erDiagram
 
     dim_campaign ||--o{ control_campaign_assignment_registry : "campaign_gate"
     dim_customer ||--o{ control_campaign_assignment_registry : "customer_gate"
-    control_campaign_assignment_registry ||--|| fact_campaign_exposure : "reconciles"
+    control_campaign_assignment_registry ||--o| fact_campaign_exposure : "FK: (assignment_id, assignment_date_key)"
 
     dim_date ||--o{ fact_demand_forecast : "target_horizon"
     dim_store ||--o{ fact_demand_forecast : "store_link"

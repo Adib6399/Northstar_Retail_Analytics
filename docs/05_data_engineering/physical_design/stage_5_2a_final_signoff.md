@@ -59,8 +59,9 @@ The certified Stage 5.2A physical design baseline comprises eight authoritative 
 +----+------------------------------------+-----------------------+---------------------------------------------------------------+
 | 05 | Global Campaign Registry Keys      | 100% RECONCILED       | PRIMARY KEY (assignment_id) BIGINT GENERATED ALWAYS AS        |
 |    |                                    |                       | IDENTITY; UNIQUE (campaign_id, customer_sk);                  |
-|    |                                    |                       | UNIQUE (campaign_key, customer_key). Referenced via FK by     |
-|    |                                    |                       | gold.fact_campaign_exposure(assignment_id).                   |
+|    |                                    |                       | UNIQUE (campaign_key, customer_key);                          |
+|    |                                    |                       | UNIQUE (assignment_id, assignment_date_key). Referenced via   |
+|    |                                    |                       | composite FK by gold.fact_campaign_exposure.                  |
 +----+------------------------------------+-----------------------+---------------------------------------------------------------+
 | 06 | Assignment Immutability            | 100% SPECIFIED        | 3-Tier Immutability: RBAC (REVOKE UPDATE/DELETE), engine      |
 |    |                                    |                       | trigger trg_prevent_locked_assignment_mutation, and append-   |
@@ -102,13 +103,20 @@ In `control.control_campaign_assignment_registry`:
 * **Distinct Identifiers:**
   * `control.control_campaign_assignment_registry.assignment_id` (`BIGINT`): Authoritative assignment event surrogate identifier.
   * `gold.fact_campaign_exposure.exposure_fact_key` (`BIGINT`): Independent analytical fact surrogate primary key.
+* **Registry Constraints Supporting Linkage:**
+  * `CONSTRAINT pk_control_campaign_assignment PRIMARY KEY (assignment_id)`
+  * `CONSTRAINT uq_campaign_customer_canonical UNIQUE (campaign_id, customer_sk)`
+  * `CONSTRAINT uq_campaign_customer_surrogate UNIQUE (campaign_key, customer_key)`
+  * `CONSTRAINT uq_campaign_assignment_date UNIQUE (assignment_id, assignment_date_key)` — guarantees composite uniqueness required for partitioned fact table foreign key reference.
 * **Explicit Foreign Key Relationship:**
-  * `gold.fact_campaign_exposure.assignment_id` (`BIGINT NOT NULL`)
-  * `CONSTRAINT fk_fact_exposure_assignment FOREIGN KEY (assignment_id) REFERENCES control.control_campaign_assignment_registry(assignment_id)`
-  * *PostgreSQL 16 Compatibility:* Declarative partitioned tables fully support foreign keys referencing unpartitioned parent tables.
-* **Partition-Compatible Constraint:**
+  * `gold.fact_campaign_exposure` references the composite pair `(assignment_id, assignment_date_key)`:
+  * `CONSTRAINT fk_fact_exposure_assignment FOREIGN KEY (assignment_id, assignment_date_key) REFERENCES control.control_campaign_assignment_registry(assignment_id, assignment_date_key)`
+  * *PostgreSQL 16 Engine Compatibility:* Declarative partitioned tables fully support foreign keys referencing unpartitioned parent tables with matching unique constraints. Referencing the composite pair guarantees that the exposure partition key matches the immutable assignment date key.
+* **Partition-Compatible Constraint on Fact:**
   * `CONSTRAINT uq_fact_exposure_assignment_partition UNIQUE (assignment_id, assignment_date_key)`
-  * Guarantees a strict **1-assignment-to-1-canonical-exposure** relationship across the entire platform.
+* **Cardinality Guarantee & Platform Completeness:**
+  * **Relational Cardinality:** The database schema enforces a strict $0..1$ relationship from registry to fact (a registry record has zero or one fact exposure records via unique constraint) and a $1..1$ relationship from fact to registry (every fact exposure record references exactly one valid registry record via foreign key).
+  * **Platform Completeness ($1..1$):** Because database DDL cannot force an insert into `fact_campaign_exposure` upon registry creation, end-to-end completeness is guaranteed via atomic pipeline transactions (both tables populated in one unit of work) and an automated daily reconciliation query detecting un-propagated assignments.
 * **Control-Group Representation Without Dispatch:**
   * Holdout control records are stored with `is_holdout_control_flag = TRUE`, `dispatch_status = 'NOT_DISPATCHED_HOLDOUT'`, `delivery_status = 'NOT_APPLICABLE_HOLDOUT'`, and `dispatch_timestamp = NULL`.
   * Guarantees that 100% of audience assignments (treatment + control) are queryable in the single canonical fact table `gold.fact_campaign_exposure` without creating any additional fact table.
@@ -140,7 +148,7 @@ In `control.control_campaign_assignment_registry`:
 6. **Total Estimated Registry Footprint:**
    * Heap (~248–283 MB) + Indexes (~165–215 MB) $\approx$ **~413 MB to ~498 MB** (~0.41 GB to ~0.50 GB).
 
-#### 4.4 Primary Database Capacity Reconciliation (872 GB Total)
+#### 4.4 Primary Database Capacity & Provisioning Reconciliation (872 GB Footprint)
 Reconciled across eight discrete components:
 1. **Gold Relational Heap Storage:** **290 GB** (1.57 Billion rows across 9 facts & 8 dimensions over 5 years).
 2. **Indexes (B-Tree + BRIN Matrix):** **172 GB** (composite PKs, FK joins, date ranges).
@@ -150,7 +158,11 @@ Reconciled across eight discrete components:
 6. **Bronze Ephemeral Landing Staging:** **25 GB** (rolling 14-day landing tables).
 7. **Write-Ahead Logging (WAL) Capacity:** **60 GB** (circular WAL buffer with checkpoint spike margin).
 8. **Operational Free-Space Allowance:** **180 GB** (mandatory ~20% safety margin for online VACUUM FULL & reindexing).
-* **Total Dedicated Primary Database Volume:** $290 + 172 + 15 + 85 + 45 + 25 + 60 + 180 = \mathbf{872 \text{ GB}}$.
+* **Total Dedicated Primary Database Footprint:** $290 + 172 + 15 + 85 + 45 + 25 + 60 + 180 = \mathbf{872 \text{ GB}}$ ($812.11 \text{ GiB}$).
+* **Provisioning Target Reconciliation ($\le 80\%$ Disk Utilization):**
+  * Minimum provisioned storage required: $\frac{872 \text{ GB}}{0.80} = \mathbf{1,090 \text{ GB}} \ (1,015.14 \text{ GiB})$.
+  * A standard 1.0 TB (1,000 GB) volume yields $\frac{872}{1000} = 87.2\%$ utilization, violating the enterprise $\le 80\%$ ceiling.
+  * **Recommended Allocation:** Provision a dedicated **1.2 TB NVMe block volume (1,200 GB / ~1,118 GiB)**. This yields $\frac{872}{1200} = \mathbf{72.67\% \text{ utilization}}$, providing **328 GB (27.33%)** of unallocated filesystem workspace for unexpected ingestion bursts, major index maintenance, and long-term retention buffer.
 * **Auxiliary File Infrastructure (Outside Primary DB):** Compressed raw lake (~120 GB) + backup staging (~350 GB) = 470 GB.
 * **Total Combined Infrastructure:** $872 + 470 = \mathbf{1,342 \text{ GB} \ (\sim 1.34 \text{ TB})}$. Zero double-counting.
 
@@ -162,8 +174,8 @@ The following design parameters are formally documented as theoretical baselines
 
 1. **ERP Interface Movement Codes (`ODQ-03`):** Movement types `251` (Goods Issue) and `451` (Customer Return) remain provisional design assumptions pending physical schema dumps from the central SAP ERP instance.
 2. **Empirical Query Latency Benchmarking (`NFR-003`):** Benchmark whether Power BI DAX queries scanning 11.3M rows in a single partition meet the 2.0-second SLA without requiring pre-aggregated summary rollups.
-3. **Production Database Volume Provisioning:** Allocate a dedicated **1.0 TB NVMe volume** for primary PostgreSQL data files to support the 872 GB active 5-year footprint.
-4. **Campaign Registry Empirical Storage Measurement:** Measure exact on-disk physical consumption using:
+3. **Production Database Volume Provisioning:** Allocate a dedicated **1.2 TB NVMe volume (1,200 GB / ~1,118 GiB)** for primary PostgreSQL data files to support the 872 GB active 5-year footprint at $\le 80\%$ disk utilization.
+4. **Campaign Registry Empirical Storage Measurement:** Physical footprint modeled at ~413–498 MB (~248–283 MB heap + ~165–215 MB indexes for 1M records with CHAR(64) hash, 90% fill factor heuristic) represents an engineering estimate. Exact on-disk physical consumption must be empirically validated in Stage 5.3 using:
    ```sql
    SELECT pg_size_pretty(pg_relation_size('control.control_campaign_assignment_registry')) AS heap_size,
           pg_size_pretty(pg_total_relation_size('control.control_campaign_assignment_registry')) AS total_size;

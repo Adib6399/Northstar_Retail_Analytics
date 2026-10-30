@@ -125,11 +125,12 @@
 * **Partition Key:** `assignment_date_key` (Range partitioned by Year).
   * *Critical Architectural Justification:* In a marketing experiment, **control-group customers are intentionally quarantined from communication** and therefore **never dispatched**. If partitioned on dispatch date, control records would possess a NULL partition key, violating PostgreSQL 16 partitioning rules. Partitioning on `assignment_date_key` (the calendar date the audience cohort was locked) guarantees that both treatment and control populations are stored, partitioned, and queried uniformly.
 * **Physical Primary Key:** Composite Key `(exposure_fact_key, assignment_date_key)` where `exposure_fact_key` is an independent synthetic fact surrogate (`BIGINT GENERATED ALWAYS AS IDENTITY`).
-* **Authoritative Registry Link & Global Uniqueness:**
-  * *Foreign Key to Registry:* `assignment_id` (`BIGINT NOT NULL`) references `control.control_campaign_assignment_registry(assignment_id)`.
+* **Authoritative Registry Link & Cardinality Specification:**
+  * *Composite Foreign Key to Registry:* `FOREIGN KEY (assignment_id, assignment_date_key) REFERENCES control.control_campaign_assignment_registry(assignment_id, assignment_date_key)`. This composite reference guarantees that the fact row references the registry's exact canonical assignment date.
   * *Partition-Compatible Unique Constraint:* `CONSTRAINT uq_fact_exposure_assignment_partition UNIQUE (assignment_id, assignment_date_key)`.
   * *Intra-Partition Constraint:* Enforced via a local unique index on `(campaign_key, customer_key, assignment_date_key)`.
-  * *1:1 Relationship:* The combination of global registry uniqueness on `assignment_id` and the partition-compatible unique constraint guarantees a strict **one-assignment-to-one-canonical-exposure** relationship across the platform. Control-group assignments are represented with `dispatch_status = 'NOT_DISPATCHED_HOLDOUT'` and `delivery_status = 'NOT_APPLICABLE_HOLDOUT'`, preserving the approved 9 fact tables.
+  * *Relational Cardinality:* A registry assignment record can have at most one canonical fact exposure ($0..1$), while a fact exposure must reference exactly one valid registry record with the same assignment date ($1..1$). The database constraints do not independently guarantee that every registry row has a fact row.
+  * *Platform Completeness Guarantee:* Eventual $1..1$ completeness is guaranteed via atomic pipeline transaction execution (inserting into both registry and fact table) and an automated daily reconciliation query (`reconciliation_check_missing_campaign_fact_exposure`) detecting any orphaned registry records. Control-group assignments are represented with `dispatch_status = 'NOT_DISPATCHED_HOLDOUT'` and `delivery_status = 'NOT_APPLICABLE_HOLDOUT'`, preserving the approved 9 fact tables.
 
 ##### 2.8.1 Cryptographic HMAC-SHA256 Holdout Hashing & Integer Threshold Specification
 To eliminate hashing collisions, non-uniform distributions, and floating-point normalization anomalies:

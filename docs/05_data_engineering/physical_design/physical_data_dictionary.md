@@ -241,17 +241,17 @@
 
 #### 2.8 Table: `gold.fact_campaign_exposure` (Range Partitioned by Year on `assignment_date_key`)
 * **Physical PK:** `(exposure_fact_key, assignment_date_key)`
-* **Foreign Key to Registry:** `CONSTRAINT fk_fact_exposure_assignment FOREIGN KEY (assignment_id) REFERENCES control.control_campaign_assignment_registry(assignment_id)`
+* **Composite Foreign Key to Registry:** `CONSTRAINT fk_fact_exposure_assignment FOREIGN KEY (assignment_id, assignment_date_key) REFERENCES control.control_campaign_assignment_registry(assignment_id, assignment_date_key)`
 * **Partition-Compatible Unique Constraints:**
   * `CONSTRAINT uq_fact_exposure_assignment_partition UNIQUE (assignment_id, assignment_date_key)`
   * `CONSTRAINT uq_fact_exposure_cohort_partition UNIQUE (campaign_key, customer_key, assignment_date_key)`
-* **Grain:** Strictly one customer assignment & communication dispatch record per campaign (1-assignment-to-1-canonical-exposure relationship). Supports control-group assignments with zero dispatch events.
+* **Grain & Cardinality:** Strictly one customer assignment & communication dispatch record per campaign (cardinality: $1..1$ referencing registry with identical assignment date). Supports control-group assignments with zero dispatch events.
 
 | Column Name | PostgreSQL Data Type | Nullable | Key Type | Default Value | Business Description / Derivation Rule |
 | :--- | :--- | :---: | :---: | :--- | :--- |
 | `exposure_fact_key` | `BIGINT` | NO | PK (Part) | `GENERATED ALWAYS AS IDENTITY` | Independent analytical fact surrogate primary key |
-| `assignment_id` | `BIGINT` | NO | FK/Unique | None | Foreign key referencing authoritative assignment in `control.control_campaign_assignment_registry(assignment_id)` |
-| `assignment_date_key` | `INTEGER` | NO | PK/FK | None | Date cohort was locked referencing `dim_date.date_key` (Partition Key)|
+| `assignment_id` | `BIGINT` | NO | FK/Unique | None | Composite foreign key component referencing `control.control_campaign_assignment_registry(assignment_id, assignment_date_key)` |
+| `assignment_date_key` | `INTEGER` | NO | PK/FK/Unique| None | Partition key referencing `dim_date.date_key` and matching registry assignment date |
 | `campaign_key` | `INTEGER` | NO | FK | None | Campaign referencing `dim_campaign.campaign_key` |
 | `customer_key` | `BIGINT` | NO | FK | None | Pseudonymized customer referencing `dim_customer.customer_key` |
 | `is_holdout_control_flag`| `BOOLEAN` | NO | Non-Add | `FALSE` | `TRUE` if assigned to 10% uncontacted control group (`FR-018`) |
@@ -502,18 +502,19 @@
 * **Physical PK:** `assignment_id` (`BIGINT GENERATED ALWAYS AS IDENTITY`)
 * **Canonical Unique Constraint:** `CONSTRAINT uq_campaign_customer_canonical UNIQUE (campaign_id, customer_sk)`
 * **Surrogate Unique Constraint:** `CONSTRAINT uq_campaign_customer_surrogate UNIQUE (campaign_key, customer_key)`
+* **Composite Assignment Date Unique Constraint:** `CONSTRAINT uq_campaign_assignment_date UNIQUE (assignment_id, assignment_date_key)`
 * **Role:** Unpartitioned authoritative state register guaranteeing global customer assignment uniqueness, canonical HMAC reproducibility, and cohort immutability across campaign dates.
 * **Storage Footprint:** Modeled at ~248–283 MB heap (~260–270 MiB at 90% usable page capacity) + ~165–215 MB B-tree indexes (~413–498 MB total for 1,000,000 assignments); storage labeled as **pending empirical measurement during Stage 5.3 benchmarking** (`pg_total_relation_size`).
 * **Immutability Enforcement:** Role-based access control (REVOKE UPDATE/DELETE) combined with PostgreSQL engine trigger `trg_prevent_locked_assignment_mutation` preventing changes to locked attributes (`campaign_id`, `customer_sk`, `campaign_key`, `customer_key`, `assignment_date_key`, `is_holdout_control_flag`, `assignment_hash_value`, `holdout_key_version`).
 
 | Column Name | PostgreSQL Data Type | Nullable | Key Type | Default Value | Business Description |
 | :--- | :--- | :---: | :---: | :--- | :--- |
-| `assignment_id` | `BIGINT` | NO | PK | `GENERATED ALWAYS AS IDENTITY` | Compact 64-bit surrogate primary key |
+| `assignment_id` | `BIGINT` | NO | PK/Unique | `GENERATED ALWAYS AS IDENTITY` | Compact 64-bit surrogate primary key |
 | `campaign_id` | `VARCHAR(50)` | NO | Natural/Unique | None | Immutable upstream campaign business code (HMAC input 1) |
 | `customer_sk` | `CHAR(64)` | NO | Natural/Unique | None | Immutable customer cryptographic pseudonym digest (HMAC input 2) |
 | `campaign_key` | `INTEGER` | NO | FK/Unique | None | Foreign key referencing `dim_campaign.campaign_key` |
 | `customer_key` | `BIGINT` | NO | FK/Unique | None | Foreign key referencing `dim_customer.customer_key` |
-| `assignment_date_key` | `INTEGER` | NO | FK | None | Locked assignment date referencing `dim_date.date_key` |
+| `assignment_date_key` | `INTEGER` | NO | FK/Unique | None | Locked assignment date referencing `dim_date.date_key` (composite unique with `assignment_id`) |
 | `assignment_timestamp` | `TIMESTAMPTZ` | NO | None | `CURRENT_TIMESTAMP` | Exact cohort generation timestamp |
 | `is_holdout_control_flag`| `BOOLEAN` | NO | None | None | Assigned cohort (`TRUE` = 10% Control, `FALSE` = Treatment) |
 | `assignment_hash_value`| `CHAR(64)` | NO | None | None | Complete 64-character HMAC-SHA256 hexadecimal digest |
