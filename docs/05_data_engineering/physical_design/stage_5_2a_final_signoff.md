@@ -16,6 +16,8 @@
   * Stage 5.1: Development Environment & Repository Foundation (`OFFICIALLY APPROVED & CLOSED`)
 * **Database Platform:** PostgreSQL 16 on `localhost:5433` (Target: `northstar_analytics_dev`)
 * **Baseline Date:** October 31, 2026
+* **Controlled Amendments:**
+  * **Amendment 5.2B.1-AMEND-01 (October 31, 2026):** Standardized `customer_key` to `BIGINT GENERATED ALWAYS AS IDENTITY` across `gold.dim_customer` and all referencing foreign keys (`gold.fact_sales`, `gold.fact_payments`, `gold.fact_returns`, `gold.fact_campaign_exposure`, `control.control_campaign_assignment_registry`) adopting Option A for enterprise omnichannel scale.
 * **Stage 5.2A Status:** **PHYSICAL DATABASE DESIGN CERTIFIED & FROZEN — AWAITING FORMAL STAGE 5.2B DDL AUTHORIZATION**
 
 ---

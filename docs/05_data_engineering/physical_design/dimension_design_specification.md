@@ -21,7 +21,7 @@
 | 01 | dim_date           | Enterprise Calendar     | calendar_date      | date_key (INTEGER)| Dynamic Reference  | Continuous Extension   |
 | 02 | dim_store          | Retail Stores & DCs     | store_id           | store_key (INT)   | SCD Type 2         | Area, Rent, Manager    |
 | 03 | dim_product        | Merchandise Item (SKU)  | sku_id (EAN / Bar) | product_key (INT) | SCD Type 2         | Cost, Category, MRP    |
-| 04 | dim_customer       | Pseudonymized Shopper   | customer_sk (HMAC) | customer_key (INT)| SCD Type 1         | RFM Scores, Segments   |
+| 04 | dim_customer       | Pseudonymized Shopper   | customer_sk (HMAC) | customer_key (BIGINT)| SCD Type 1         | RFM Scores, Segments   |
 | 05 | dim_promotion      | Promotional Codes       | promo_code         | promotion_key(INT)| SCD Type 1         | Discount & Aging Tiers |
 | 06 | dim_campaign       | CRM Campaigns           | campaign_id        | campaign_key (INT)| SCD Type 1         | Media & Budget Master  |
 | 07 | dim_supplier       | Commercial Vendors      | vendor_id          | supplier_key (INT)| SCD Type 1         | Lead Times & Terms     |

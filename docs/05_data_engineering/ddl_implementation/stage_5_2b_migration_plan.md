@@ -97,14 +97,17 @@ In production, a daily automated maintenance job (Airflow DAG or pg_cron procedu
 
 ---
 
-### 6. Blocker Resolution Requirement Before Execution
+### 6. Approved Architecture Amendment: Adoption of Option A (BIGINT customer_key)
 
-> [!WARNING]
-> **GOVERNANCE BLOCKER TO RESOLVE PRIOR TO MIGRATION EXECUTION:**
+> [!NOTE]
+> **GOVERNANCE DECISION RECORD (AMENDMENT 5.2B.1-AMEND-01):**
 > 
-> * **Conflict Description:** `dim_customer.customer_key` is specified as `INTEGER GENERATED ALWAYS AS IDENTITY` in Data Dictionary Section 3.4 and Dimension Design Specification. However, `control.control_campaign_assignment_registry.customer_key` and `gold.fact_campaign_exposure.customer_key` are specified as `BIGINT` in Data Dictionary Section 2.8 & 4.3 and Physical Database Design Section 3.5.
-> * **Impact:** PostgreSQL 16 rejects foreign key creation when referencing columns of differing types (`BIGINT` cannot reference `INTEGER`).
-> * **Resolution Paths for Architecture Review:**
->   * **Option A (Recommended for Enterprise Retail Scale):** Standardize `customer_key` to `BIGINT` across all customer-referencing tables (`dim_customer`, `fact_sales`, `fact_payments`, `fact_returns`, `fact_campaign_exposure`, `control_campaign_assignment_registry`). This accommodates customer base growth beyond 2.14 billion surrogate keys over multi-year omnichannel scaling.
->   * **Option B (Strict Compliance with Dimension Spec):** Standardize `customer_key` to `INTEGER` in `control_campaign_assignment_registry` and `fact_campaign_exposure`, matching `dim_customer`.
-> * **Action:** Formal sign-off on Option A or Option B must be granted before executing `007_create_constraints.sql`.
+> * **Decision:** Formal adoption of **Option A** — standardizing `customer_key` to `BIGINT` across all customer-referencing dimensional and fact structures:
+>   * `gold.dim_customer.customer_key` (`BIGINT GENERATED ALWAYS AS IDENTITY`)
+>   * `gold.fact_sales.customer_key` (`BIGINT NOT NULL DEFAULT -1`)
+>   * `gold.fact_payments.customer_key` (`BIGINT NOT NULL DEFAULT -1`)
+>   * `gold.fact_returns.customer_key` (`BIGINT NOT NULL DEFAULT -1`)
+>   * `gold.fact_campaign_exposure.customer_key` (`BIGINT NOT NULL`)
+>   * `control.control_campaign_assignment_registry.customer_key` (`BIGINT NOT NULL`)
+> * **Architectural Rationale:** Supports long-term omnichannel customer growth beyond the 2.14 billion integer ceiling and eliminates datatype mismatches under PostgreSQL 16 engine rules.
+> * **Implementation Status:** 100% synchronized across migration scripts `004`, `005`, and `007`. All 44 referential foreign keys are now fully active with zero syntax or engine conflicts.

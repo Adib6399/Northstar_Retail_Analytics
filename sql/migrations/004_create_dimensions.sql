@@ -128,10 +128,10 @@ COMMENT ON TABLE gold.dim_product IS 'Conformed product merchandise dimension wi
 -- ----------------------------------------------------------------------------
 -- 5. Table: gold.dim_customer
 -- SCD Type 1 Dimension tracking pseudonymized loyalty profiles and RFM quintiles
--- Note: customer_key defined as INTEGER per Data Dictionary Section 3.4
+-- Note: customer_key standardized to BIGINT per Stage 5.2B controlled amendment (Option A)
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS gold.dim_customer (
-    customer_key INTEGER GENERATED ALWAYS AS IDENTITY,
+    customer_key BIGINT GENERATED ALWAYS AS IDENTITY,
     customer_sk CHAR(64) NOT NULL,
     registration_store_id VARCHAR(20) NULL,
     loyalty_tier VARCHAR(20) NOT NULL DEFAULT 'BRONZE',

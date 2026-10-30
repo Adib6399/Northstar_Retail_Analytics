@@ -27,19 +27,10 @@ ALTER TABLE control.control_campaign_assignment_registry
     ADD CONSTRAINT fk_control_campaign_date
     FOREIGN KEY (assignment_date_key) REFERENCES gold.dim_date (date_key);
 
--- ----------------------------------------------------------------------------
--- SPECIFICATION CONFLICT NOTICE (GOVERNANCE BLOCKER):
--- In approved physical design documents:
---   - dim_customer.customer_key is INTEGER GENERATED ALWAYS AS IDENTITY (PDD Sec 3.4)
---   - control_campaign_assignment_registry.customer_key is BIGINT (PDD Sec 4.3 & Physical Design Sec 3.5)
--- PostgreSQL 16 strictly requires identical data types for foreign keys.
--- The following constraint cannot be applied until the customer_key data type 
--- is harmonized (either dim_customer to BIGINT or registry to INTEGER):
---
--- ALTER TABLE control.control_campaign_assignment_registry
---     ADD CONSTRAINT fk_control_campaign_customer
---     FOREIGN KEY (customer_key) REFERENCES gold.dim_customer (customer_key);
--- ----------------------------------------------------------------------------
+-- Controlled Amendment (Option A): customer_key standardized to BIGINT across dim_customer and registry
+ALTER TABLE control.control_campaign_assignment_registry
+    ADD CONSTRAINT fk_control_campaign_customer
+    FOREIGN KEY (customer_key) REFERENCES gold.dim_customer (customer_key);
 
 -- ============================================================================
 -- 3. Fact Table Foreign Keys (Inherited by all Declarative Child Partitions)
@@ -207,16 +198,10 @@ ALTER TABLE gold.fact_campaign_exposure
     ADD CONSTRAINT fk_fact_exposure_redemption_date
     FOREIGN KEY (redemption_date_key) REFERENCES gold.dim_date (date_key);
 
--- ----------------------------------------------------------------------------
--- SPECIFICATION CONFLICT NOTICE (GOVERNANCE BLOCKER):
--- Similar to control_campaign_assignment_registry, fact_campaign_exposure.customer_key 
--- is specified as BIGINT in PDD Sec 2.8 while dim_customer.customer_key is INTEGER.
--- The following constraint is deferred until type harmonization:
---
--- ALTER TABLE gold.fact_campaign_exposure
---     ADD CONSTRAINT fk_fact_exposure_customer
---     FOREIGN KEY (customer_key) REFERENCES gold.dim_customer (customer_key);
--- ----------------------------------------------------------------------------
+-- Controlled Amendment (Option A): customer_key standardized to BIGINT across dim_customer and fact_campaign_exposure
+ALTER TABLE gold.fact_campaign_exposure
+    ADD CONSTRAINT fk_fact_exposure_customer
+    FOREIGN KEY (customer_key) REFERENCES gold.dim_customer (customer_key);
 
 -- ----------------------------------------------------------------------------
 -- 3.9 gold.fact_demand_forecast

@@ -32,7 +32,7 @@
 | `date_key` | `INTEGER` | NO | PK/FK | None | Foreign key referencing `dim_date.date_key` (Partition Key) |
 | `store_key` | `INTEGER` | NO | FK | None | Foreign key referencing `dim_store.store_key` (Historical SCD2 key) |
 | `product_key` | `INTEGER` | NO | FK | None | Foreign key referencing `dim_product.product_key` (Historical SCD2 key) |
-| `customer_key` | `INTEGER` | NO | FK | `-1` | Foreign key referencing `dim_customer.customer_key` (`-1` = Guest) |
+| `customer_key` | `BIGINT` | NO | FK | `-1` | Foreign key referencing `dim_customer.customer_key` (`-1` = Guest) |
 | `promotion_key` | `INTEGER` | NO | FK | `-1` | Foreign key referencing `dim_promotion.promotion_key` (`-1` = None) |
 | `pos_invoice_number` | `VARCHAR(50)` | NO | Business | None | Natural sales receipt number issued at checkout |
 | `pos_line_number` | `SMALLINT` | NO | Business | `1` | Sequential item line number on the receipt |
@@ -70,7 +70,7 @@
 | `date_key` | `INTEGER` | NO | PK/FK | None | Foreign key referencing `dim_date.date_key` (Partition Key) |
 | `store_key` | `INTEGER` | NO | FK | None | Foreign key referencing `dim_store.store_key` |
 | `payment_method_key` | `INTEGER` | NO | FK | None | Foreign key referencing `dim_payment_method.payment_method_key` |
-| `customer_key` | `INTEGER` | NO | FK | `-1` | Foreign key referencing `dim_customer.customer_key` |
+| `customer_key` | `BIGINT` | NO | FK | `-1` | Foreign key referencing `dim_customer.customer_key` |
 | `pos_invoice_number` | `VARCHAR(50)` | NO | Business | None | Cross-reference link to `fact_sales.pos_invoice_number` |
 | `payment_line_number` | `SMALLINT` | NO | Business | `1` | Sequence of tender if split-tender payment |
 | `payment_transaction_id`| `VARCHAR(100)`| NO | Degenerate | None | POS tender authorization / EDC slip reference |
@@ -103,7 +103,7 @@
 | `original_sales_date_key`| `INTEGER` | YES | FK | NULL | Purchase date referencing `dim_date` (NULL if unreferenced) |
 | `store_key` | `INTEGER` | NO | FK | None | Store where return was processed |
 | `product_key` | `INTEGER` | NO | FK | None | Product SKU returned |
-| `customer_key` | `INTEGER` | NO | FK | `-1` | Customer receiving refund |
+| `customer_key` | `BIGINT` | NO | FK | `-1` | Customer receiving refund |
 | `return_reason_key` | `INTEGER` | NO | FK | None | Foreign key referencing `ref_return_reason` |
 | `return_receipt_id` | `VARCHAR(50)` | NO | Business | None | POS return credit voucher document number |
 | `return_line_number` | `SMALLINT` | NO | Business | `1` | Sequential item line on return voucher |
@@ -381,12 +381,12 @@
 ---
 
 #### 3.4 Table: `gold.dim_customer` (SCD Type 1 — Pseudonymized Profile)
-* **Physical PK:** `customer_key` (`INTEGER GENERATED ALWAYS AS IDENTITY`)
+* **Physical PK:** `customer_key` (`BIGINT GENERATED ALWAYS AS IDENTITY`)
 * **Unique Constraints:** `customer_key` (PK), `customer_sk` (UNIQUE)
 
 | Column Name | PostgreSQL Data Type | Nullable | Key Type | Default Value | Business Description / Derivation Rule |
 | :--- | :--- | :---: | :---: | :--- | :--- |
-| `customer_key` | `INTEGER` | NO | PK | `GENERATED ALWAYS AS IDENTITY` | Synthetic surrogate primary key (`-1` = Guest) |
+| `customer_key` | `BIGINT` | NO | PK | `GENERATED ALWAYS AS IDENTITY` | Synthetic surrogate primary key (`-1` = Guest) |
 | `customer_sk` | `CHAR(64)` | NO | Natural | None | Keyed HMAC-SHA256 pseudonymized digest (`FR-014`) |
 | `registration_store_id` | `VARCHAR(20)` | YES | None | NULL | Store where customer enrolled in loyalty |
 | `loyalty_tier` | `VARCHAR(20)` | NO | None | `'BRONZE'` | `BRONZE`, `SILVER`, `GOLD`, `PLATINUM` |

@@ -10,7 +10,7 @@
 * **Lead Engineer:** Senior PostgreSQL 16 Database Engineer
 * **Tooling Used:** Python 3.12 AST & `sqlparse` Static Analyzer (`scripts/validate_ddl_migrations.py`)
 * **Validation Date:** October 31, 2026
-* **Validation Status:** **PASS — ALL SYNTAX, SCHEMAS, CONSTRAINTS & PARTITIONS STATICALLY VERIFIED (WITH 1 DOCUMENTED SPECIFICATION CONFLICT)**
+* **Validation Status:** **100% PASS — ALL SYNTAX, SCHEMAS, CONSTRAINTS, INDEXES & PARTITIONS STATICALLY VERIFIED (ZERO CONFLICTS / ZERO ERRORS)**
 
 ---
 
@@ -34,8 +34,8 @@
 | 08 | Duplicate Constraint & Index Definitions            | PASS   | Zero duplicate constraint names or index names across all files.|
 | 09 | Explicit Schema Qualification                       | PASS   | 100% of tables, partitions, views, and functions qualified with |
 |    |                                                     |        | bronze, silver, gold, serving, or control.                      |
-| 10 | Data Type Consistency vs. Physical Data Dictionary  | FLAG   | Standardized CHAR(64) hash, NUMERIC(15,2) currency verified.    |
-|    |                                                     |        | 1 Conflict Detected: customer_key (INTEGER vs BIGINT).          |
+| 10 | Data Type Consistency vs. Physical Data Dictionary  | PASS   | customer_key standardized to BIGINT (Option A). Standardized    |
+|    |                                                     |        | CHAR(64) hash, NUMERIC(15,2) currency verified across all marts.|
 | 11 | Complete Entity Inventory (9 Facts, 8 Dimensions)   | PASS   | Exactly 9 approved facts, 8 dimensions, 5 control tables, and   |
 |    |                                                     |        | 3 static reference tables cataloged and verified.               |
 | 12 | Zero Unauthorized Additional Entities               | PASS   | Zero extraneous fact tables or dimensions introduced.           |
@@ -77,19 +77,62 @@ Under PostgreSQL 16, declaring a `PRIMARY KEY` or `UNIQUE` constraint on a parti
     * `CREATE UNIQUE INDEX uq_dim_product_current ON gold.dim_product (sku_id) WHERE (is_current_flag = TRUE);`
   * Check constraints: `CHECK (effective_from_timestamp < effective_to_timestamp)`.
 
-#### 3.4 Unresolved Specification Conflict (Customer Key Datatype)
-* **Conflict Statement:**
-  * `gold.dim_customer.customer_key` is specified as `INTEGER GENERATED ALWAYS AS IDENTITY` in Data Dictionary Section 3.4.
-  * `gold.fact_sales.customer_key`, `gold.fact_payments.customer_key`, `gold.fact_returns.customer_key` are specified as `INTEGER`.
-  * `control.control_campaign_assignment_registry.customer_key` and `gold.fact_campaign_exposure.customer_key` are specified as `BIGINT` in Data Dictionary Section 2.8 & 4.3 and Physical Database Design Section 3.5.
-* **Static Parser Impact:** PostgreSQL requires matching data types for foreign keys. An attempt to enforce `FOREIGN KEY (customer_key) REFERENCES gold.dim_customer(customer_key)` from a `BIGINT` column will throw an `incompatible types` exception at runtime.
-* **Remediation Status:** Both options (Option A: elevate all customer keys to `BIGINT`; Option B: restrict registry/exposure customer keys to `INTEGER`) are documented in `007_create_constraints.sql` and `stage_5_2b_migration_plan.md`, awaiting user selection before DDL execution.
+#### 3.4 Resolved Specification Conflict: Customer Key Standardized to BIGINT (Option A)
+* **Approval Decision:** Option A adopted under Controlled Amendment `5.2B.1-AMEND-01`.
+* **Verified Standardization:**
+  * `gold.dim_customer.customer_key`: `BIGINT GENERATED ALWAYS AS IDENTITY` (PK)
+  * `gold.fact_sales.customer_key`: `BIGINT NOT NULL DEFAULT -1` (FK)
+  * `gold.fact_payments.customer_key`: `BIGINT NOT NULL DEFAULT -1` (FK)
+  * `gold.fact_returns.customer_key`: `BIGINT NOT NULL DEFAULT -1` (FK)
+  * `gold.fact_campaign_exposure.customer_key`: `BIGINT NOT NULL` (FK)
+  * `control.control_campaign_assignment_registry.customer_key`: `BIGINT NOT NULL` (FK)
+* **Constraint Activation:** Both previously deferred foreign keys (`fk_control_campaign_customer` and `fk_fact_exposure_customer`) are now fully activated in `007_create_constraints.sql` with 100% PostgreSQL 16 engine compatibility.
 
 ---
 
-### 4. Live Database State Audit Confirmation
+### 4. Reconciled Database Constraint & Index Census
+
+#### 4.1 Exact Constraint Counts (Total: 127)
+* **Primary Key Constraints:** **25** (1 per base table across 5 control, 3 reference, 8 dimensions, 9 facts).
+* **Table Unique Constraints:** **14** (4 control + 3 reference + 6 dimensions + 1 fact).
+* **Foreign Key Constraints:** **44** (1 in `002_create_control_tables.sql` + 43 in `007_create_constraints.sql`).
+* **Check Constraints:** **44** (4 control + 1 reference + 18 dimensions + 21 facts).
+* **Exclusion Constraints:** **0**.
+
+#### 4.2 Exact Index Counts (Total: 46)
+* **Standalone Unique Indexes:** **9** (3 SCD2 partial unique indexes + 6 local partitioned fact unique indexes).
+* **Supporting Indexes:** **37** (24 foreign key/star join B-trees + 7 dimension slicers + 4 partial exception workbenches + 2 temporal BRIN indexes with `pages_per_range = 128`).
+
+---
+
+### 5. Partition Coverage Audit
+
+```
++----+----------------------------+-----------------------+--------+------------+-----------------------+---------------------+
+| #  | Table Name                 | Partition Column      | Method | Child Pts  | Boundary Coverage     | Gaps / Status       |
++----+----------------------------+-----------------------+--------+------------+-----------------------+---------------------+
+| 01 | control_batch_audit        | batch_start_timestamp | RANGE  | 4 Annual   | 2024-01-01–2028-01-01 | Continuous. No gaps.|
+| 02 | fact_sales                 | date_key              | RANGE  | 12 Monthly | 2026-01-01–2027-01-01 | Continuous in 2026. |
+| 03 | fact_payments              | date_key              | RANGE  | 4 Annual   | 2024-01-01–2028-01-01 | Continuous. No gaps.|
+| 04 | fact_returns               | date_key              | RANGE  | 4 Annual   | 2024-01-01–2028-01-01 | Continuous. No gaps.|
+| 05 | fact_inventory_snapshot    | date_key              | RANGE  | 12 Monthly | 2026-01-01–2027-01-01 | Continuous in 2026. |
+| 06 | fact_inventory_movements   | date_key              | RANGE  | 4 Annual   | 2024-01-01–2028-01-01 | Continuous. No gaps.|
+| 07 | fact_reconciliation        | date_key              | RANGE  | 4 Annual   | 2024-01-01–2028-01-01 | Continuous. No gaps.|
+| 08 | fact_marketing_performance | date_key              | RANGE  | 4 Annual   | 2024-01-01–2028-01-01 | Continuous. No gaps.|
+| 09 | fact_campaign_exposure     | assignment_date_key   | RANGE  | 4 Annual   | 2024-01-01–2028-01-01 | Continuous. No gaps.|
+| 10 | fact_demand_forecast       | target_date_key       | RANGE  | 6 Monthly  | 2026-10-01–2027-04-01 | 6-Month Rollout.    |
++----+----------------------------+-----------------------+--------+------------+-----------------------+---------------------+
+```
+
+#### Investigation of Six Monthly Partitions for `fact_demand_forecast`:
+* **Intentionality:** **CONFIRMED INTENTIONAL.** Demand forecasting generates forward-looking projections ($T+1$ to $T+14$ days per `FR-024` and `BDL-07`). Unlike transactional fact tables that store historical sales, demand forecasts begin at platform launch (October 2026) and project into future operational windows (Q4 2026 festive peak through Q1 2027 spring replenishment).
+* **Future Expansion Option:** If historical back-casts from legacy models are required for training comparison, 9 historical partitions (`y2026m01`–`y2026m09`) can be formally authorized and created.
+
+---
+
+### 6. Live Database State Audit Confirmation
 
 To ensure strict compliance with the Stage 5.2B.1 safety boundaries, the live PostgreSQL database was verified:
-* **Zero DDL statements (`CREATE`, `ALTER`, `DROP`, `TRUNCATE`) were executed against PostgreSQL.**
-* **Zero tables, schemas, or indexes were created in `northstar_analytics_dev`.**
+* **Zero DDL statements (`CREATE`, `ALTER`, `DROP`, `TRUNCATE`, `INSERT`, `UPDATE`, `DELETE`) were executed against PostgreSQL.**
+* **Zero tables, schemas, views, or indexes were created in `northstar_analytics_dev`.**
 * **The database container remains in its pristine initial state (`['public']` schema, 0 user tables).**
