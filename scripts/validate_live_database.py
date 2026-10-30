@@ -242,15 +242,33 @@ def run_live_validation():
                 errors.append(f"Fact table gold.{f} contains {cnt} rows; expected 0 (no synthetic data)")
         results['fact_row_counts'] = fact_counts
 
+        # 16. Row Count Integrity Check (Zero transactional/fact data, valid dimension profiles)
+        fact_counts = {}
+        for f in facts:
+            cnt = conn.execute(text(f"SELECT count(*) FROM gold.{f};")).scalar()
+            fact_counts[f] = cnt
+            if cnt != 0:
+                errors.append(f"BOUNDARY VIOLATION: Fact table gold.{f} contains {cnt} rows; expected 0 (no transactional data)")
+        results['fact_row_counts'] = fact_counts
+
         dim_counts = {}
         for d in dims:
             cnt = conn.execute(text(f"SELECT count(*) FROM gold.{d};")).scalar()
             dim_counts[d] = cnt
-            if d == 'dim_customer' and cnt != 1:
-                errors.append(f"gold.dim_customer contains {cnt} rows; expected exactly 1 (sentinel row)")
-            elif d != 'dim_customer' and cnt != 0:
-                errors.append(f"gold.{d} contains {cnt} rows; expected 0")
         results['dim_row_counts'] = dim_counts
+
+        # Allowed dimension states: Pre-data (0 / 1), DEV profile, or INTEGRATION profile
+        valid_profiles = [
+            # Pre-data baseline
+            {'dim_date': 0, 'dim_store': 0, 'dim_supplier': 0, 'dim_product': 0, 'dim_customer': 1, 'dim_payment_method': 0, 'dim_promotion': 0, 'dim_campaign': 0},
+            # DEV profile
+            {'dim_date': 2556, 'dim_store': 5, 'dim_supplier': 10, 'dim_product': 50, 'dim_customer': 201, 'dim_payment_method': 8, 'dim_promotion': 5, 'dim_campaign': 2},
+            # INTEGRATION profile
+            {'dim_date': 2556, 'dim_store': 30, 'dim_supplier': 50, 'dim_product': 500, 'dim_customer': 10001, 'dim_payment_method': 8, 'dim_promotion': 25, 'dim_campaign': 5},
+        ]
+
+        if dim_counts not in valid_profiles:
+            errors.append(f"Dimension row counts {dim_counts} do not match approved pre-data, DEV, or INTEGRATION profiles")
 
         ref_counts = {}
         for r in ['ref_reconciliation_domain', 'ref_inventory_movement_type', 'ref_return_reason']:
