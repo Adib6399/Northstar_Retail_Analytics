@@ -1,33 +1,33 @@
 # Northstar Retail Group — Enterprise Retail Analytics Platform
-## Stage 5.2A: Fact Table Grain Definitions & Loading Specifications
+## Stage 5.2A: Fact Table Grain Definitions & Loading Specifications (Revised Post-Audit)
 
 ---
 
-### 1. Document Control & Architectural Framework
+### 1. Document Control & Framework Overview
 
-* **Document Identifier:** `NRG-PDD-5.2A-003`
-* **Phase:** Stage 5.2A — Physical Database Design
-* **Scope:** In-depth technical specifications of the business grains, primary/foreign key architectures, measure classifications, deduplication mechanics, late-arriving dimension strategies, and incremental ELT workflows for all **nine approved fact tables**.
-* **Key Modeling Principle:** Fact table grains differ fundamentally across the enterprise. Transaction facts capture discrete checkout events; periodic snapshot facts capture point-in-time cumulative state; audit facts record reconciliation ledger balances.
+* **Document Identifier:** `NRG-PDD-5.2A-003-REV2`
+* **Phase:** Stage 5.2A — Physical Database Design (Post-Audit Revisions)
+* **Scope:** Physical grain definitions, PostgreSQL 16 partition-aware constraints, deduplication mechanics, and lifecycle architectures for all **nine approved fact tables**.
+* **Key Modeling Principle:** Facts have distinct business grains and partition lifecycle requirements. Declarative constraints strictly adhere to PostgreSQL 16 partitioning rules.
 
 ---
 
 ### 2. Comprehensive Fact Table Grain & Loading Specifications
 
 ```
-+----+----------------------------+-----------------------+----------------------------------------------------+-----------------------+
-| #  | Fact Table Name            | Process Domain        | Exact Physical Grain (One Row Represents...)       | Ingestion Cadence     |
-+----+----------------------------+-----------------------+----------------------------------------------------+-----------------------+
-| 01 | fact_sales                 | BP-001 (Sales DSR)    | One itemized product line on a checkout receipt    | Nightly Batch (01:00) |
-| 02 | fact_payments              | BP-003, 004 (Payments)| One payment tender applied to settle an invoice    | Nightly Batch (01:30) |
-| 03 | fact_returns               | BP-006 (Returns)      | One itemized returned product line on a voucher    | Nightly Batch (02:00) |
-| 04 | fact_inventory_snapshot    | BP-002 (Inventory DOI)| One SKU inventory balance at one Store on one Day  | Nightly Batch (02:30) |
-| 05 | fact_inventory_movements   | BP-005 (Stock Recon)  | One stock movement posting in central ERP ledger   | Nightly Batch (03:00) |
-| 06 | fact_reconciliation        | 4-Way Recon Hub       | One audit balance comparison between System A & B  | Nightly Batch (03:30) |
-| 07 | fact_marketing_performance | BP-007 (Closed-Loop)  | Daily aggregated campaign sales at one Store       | Daily Morning (04:30) |
-| 08 | fact_campaign_exposure     | BP-007 (Holdouts)     | One customer exposure / 10% holdout assignment flag| Weekly / Campaign Run |
-| 09 | fact_demand_forecast       | BP-008 (Forecasting)  | One projected SKU demand at one Store for a Day    | Daily Horizon Run     |
-+----+----------------------------+-----------------------+----------------------------------------------------+-----------------------+
++----+----------------------------+-----------------------+-------------------------------------------------------------+-----------------------+
+| #  | Fact Table Name            | Process Domain        | Exact Physical Grain (One Row Represents...)                | Ingestion Cadence     |
++----+----------------------------+-----------------------+-------------------------------------------------------------+-----------------------+
+| 01 | fact_sales                 | BP-001 (Sales DSR)    | One itemized product line on a checkout receipt             | Nightly Batch (01:00) |
+| 02 | fact_payments              | BP-003, 004 (Payments)| One payment tender applied to settle an invoice             | Nightly Batch (01:30) |
+| 03 | fact_returns               | BP-006 (Returns)      | One itemized returned product line on a voucher             | Nightly Batch (02:00) |
+| 04 | fact_inventory_snapshot    | BP-002 (Inventory DOI)| One SKU inventory balance at one Store on one Day           | Nightly Batch (02:30) |
+| 05 | fact_inventory_movements   | BP-005 (Stock Recon)  | One stock movement posting in central ERP ledger            | Nightly Batch (03:00) |
+| 06 | fact_reconciliation        | 4-Way Recon Hub       | One audit balance comparison between System A & B           | Nightly Batch (03:30) |
+| 07 | fact_marketing_performance | BP-007 (Closed-Loop)  | Daily aggregated campaign sales at one Store                | Daily Morning (04:30) |
+| 08 | fact_campaign_exposure     | BP-007 (Holdouts)     | One customer treatment/control assignment & dispatch event  | Weekly / Campaign Run |
+| 09 | fact_demand_forecast       | BP-008 (Forecasting)  | One forecast run × one Store × one SKU × one target date    | Daily Horizon Run     |
++----+----------------------------+-----------------------+-------------------------------------------------------------+-----------------------+
 ```
 
 ---
@@ -35,210 +35,189 @@
 #### 2.1 `gold.fact_sales`
 * **Business Process:** `BP-001: Daily Sales Reporting & Store Performance Analysis`
 * **Exact Business Grain:** **One row represents one itemized product line purchased within a sales transaction receipt at a store checkout register.**
-* **Primary Key:** Composite Key `(sales_fact_key, date_key)` enforcing uniqueness across monthly declarative partitions.
-* **Natural / Business Key:** `pos_invoice_number + pos_line_number` (e.g. `INV-STR001-20261030-0142:1`).
-* **Foreign Key Dimensions:**
-  * `date_key` -> `gold.dim_date.date_key`
-  * `store_key` -> `gold.dim_store.store_key` (Historical SCD2 surrogate key active at checkout)
-  * `product_key` -> `gold.dim_product.product_key` (Historical SCD2 surrogate key active at checkout)
-  * `customer_key` -> `gold.dim_customer.customer_key` (`-1` indicates anonymous walk-in guest)
-  * `promotion_key` -> `gold.dim_promotion.promotion_key` (`-1` indicates non-promotional transaction)
-* **Degenerate Dimensions:**
-  * `pos_invoice_number`: Checkout invoice number printed on customer receipt.
-  * `pos_line_number`: Sequential item index on invoice.
-  * `pos_terminal_id`: Physical POS lane workstation code.
-  * `cashier_employee_id`: Checkout operator identifier.
-* **Measures & Mathematical Classification:**
-  * *Fully Additive Measures:* `quantity_sold`, `gross_sales_amount`, `discount_amount`, `net_taxable_amount`, `tax_amount`, `net_sales_amount`, `cost_amount`, `gross_margin_amount`. (Additive across Store, Product, Customer, and Time).
-  * *Semi-Additive Measures:* None.
-  * *Non-Additive Measures:* `gross_margin_pct` ($(\text{Gross Margin Amount} / \text{Net Sales Amount}) \times 100$).
-* **Source System:** `SRC-001` (Store POS Edge Databases — tables `pos_sales_lines` and `pos_sales_header`).
-* **Deduplication Strategy:** In the `silver` cleansing tier, incoming sales lines are deduplicated using a window function partitioned on `[store_id, pos_invoice_number, pos_line_number]` ordered by `transaction_timestamp DESC`, ensuring re-ingested POS files never generate duplicate revenue lines.
-* **Late-Arriving Data Handling:**
-  * If a transaction references a newly scanned SKU not yet replicated to `dim_product`, the ELT pipeline generates an *inferred dimension record* (`is_inferred = TRUE`, standard cost set to MRP minus 25% provisional margin) and flags the fact line with `data_quality_status = 'WARNING'`.
-  * The ERP master sync subsequently updates the inferred dimension via SCD2 backfill.
-* **Incremental Loading Strategy:** Watermark incremental loading via dbt. Extracts transactions where `transaction_timestamp >= :last_watermark`. Nightly loads write into monthly range partitions.
+* **Partition Key:** `date_key` (Range partitioned by Month).
+* **Physical Primary Key:** Composite Key `(sales_fact_key, date_key)`.
+  * *PostgreSQL 16 Rule:* Because `date_key` is the partition key, the primary key constraint must include `date_key`.
+* **Business Key & Uniqueness:** `pos_invoice_number + pos_line_number`.
+  * *Intra-Partition:* Enforced via a unique local index on `(pos_invoice_number, pos_line_number, date_key)`.
+  * *Cross-Partition:* Enforced in the Silver ELT pipeline using a staging window deduplication function prior to insertion.
+* **Foreign Key Strategy:**
+  * Foreign keys reference non-partitioned dimensions: `store_key -> dim_store.store_key`, `product_key -> dim_product.product_key`, `customer_key -> dim_customer.customer_key`, `promotion_key -> dim_promotion.promotion_key`, `date_key -> dim_date.date_key`.
+  * In PostgreSQL 16, foreign keys declared on a partitioned table referencing standard relational tables are fully supported and automatically enforced across all child partitions.
+* **Measures:** Fully Additive (`quantity_sold`, `gross_sales_amount`, `discount_amount`, `net_taxable_amount`, `tax_amount`, `net_sales_amount`, `cost_amount`, `gross_margin_amount`). Non-Additive: `gross_margin_pct`.
+* **Deduplication Strategy:** Idempotent atomic staging merge in Silver:
+  ```sql
+  ROW_NUMBER() OVER (
+      PARTITION BY pos_invoice_number, pos_line_number 
+      ORDER BY transaction_timestamp DESC, ingestion_batch_id DESC
+  )
+  ```
+* **Late-Arriving Data:** Inferred product records (`product_key = -2`) are inserted provisionally if an unmapped SKU is scanned, updated subsequently upon ERP catalog sync.
+* **Incremental Strategy:** Ingested in 5 MB GZIP chunks from 30 store edge instances (`NFR-006`); loaded via dbt incremental model writing to monthly partitions.
 
 ---
 
 #### 2.2 `gold.fact_payments`
 * **Business Process:** `BP-003: POS-Till Balancing` & `BP-004: Payment Settlement Reconciliation`
-* **Exact Business Grain:** **One row represents one payment tender transaction applied to settle a customer sales receipt.** (Note: An invoice settled via split tender generates multiple payment fact rows).
-* **Primary Key:** Composite Key `(payment_fact_key, date_key)` partitioned annually.
-* **Natural / Business Key:** `pos_invoice_number + payment_line_number`.
-* **Foreign Key Dimensions:**
-  * `date_key` -> `gold.dim_date.date_key`
-  * `store_key` -> `gold.dim_store.store_key`
-  * `payment_method_key` -> `gold.dim_payment_method.payment_method_key`
-  * `customer_key` -> `gold.dim_customer.customer_key`
-* **Degenerate Dimensions:**
-  * `pos_invoice_number`: Cross-link to `fact_sales`.
-  * `payment_line_number`: Tender sequence index.
-  * `payment_transaction_id`: POS EDC authorization reference / UPI transaction reference.
-  * `bank_utr_number`: Bank statement credit reference.
-  * `gateway_batch_id`: Pine Labs / Paytm settlement settlement batch number.
-* **Measures & Mathematical Classification:**
-  * *Fully Additive Measures:* `tender_amount`, `gateway_deducted_fee_amount`, `expected_mdr_fee_amount`, `mdr_fee_discrepancy_amount`, `settlement_variance_amount`.
-  * *Non-Additive Measures:* Contracted MDR fee percentage, settlement latency hours.
-* **Source Systems:** `SRC-001` (POS `pos_tender_lines`), `SRC-004` (Gateway Settlement Logs), `SRC-005` (Bank Statement MT940).
-* **Deduplication Strategy:** Deduplicated on `[store_id, payment_transaction_id]` in `silver`. If transaction ID is blank (cash sales), deduplicated on `[store_id, pos_invoice_number, payment_line_number]`.
-* **Late-Arriving Data Handling:** Bank statement credits typically arrive T+1 or T+2 days after POS tender swipe. Unmatched tenders are inserted with `settlement_status = 'PENDING_LAG'`. An idempotent reconciliation pass updates `bank_utr_number` and `settlement_status` upon bank statement ingestion without rewriting original tender amounts.
-* **Incremental Loading Strategy:** Ingested daily; Silver reconciliation performs an in-place merge update on `settlement_status` for records within a 7-day rolling audit window.
+* **Exact Business Grain:** **One row represents one payment tender transaction applied to settle a customer sales receipt.** (Split tenders generate multiple fact rows).
+* **Partition Key:** `date_key` (Range partitioned by Year).
+* **Physical Primary Key:** Composite Key `(payment_fact_key, date_key)`.
+* **Business Key & Uniqueness:** `pos_invoice_number + payment_line_number`.
+  * *Intra-Partition:* Local unique index on `(pos_invoice_number, payment_line_number, date_key)`.
+  * *Cross-Partition:* Deduplicated in Silver on `[store_id, payment_transaction_id]`.
+* **Foreign Key Strategy:** Foreign keys reference `dim_date`, `dim_store`, `dim_payment_method`, and `dim_customer`.
+* **Measures:** Fully Additive (`tender_amount`, `gateway_deducted_fee_amount`, `expected_mdr_fee_amount`, `mdr_fee_discrepancy_amount`, `settlement_variance_amount`).
+* **Deduplication Strategy:** Deduplicated in Silver on `[store_id, payment_transaction_id]` for digital tenders, or `[store_id, pos_invoice_number, payment_line_number]` for cash.
+* **Late-Arriving Data:** Bank statement credits arriving T+1 or T+2 update `settlement_status` and `bank_utr_number` via an idempotent Silver merge without altering original tender amounts.
+* **Incremental Strategy:** Daily append with a rolling 7-day status reconciliation lookback.
 
 ---
 
 #### 2.3 `gold.fact_returns`
 * **Business Process:** `BP-006: Customer Returns Management`
 * **Exact Business Grain:** **One row represents one returned product line processed at a customer service desk.**
-* **Primary Key:** Composite Key `(return_fact_key, date_key)` partitioned annually.
-* **Natural / Business Key:** `return_receipt_id + return_line_number`.
-* **Foreign Key Dimensions:**
-  * `date_key` -> `gold.dim_date.date_key` (Return processing date)
-  * `original_sales_date_key` -> `gold.dim_date.date_key` (NULL for unreferenced returns)
-  * `store_key` -> `gold.dim_store.store_key`
-  * `product_key` -> `gold.dim_product.product_key`
-  * `customer_key` -> `gold.dim_customer.customer_key`
-  * `return_reason_key` -> `gold.ref_return_reason.return_reason_key`
-* **Degenerate Dimensions:**
-  * `return_receipt_id`: POS return credit voucher document code.
-  * `return_line_number`: Item index on return voucher.
-  * `original_invoice_number`: Original purchase receipt code (mandatory for referenced returns).
-  * `authorizing_manager_id`: Supervisor employee ID overriding checkout system.
-  * `erp_quarantine_grn_id`: ERP Movement 451 quarantine receipt number.
-* **Measures & Mathematical Classification:**
-  * *Fully Additive Measures:* `returned_units`, `refund_amount`, `restocking_fee_amount`.
-  * *Non-Additive Measures:* `is_unreferenced_return_flag`, `is_quarantine_verified_flag`, return return-to-purchase elapsed days.
-* **Source Systems:** `SRC-001` (POS Returns Module), `SRC-002` (ERP Material Movement Type 451).
-* **Deduplication Strategy:** Deduplicated on `[store_id, return_receipt_id, return_line_number]`.
-* **Late-Arriving Data Handling:** Physical quarantine intake in ERP (Movement 451) often lags POS customer refund by 24–48 hours. The return record is initially flagged `is_quarantine_verified_flag = FALSE`. Nightly reconciliation matches ERP GRN and updates the flag.
-* **Incremental Loading Strategy:** Append-only incremental load with a rolling 5-day quarantine reconciliation lookback.
+* **Partition Key:** `date_key` (Range partitioned by Year).
+* **Physical Primary Key:** Composite Key `(return_fact_key, date_key)`.
+* **Business Key & Uniqueness:** `return_receipt_id + return_line_number`.
+  * *Intra-Partition:* Local unique index on `(return_receipt_id, return_line_number, date_key)`.
+* **Foreign Key Strategy:** Foreign keys reference `dim_date`, `dim_store`, `dim_product`, `dim_customer`, and `ref_return_reason`.
+* **Measures:** Fully Additive (`returned_units`, `refund_amount`, `restocking_fee_amount`). Non-Additive: `is_unreferenced_return_flag`, `is_quarantine_verified_flag`.
+* **Deduplication Strategy:** Deduplicated in Silver on `[store_id, return_receipt_id, return_line_number]`.
+* **Late-Arriving Data:** ERP quarantine receipts (Movement Type 451) update `is_quarantine_verified_flag` within 48 hours.
+* **Incremental Strategy:** Daily append with 5-day quarantine reconciliation lookback.
 
 ---
 
 #### 2.4 `gold.fact_inventory_snapshot`
 * **Business Process:** `BP-002: Inventory Health & Replenishment Planning`
-* **Exact Business Grain:** **One row represents the end-of-day stock position for one SKU at one retail store location (or central DC) on one specific calendar day.**
-* **Primary Key:** Composite Key `(snapshot_fact_key, date_key)` partitioned monthly.
-* **Natural / Business Key:** `date_key + store_key + product_key`.
-* **Foreign Key Dimensions:**
-  * `date_key` -> `gold.dim_date.date_key`
-  * `store_key` -> `gold.dim_store.store_key`
-  * `product_key` -> `gold.dim_product.product_key`
-* **Degenerate Dimensions:** None (Periodic Snapshot).
-* **Measures & Mathematical Classification:**
-  * *Semi-Additive Measures (Additive across Stores/Products, NEVER across Date):* `stock_on_hand_units`, `blocked_damaged_units`, `in_transit_units`, `total_inventory_units`, `inventory_valuation_cost_amount`.
-  * *Non-Additive Measures:* `trailing_14d_sales_velocity_units`, `days_of_inventory_forward` (`FR-007`), `stockout_flag`.
-* **Source System:** `SRC-002` (Central ERP Stock Balance Ledger).
-* **Deduplication Strategy:** Strict unique constraint on `[date_key, store_key, product_key]`. If multiple snapshots arrive, latest batch overrides previous staging snapshot.
-* **Late-Arriving Data Handling:** Missing daily snapshots are imputed by forward-filling from the most recent confirmed snapshot adjusted for intervening sales and movement records.
-* **Incremental Loading Strategy:** Daily atomic partition insertion. For 30 stores $\times$ 15,000 active SKUs, exactly 450,000 rows are committed nightly into the current month's partition.
+* **Exact Business Grain:** **One row represents the end-of-day stock position for one SKU at one retail store location (or DC) on one specific calendar day.**
+* **Partition Key:** `date_key` (Range partitioned by Month).
+* **Physical Primary Key:** Composite Natural Key `(date_key, store_key, product_key)`.
+  * *PostgreSQL 16 Compliance:* Directly serves as the table's primary key since `date_key` is included.
+* **Business Key & Uniqueness:** Exactly identical to the primary key: `[date_key, store_key, product_key]`. Uniqueness is declaratively enforced by PostgreSQL 16 within each monthly partition.
+* **Foreign Key Strategy:** Foreign keys reference `dim_date.date_key`, `dim_store.store_key`, and `dim_product.product_key`.
+* **Measures:** Semi-Additive (`stock_on_hand_units`, `blocked_damaged_units`, `in_transit_units`, `total_inventory_units`, `inventory_valuation_cost_amount`). Non-Additive: `trailing_14d_sales_velocity_units`, `days_of_inventory_forward` (`FR-007`), `stockout_flag`.
+* **Deduplication Strategy:** Incoming ERP snapshot files replace earlier staging runs for the same date atomically.
+* **Late-Arriving Data:** Missing store snapshots are forward-filled from the previous day's confirmed snapshot.
+* **Incremental Strategy:** Exactly 450,000 rows (30 stores $\times$ 15,000 SKUs) committed nightly into the current month's partition.
 
 ---
 
 #### 2.5 `gold.fact_inventory_movements`
 * **Business Process:** `BP-005: POS-ERP Inventory Reconciliation`
 * **Exact Business Grain:** **One row represents one discrete stock movement transaction recorded in the central ERP material document ledger.**
-* **Primary Key:** Composite Key `(movement_fact_key, date_key)` partitioned annually.
-* **Natural / Business Key:** `erp_material_document_id + material_doc_line_number`.
-* **Foreign Key Dimensions:**
-  * `date_key` -> `gold.dim_date.date_key`
-  * `source_store_key` -> `gold.dim_store.store_key`
-  * `destination_store_key` -> `gold.dim_store.store_key` (NULL for supplier receipts or sales decrements)
-  * `product_key` -> `gold.dim_product.product_key`
-  * `movement_type_key` -> `gold.ref_inventory_movement_type.movement_type_key`
-* **Degenerate Dimensions:**
-  * `erp_material_document_id`: SAP / ERP material posting number.
-  * `material_doc_line_number`: Posting line item index.
-* **Measures & Mathematical Classification:**
-  * *Fully Additive Measures:* `movement_units` (Signed: negative for sales decrement 251, positive for GRN 101), `movement_valuation_amount`.
-* **Source System:** `SRC-002` (Central ERP Material Documents).
+* **Partition Key:** `date_key` (Range partitioned by Year).
+* **Physical Primary Key:** Composite Key `(movement_fact_key, date_key)`.
+* **Business Key & Uniqueness:** `erp_material_document_id + material_doc_line_number`.
+  * *Intra-Partition:* Local unique index on `(erp_material_document_id, material_doc_line_number, date_key)`.
+* **Foreign Key Strategy:** Foreign keys reference `dim_date`, `dim_store` (source/dest), `dim_product`, and `ref_inventory_movement_type`.
+* **Measures:** Fully Additive (`movement_units`, `movement_valuation_amount`).
 * **Deduplication Strategy:** Enforced on `[erp_material_document_id, material_doc_line_number]`.
-* **Late-Arriving Data Handling:** Back-dated ERP inventory adjustments are accepted into their true historical posting date partition, triggering downstream reconciliation recalculation for affected dates.
-* **Incremental Loading Strategy:** High-watermark extraction on ERP posting timestamp `CPUDT/CPUTM`.
+* **Late-Arriving Data:** ERP back-dated postings commit to their historical date partition, triggering downstream reconciliation re-evaluations.
+* **Incremental Strategy:** High-watermark extraction on ERP posting timestamp `CPUDT/CPUTM`.
 
 ---
 
 #### 2.6 `gold.fact_reconciliation`
 * **Business Process:** 4-Way Decoupled Reconciliation Hub (`BP-003`, `BP-004`, `BP-005`, `BP-006`)
-* **Exact Business Grain:** **One row represents one reconciled audit record comparing System A against System B for one auditable entity across one reconciliation leg.**
-* **Primary Key:** Composite Key `(recon_fact_key, date_key)` partitioned annually.
-* **Natural / Business Key:** `date_key + recon_domain_key + audit_entity_identifier`.
-* **Foreign Key Dimensions:**
-  * `date_key` -> `gold.dim_date.date_key`
-  * `store_key` -> `gold.dim_store.store_key`
-  * `recon_domain_key` -> `gold.ref_reconciliation_domain.recon_domain_key`
-* **Degenerate Dimensions:**
-  * `discrepancy_ticket_id`: System-generated audit ticket reference.
-  * `audit_entity_identifier`: Cashier shift ID, bank UTR, Store-SKU code, or return voucher ID.
-* **Measures & Mathematical Classification:**
-  * *Fully Additive Measures:* `source_system_a_amount`, `source_system_b_amount`, `variance_amount`, `absolute_variance_amount`.
-  * *Non-Additive Measures:* `ticket_generated_flag`, `discrepancy_threshold_applied`, investigation status code.
-* **Source System:** Platform Silver Layer Reconciliation Engines.
-* **Deduplication Strategy:** Idempotent replacement of audit balances for the execution date.
-* **Late-Arriving Data Handling:** Re-runs of reconciliation engines for prior dates (e.g. following delayed bank statement receipt) perform an in-place merge, updating discrepancy tickets and resolution reason codes.
-* **Incremental Loading Strategy:** Committed daily at 04:00 IST following completion of source ingestion pipelines.
+* **Exact Business Grain:** **One row represents one reconciled audit record comparing System A against System B across one reconciliation leg.**
+* **Partition Key:** `date_key` (Range partitioned by Year).
+* **Physical Primary Key:** Composite Key `(recon_fact_key, date_key)`.
+* **Business Key & Uniqueness:** `date_key + recon_domain_key + audit_entity_identifier`.
+  * *Intra-Partition:* Local unique index on `(date_key, recon_domain_key, audit_entity_identifier)`.
+* **Foreign Key Strategy:** Foreign keys reference `dim_date`, `dim_store`, and `ref_reconciliation_domain`.
+* **Measures:** Fully Additive (`source_system_a_amount`, `source_system_b_amount`, `variance_amount`, `absolute_variance_amount`). Non-Additive: `ticket_generated_flag`, `discrepancy_threshold_applied`.
+* **Deduplication Strategy:** Idempotent replacement of daily audit balances.
+* **Late-Arriving Data:** Re-runs for prior dates update tickets and resolution codes in-place.
+* **Incremental Strategy:** Executed daily at 04:00 IST across all four independent reconciliation legs.
 
 ---
 
 #### 2.7 `gold.fact_marketing_performance`
 * **Business Process:** `BP-007: Marketing Campaign Measurement & Closed-Loop Attribution`
 * **Exact Business Grain:** **One row represents the daily aggregated transactional performance of one marketing campaign across one retail store.**
-* **Primary Key:** Composite Key `(marketing_fact_key, date_key)` partitioned annually.
-* **Natural / Business Key:** `date_key + store_key + campaign_key`.
-* **Foreign Key Dimensions:**
-  * `date_key` -> `gold.dim_date.date_key`
-  * `store_key` -> `gold.dim_store.store_key`
-  * `campaign_key` -> `gold.dim_campaign.campaign_key`
-  * `promotion_key` -> `gold.dim_promotion.promotion_key`
-* **Degenerate Dimensions:** None (Aggregated Snapshot).
-* **Measures & Mathematical Classification:**
-  * *Fully Additive Measures:* `test_cohort_sales_amount`, `control_cohort_sales_amount`, `incremental_sales_lift_amount`, `incremental_gross_margin_amount`, `attributed_marketing_spend_amount`.
-  * *Non-Additive Measures:* `test_customer_count`, `control_customer_count`, `incremental_romi_ratio` (`BRL-06`).
-* **Source System:** Platform Closed-Loop Attribution Engine.
-* **Deduplication Strategy:** Unique key `[date_key, store_key, campaign_key]`.
-* **Late-Arriving Data Handling:** In-store coupon redemptions can occur up to 14 days post-broadcast. The attribution engine evaluates an active 14-day rolling attribution window daily.
-* **Incremental Loading Strategy:** Full daily recalculation over the active campaign window.
+* **Partition Key:** `date_key` (Range partitioned by Year).
+* **Physical Primary Key:** Composite Natural Key `(date_key, store_key, campaign_key)`.
+  * *PostgreSQL 16 Compliance:* Directly enforceable as primary key across child partitions.
+* **Business Key & Uniqueness:** Exactly identical to primary key: `[date_key, store_key, campaign_key]`.
+* **Foreign Key Strategy:** Foreign keys reference `dim_date`, `dim_store`, `dim_campaign`, and `dim_promotion`.
+* **Measures:** Fully Additive (`test_cohort_sales_amount`, `control_cohort_sales_amount`, `incremental_sales_lift_amount`, `incremental_gross_margin_amount`, `attributed_marketing_spend_amount`). Non-Additive: `incremental_romi_ratio` (`BRL-06`), `attribution_status`.
+* **Deduplication Strategy:** Enforced on `[date_key, store_key, campaign_key]`.
+* **Missing Control Group Handling:** If an upstream campaign fails to provide a verified 10% holdout cohort, `incremental_sales_lift_amount` and `incremental_romi_ratio` cannot be calculated mathematically. The pipeline sets `attribution_status = 'UNATTRIBUTED_MISSING_CONTROL'`, records `test_cohort_sales_amount`, sets lift to NULL, and alerts the marketing lead.
+* **Incremental Strategy:** Evaluated over an active 14-day rolling attribution window.
 
 ---
 
 #### 2.8 `gold.fact_campaign_exposure`
 * **Business Process:** `BP-007: Marketing Holdout Control Group Governance`
-* **Exact Business Grain:** **One row represents one customer record assigned to a campaign treatment (90% Test) or quarantined (10% Control) cohort.**
-* **Primary Key:** Composite Key `(exposure_fact_key, dispatch_date_key)` partitioned annually.
-* **Natural / Business Key:** `campaign_key + customer_key`.
-* **Foreign Key Dimensions:**
-  * `dispatch_date_key` -> `gold.dim_date.date_key`
-  * `campaign_key` -> `gold.dim_campaign.campaign_key`
-  * `customer_key` -> `gold.dim_customer.customer_key`
-  * `redemption_date_key` -> `gold.dim_date.date_key` (NULL until checkout redemption)
-* **Degenerate Dimensions:**
-  * `communication_channel`: Delivery medium (`SMS`, `WHATSAPP`, `EMAIL`).
-* **Measures & Mathematical Classification:**
-  * *Non-Additive Measures:* `is_holdout_control_flag` (1 if 10% holdout per `FR-018`, 0 if 90% test), `is_delivered_flag`, `coupon_redeemed_flag`, `redemption_lag_days`.
-* **Source System:** `SRC-003` (CRM Campaign Dispatch Logs).
-* **Deduplication Strategy:** Enforced on `[campaign_key, customer_key]`.
-* **Late-Arriving Data Handling:** Delivery status webhooks arriving asynchronously update `is_delivered_flag`. POS sales redemptions update `coupon_redeemed_flag` during nightly attribution.
-* **Incremental Loading Strategy:** Ingested upon campaign dispatch; subsequent redemption flags updated via nightly merge.
+* **Exact Business Grain:** **One row represents one customer record assigned to a campaign treatment (90% Test) or quarantined (10% Control) cohort and dispatched.**
+* **Partition Key:** `dispatch_date_key` (Range partitioned by Year).
+* **Physical Primary Key:** Composite Key `(exposure_fact_key, dispatch_date_key)`.
+* **Business Key & Uniqueness:** `campaign_key + customer_key`.
+  * *Intra-Partition:* Local unique index on `(campaign_key, customer_key, dispatch_date_key)`.
+* **Foreign Key Strategy:** Foreign keys reference `dim_date.date_key`, `dim_campaign.campaign_key`, and `dim_customer.customer_key`.
+* **Preservation of 90/10 Holdout Methodology & Assignment Stability:**
+  * Assignment to the 10% uncontacted control cohort (`FR-018`, `BRL-06`) is determined deterministically at audience creation time using a salted hash modulo:
+    $$\text{cohort\_hash} = \text{CRC32}(\text{customer\_sk} \parallel \text{campaign\_id}) \pmod{100}$$
+  * If $\text{cohort\_hash} < 10$, customer is flagged `is_holdout_control_flag = TRUE` (quarantined from broadcast).
+  * If $\text{cohort\_hash} \ge 10$, customer is flagged `is_holdout_control_flag = FALSE` (dispatched).
+  * This guarantees 100% assignment stability: a customer's cohort assignment can never flip or drift.
+* **Separation of Lifecycle Events:**
+  * Rather than creating multiple competing fact tables, `FactCampaignExposure` represents the **Assignment & Dispatch Event**.
+  * Subsequent downstream events are modeled as lifecycle state updates on the exposure record:
+    * Delivery: Updated via delivery receipt webhooks (`delivery_status = 'DELIVERED'`, `delivery_timestamp`).
+    * In-Store Redemption: Updated during nightly POS sales attribution (`coupon_redeemed_flag = TRUE`, `redemption_timestamp`, `redemption_lag_days`).
+* **Incremental Strategy:** Loaded upon campaign launch; subsequent delivery webhooks and checkout redemptions merge asynchronously.
 
 ---
 
 #### 2.9 `gold.fact_demand_forecast`
 * **Business Process:** `BP-008: Demand Forecasting & Replenishment Planning`
-* **Exact Business Grain:** **One row represents one statistical projected unit demand figure for one SKU at one retail store location (or DC) for one specific future target date.**
-* **Primary Key:** Composite Key `(forecast_fact_key, target_date_key)` partitioned monthly.
-* **Natural / Business Key:** `generation_date_key + target_date_key + store_key + product_key`.
-* **Foreign Key Dimensions:**
-  * `generation_date_key` -> `gold.dim_date.date_key` (Date forecast model ran)
-  * `target_date_key` -> `gold.dim_date.date_key` (Future date forecasted)
-  * `store_key` -> `gold.dim_store.store_key`
-  * `product_key` -> `gold.dim_product.product_key`
-* **Degenerate Dimensions:**
-  * `forecast_horizon_days`: Projection offset (1..14 days forward).
-  * `model_algorithm_name`: Forecasting algorithm (`HOLT_WINTERS`, `AUTO_ARIMA` per `BDL-07`).
-* **Measures & Mathematical Classification:**
-  * *Fully Additive Measures:* `forecast_demand_units`, `confidence_lower_units`, `confidence_upper_units`, `recommended_reorder_units`.
-  * *Non-Additive Measures:* `actual_sales_units` (backfilled post-trading), `absolute_error_units`, `mape_pct` (`FR-025`).
-* **Source System:** Platform Statistical Baseline Forecasting Engine (`BP-008`).
-* **Deduplication Strategy:** Unique key on `[generation_date_key, target_date_key, store_key, product_key]`.
-* **Late-Arriving Data Handling:** Once the target trading day completes, actual sales figures from `fact_sales` are backfilled into `actual_sales_units`, computing empirical forecast error (`MAPE`) without altering original forecast projections.
-* **Incremental Loading Strategy:** Daily rolling 14-day projection insert. Post-trading accuracy backfill runs during the morning 04:30 IST window.
+* **Exact Business Grain:** **One forecast run × one Store × one SKU × one future target date.**
+  * *Granularity Justification:* Forecast models run daily to predict demand $T+1$ to $T+14$ days ahead. Therefore, a future target date $T$ is forecasted repeatedly on $T-14, T-13, \dots, T-1$. To evaluate how forecast accuracy evolves as the lead time shrinks, **all historical forecast runs must be preserved** rather than overwritten.
+* **Partition Key:** `target_date_key` (Range partitioned by Month).
+* **Physical Primary Key:** Composite Natural Key:
+  $$\mathbf{PRIMARY\ KEY} \ (forecast\_run\_id, target\_date\_key, store\_key, product\_key)$$
+  * *PostgreSQL 16 Compliance:* Directly enforceable as primary key across child partitions because `target_date_key` is included.
+* **Core Fact Attributes:**
+  * `forecast_run_id`: `UUID` uniquely identifying the batch model execution run.
+  * `target_date_key`: `INTEGER` future calendar date being forecasted (Partition Key).
+  * `store_key`: `INTEGER` store location.
+  * `product_key`: `INTEGER` merchandise SKU.
+  * `generation_date_key`: `INTEGER` date the forecast run executed.
+  * `forecast_generated_at`: `TIMESTAMPTZ` exact model completion timestamp.
+  * `model_version`: `VARCHAR(50)` (e.g. `v1.2.0-holtwinters` per `BDL-07`).
+  * `forecast_horizon_days`: `SMALLINT` ($T+1$ to $T+14$).
+  * `forecast_demand_units`: `NUMERIC(12, 3)` projected sales.
+  * `confidence_lower_units` & `confidence_upper_units`: `NUMERIC(12, 3)` 80% confidence interval.
+  * `recommended_reorder_units`: `NUMERIC(12, 3)` suggested replenishment quantity (`FR-024`).
+* **Traceability & Forecast Evaluation Architecture:**
+  * Historical forecast projections are **immutable** and never modified after generation.
+  * When actual sales for `target_date_key` arrive in `fact_sales`, forecast accuracy is evaluated via an analytical view `serving.vw_forecast_accuracy_evaluation`:
+    ```sql
+    CREATE VIEW serving.vw_forecast_accuracy_evaluation AS
+    SELECT 
+        f.forecast_run_id,
+        f.model_version,
+        f.generation_date_key,
+        f.target_date_key,
+        f.store_key,
+        f.product_key,
+        f.forecast_horizon_days,
+        f.forecast_demand_units,
+        COALESCE(s.actual_units, 0.000) AS actual_sales_units,
+        ABS(COALESCE(s.actual_units, 0.000) - f.forecast_demand_units) AS absolute_error_units,
+        CASE WHEN s.actual_units > 0 
+             THEN ABS(s.actual_units - f.forecast_demand_units) / s.actual_units 
+             ELSE NULL END AS mape_pct
+    FROM gold.fact_demand_forecast f
+    LEFT JOIN (
+        SELECT date_key, store_key, product_key, SUM(quantity_sold) AS actual_units
+        FROM gold.fact_sales
+        GROUP BY date_key, store_key, product_key
+    ) s ON f.target_date_key = s.date_key 
+       AND f.store_key = s.store_key 
+       AND f.product_key = s.product_key;
+    ```
+  * This guarantees complete traceability: category managers can inspect both 1-day-ahead and 14-day-ahead forecast errors (`MAPE < 18%` target per Stage 2) across every historical batch run.
+* **Incremental Strategy:** Daily insertion of 450,000 projection rows into future monthly partitions.

@@ -1,14 +1,14 @@
 # Northstar Retail Group — Enterprise Retail Analytics Platform
-## Stage 5.2A: Dimension Design Specification & SCD Management
+## Stage 5.2A: Dimension Design Specification & SCD Management (Revised Post-Audit)
 
 ---
 
-### 1. Document Control & Dimensional Strategy
+### 1. Document Control & Dimensional Governance
 
-* **Document Identifier:** `NRG-PDD-5.2A-004`
-* **Phase:** Stage 5.2A — Physical Database Design
-* **Scope:** Physical architecture, Slowly Changing Dimension (SCD) lifecycles, surrogate key strategies, and sentinel record definitions for all **eight approved dimension tables**.
-* **Methodology Alignment:** Ralph Kimball Dimensional Modeling. Conformed dimensions guarantee semantic consistency across all nine fact tables (`BDL-03`).
+* **Document Identifier:** `NRG-PDD-5.2A-004-REV2`
+* **Phase:** Stage 5.2A — Physical Database Design (Post-Audit Revisions)
+* **Scope:** Physical dimension design, SCD Type 1 & 2 lifecycles, half-open interval semantics, historical fact-key resolution, dynamic date extension architecture, and sentinel records for all **eight approved dimensions**.
+* **Methodology Alignment:** Ralph Kimball Dimensional Modeling with conformed dimensional structures (`BDL-03`).
 
 ---
 
@@ -18,7 +18,7 @@
 +----+--------------------+-------------------------+--------------------+-------------------+--------------------+------------------------+
 | #  | Dimension Name     | Business Entity         | Natural / Biz Key  | Surrogate Key     | SCD Strategy       | Historical Tracking    |
 +----+--------------------+-------------------------+--------------------+-------------------+--------------------+------------------------+
-| 01 | dim_date           | Enterprise Calendar     | calendar_date      | date_key (INTEGER)| Static Reference   | 10-Yr Fixed Calendar   |
+| 01 | dim_date           | Enterprise Calendar     | calendar_date      | date_key (INTEGER)| Dynamic Reference  | Continuous Extension   |
 | 02 | dim_store          | Retail Stores & DCs     | store_id           | store_key (INT)   | SCD Type 2         | Area, Rent, Manager    |
 | 03 | dim_product        | Merchandise Item (SKU)  | sku_id (EAN / Bar) | product_key (INT) | SCD Type 2         | Cost, Category, MRP    |
 | 04 | dim_customer       | Pseudonymized Shopper   | customer_sk (HMAC) | customer_key (INT)| SCD Type 1         | RFM Scores, Segments   |
@@ -31,157 +31,121 @@
 
 ---
 
-### 3. Detailed Dimension Specifications
+### 3. Dynamic Date Dimension Architecture (`dim_date`)
 
-#### 3.1 `gold.dim_date` (Static Reference Dimension)
-* **Surrogate Key:** `date_key` (`INTEGER`, format: `YYYYMMDD`, e.g., `20261030`).
-* **Natural Key:** `calendar_date` (`DATE`).
-* **SCD Strategy:** **Static Pre-Generated Calendar** populated for 10 years (2020-01-01 through 2030-12-31).
-* **Unique Constraints:** `date_key` (PK), `calendar_date` (UNIQUE).
-* **Attributes & Business Logic:**
-  * Standard Calendar: `calendar_year`, `calendar_quarter`, `calendar_month_number`, `calendar_month_name`, `calendar_week_of_year`, `day_of_month`, `day_name`, `is_weekend_flag`.
-  * Indian Fiscal Calendar: `fiscal_year` (April–March convention, e.g. Oct 2026 -> FY2027), `fiscal_quarter` (Q1: Apr–Jun, Q2: Jul–Sep, Q3: Oct–Dec, Q4: Jan–Mar).
-  * Indian Festival & Retail Surge Context: `is_indian_national_holiday_flag`, `festival_season_name` (`DIWALI_SEASON`, `DURGA_PUJA`, `EID`, `PONGAL`), `days_relative_to_festival_peak` ($T-14$ to $T+3$ per `FR-023`).
-* **Analytical Use Cases:** Time-series demand forecasting (`BP-008`), holiday surge regression models (`BDL-07`), weekend vs weekday store performance analysis.
+#### 3.1 Date Coverage Horizon
+To prevent pipeline failures caused by fixed calendar boundaries:
+* **Historical Baseline Coverage:** Seeded starting **2018-01-01** (providing 5 years of active transactional history per `NFR-006` plus 2 full years of prior training/baseline data).
+* **Future Forecast Horizon Coverage:** Pre-seeded **3 years into the future** (through current year + 3), ensuring all multi-week statistical forecasts (`FactDemandForecast`), store lease end-dates, and promotional calendars immediately resolve foreign keys without constraint violations.
 
----
+#### 3.2 Controlled Annual Extension Process
+* Rather than a static, hardcoded table, `dim_date` is managed via an automated **dbt / Python Calendar Maintenance Job**:
+  1. The pipeline inspects the maximum date in `dim_date`:
+     ```sql
+     SELECT MAX(calendar_date) FROM gold.dim_date;
+     ```
+  2. Whenever the remaining future calendar horizon falls below **365 days**, the maintenance job generates and appends exactly 365 additional calendar days (1 full calendar year) enriched with:
+     * Standard ISO calendar attributes.
+     * Indian fiscal calendar mapping (April 1 to March 31).
+     * Statutory Indian national holidays.
+     * Projected Indian religious festival dates (Diwali, Eid, Pongal, Durga Puja) based on published lunar/solar retail schedules, populating the critical $T-14$ to $T+3$ festival offsets (`FR-023`).
 
-#### 3.2 `gold.dim_store` (SCD Type 2 — Store Footprint & Cost History)
-* **Surrogate Key:** `store_key` (`INTEGER GENERATED ALWAYS AS IDENTITY`).
-* **Natural / Business Key:** `store_id` (`VARCHAR(20)`, e.g., `STR-001` to `STR-030`).
-* **SCD Strategy:** **SCD Type 2 (Full Historical Versioning)**.
-* **Unique Constraints:**
-  * Primary Key: `store_key`.
-  * Partial Unique Constraint: `UNIQUE (store_id) WHERE (scd_is_current_flag = TRUE)` guaranteeing exactly one active version per store.
-* **SCD Type 2 Tracking Columns:**
-  * `carpet_area_sqft`: Retail floor square footage (changes upon expansion/refurbishment).
-  * `backroom_storage_sqft`: On-site stockroom storage footprint.
-  * `monthly_lease_rent_inr`: Monthly base commercial lease rent.
-  * `daily_allocated_rent_inr`: Daily allocated four-wall rent expense (`monthly_rent / 30`).
-  * `store_manager_employee_id`: Active store manager (tracks manager transfers across stores).
-  * `operating_status`: `OPEN`, `REFURBISHMENT`, `DECOMMISSIONED`.
-* **SCD Control Columns:**
-  * `scd_effective_timestamp` (`TIMESTAMPTZ`, default `CURRENT_TIMESTAMP`).
-  * `scd_expiry_timestamp` (`TIMESTAMPTZ`, default `'9999-12-31 23:59:59+00'`).
-  * `scd_is_current_flag` (`BOOLEAN`, default `TRUE`).
-* **Historical Change Handling:**
-  * When a lease renegotiation or store expansion occurs in `SRC-006` (Store Master), the active record's `scd_expiry_timestamp` is set to the transaction effective timestamp and `scd_is_current_flag` is updated to `FALSE`.
-  * A new version record is inserted with the updated attributes, `scd_is_current_flag = TRUE`, and a newly generated `store_key`.
-  * **Business Impact:** Historical transactions in `fact_sales` remain tied to the historical `store_key`, preserving mathematically accurate historical **Sales per Square Foot** (`BRL-03`) and **Store Contribution Margin** (`FR-030`) without retroactive corruption.
+#### 3.3 Stable Integer Key Generation & Sentinel Records
+* **Key Format:** Strictly `YYYYMMDD` integer representation (e.g., `20261030` for October 30, 2026).
+  * Mathematically sortable, human-readable, and compact (4-byte `INTEGER`).
+* **Sentinel Date Keys:**
+  * `-1`: `UNKNOWN_DATE` — Used when an upstream source record possesses a corrupted, missing, or unparseable transaction date.
+  * `-2`: `NOT_APPLICABLE_DATE` — Used for optional date relationships (e.g. `redemption_date_key` in `FactCampaignExposure` prior to checkout coupon redemption).
+
+#### 3.4 Future Date Resolution in Demand Forecasting
+When the statistical forecasting engine (`BP-008`) generates 14-day projections, `target_date_key` references future dates already present in `dim_date`. Analytical queries joining `FactDemandForecast` to `DimDate` immediately inherit calendar attributes (e.g. `is_weekend_flag`, `festival_season_name`, `days_relative_to_festival_peak`), enabling automated festive surge evaluations (`BDL-07`).
 
 ---
 
-#### 3.3 `gold.dim_product` (SCD Type 2 — Merchandise Catalog & Margin Integrity)
-* **Surrogate Key:** `product_key` (`INTEGER GENERATED ALWAYS AS IDENTITY`).
-* **Natural / Business Key:** `sku_id` (`VARCHAR(50)`, Barcode / EAN-13 / ERP Material Code).
-* **SCD Strategy:** **SCD Type 2 (Full Historical Versioning)**.
-* **Unique Constraints:**
-  * Primary Key: `product_key`.
-  * Partial Unique Constraint: `UNIQUE (sku_id) WHERE (scd_is_current_flag = TRUE)`.
-* **SCD Type 2 Tracking Columns:**
-  * `standard_cost_price`: Standard FIFO acquisition cost (`FR-004`).
-  * `mrp`: Maximum Retail Price printed on merchandise packaging.
-  * `category_name` & `subcategory_name`: Merchandise hierarchy realignment.
-  * `abc_velocity_class`: Periodic reassignment of velocity tier (`A`, `B`, `C`).
-* **SCD Control Columns:**
-  * `scd_effective_timestamp` (`TIMESTAMPTZ`).
-  * `scd_expiry_timestamp` (`TIMESTAMPTZ`).
-  * `scd_is_current_flag` (`BOOLEAN`).
-* **Historical Change Handling:**
-  * When procurement standard costs change in ERP (`SRC-002`), existing sales history must evaluate gross margins against the cost active on the transaction date.
-  * The previous product record is expired; a new row is inserted with the new `product_key`.
-  * **Business Impact:** Guarantees audit-compliant Gross Margin calculations (`SC-02`, `FR-004`) across multi-year trading periods.
+### 4. Rigorous SCD Type 2 Implementation Specification (`dim_store` & `dim_product`)
+
+To guarantee mathematical auditability of historical **Sales per Square Foot** (`BRL-03`), **Store Contribution Margin** (`FR-030`), and **Gross Margin** (`FR-004`), `DimStore` and `DimProduct` enforce strict Slowly Changing Dimension Type 2 versioning.
+
+#### 4.1 Validity Interval Semantics
+Validity periods are modeled as **half-open temporal intervals**:
+$$\text{Validity Interval} = [\text{effective\_from\_timestamp}, \text{effective\_to\_timestamp})$$
+* **Inclusive Start (`effective_from_timestamp`):** The exact microsecond at which the new attribute values take effect.
+* **Exclusive End (`effective_to_timestamp`):** The exact microsecond at which the version is superseded.
+* **Current Active Record:**
+  * `effective_to_timestamp = '9999-12-31 23:59:59+00'`
+  * `is_current_flag = TRUE`
+* **Non-Overlapping Guarantee:**
+  Within PostgreSQL, temporal non-overlapping intervals are guaranteed per business entity via an exclusion constraint or staging validation assertion:
+  ```sql
+  -- Logical invariant per store_id / sku_id:
+  version_n.effective_to_timestamp = version_n_plus_1.effective_from_timestamp
+  ```
+
+#### 4.2 Historical Fact-Key Resolution During Ingestion
+When the Silver-to-Gold ELT pipeline processes incoming checkout transactions (`fact_sales`), it resolves dimension surrogate keys using the transaction's checkout timestamp against the historical validity interval:
+
+```sql
+-- Historical Surrogate Key Lookup Pattern
+SELECT 
+    stg.sales_id,
+    dp.product_key,
+    ds.store_key
+FROM silver.stg_sales_lines stg
+JOIN gold.dim_product dp 
+  ON stg.sku_id = dp.sku_id
+ AND stg.transaction_timestamp >= dp.effective_from_timestamp
+ AND stg.transaction_timestamp <  dp.effective_to_timestamp
+JOIN gold.dim_store ds 
+  ON stg.store_id = ds.store_id
+ AND stg.transaction_timestamp >= ds.effective_from_timestamp
+ AND stg.transaction_timestamp <  ds.effective_to_timestamp;
+```
+
+#### 4.3 Handling Retroactive & Late-Arriving Changes
+In retail operations, master data modifications frequently arrive retroactively (e.g. a commercial lease rent renegotiation signed in October effective retroactively from August 1):
+
+1. **Retroactive Master Data Ingestion:**
+   * When an upstream master update indicates an effective date prior to the current active record's start date ($T_{\text{retro}} < T_{\text{curr\_start}}$), the SCD engine identifies the historical version covering $T_{\text{retro}}$.
+   * The historical version's interval is closed at $T_{\text{retro}}$:
+     $$\text{version}_{\text{hist}}.\text{effective\_to\_timestamp} = T_{\text{retro}}$$
+   * An intermediate version is inserted with validity $[T_{\text{retro}}, T_{\text{curr\_start}})$, generating a new surrogate key.
+2. **Fact Table Handling Policy:**
+   * **Transactional Integrity Policy (Accounting Default):** Existing historical transaction facts in `fact_sales` remain tied to the surrogate keys assigned at original transaction execution time, preserving the audit trail of the original ledger state.
+   * **Analytical Restatement (Optional Parameter):** If corporate FP&A explicitly mandates restatement of historical store contribution margins under the new lease terms, an authorized dbt restatement macro updates `store_key` on historical fact records within the affected date range using the newly generated intermediate surrogate key.
+
+#### 4.4 Corrections to Previously Loaded Master History
+* **Non-Temporal Master Data Errors (Type 1 in Type 2):** Typographical errors in non-versioned descriptive attributes (e.g. correcting a misspelled store manager name or product display description) are updated **in-place across all historical versions** without creating new surrogate keys or closing validity intervals.
+* **Temporal Versioning Correction (True Type 2):** Changes to financial or structural attributes (`standard_cost_price`, `carpet_area_sqft`, `monthly_lease_rent`) strictly trigger version expiration and insertion of a new surrogate key.
 
 ---
 
-#### 3.4 `gold.dim_customer` (SCD Type 1 — Pseudonymized Behavioral Profile)
-* **Surrogate Key:** `customer_key` (`INTEGER GENERATED ALWAYS AS IDENTITY`).
-* **Natural Key:** `customer_sk` (`CHAR(64)` Hexadecimal HMAC-SHA256 Digest).
-* **SCD Strategy:** **SCD Type 1 (Overwrite Current State)**.
-* **Unique Constraints:** `customer_key` (PK), `customer_sk` (UNIQUE).
-* **Attributes & Behavioral Profiling:**
-  * `registration_store_id`: Store where customer enrolled.
-  * `loyalty_tier`: Current loyalty level (`BRONZE`, `SILVER`, `GOLD`, `PLATINUM`).
-  * `rfm_recency_score` (1..5), `rfm_frequency_score` (1..5), `rfm_monetary_score` (1..5).
-  * `rfm_segment_name`: Behavioral cohort (`CHAMPIONS`, `LOYALISTS`, `POTENTIAL`, `AT_RISK`, `HIBERNATING` per `FR-015`).
-  * `churn_risk_flag`: Predictive churn indicator (`TRUE` / `FALSE`).
-  * `lifetime_net_spend_inr`: Lifetime aggregated purchase total.
-* **Historical Change Handling:**
-  * Nightly customer scoring models overwrite RFM quintiles, segment assignments, and loyalty tiers in-place.
-  * Transactional history remains intact in `fact_sales` and `fact_campaign_exposure` linked via the stable `customer_key`.
+### 5. SCD Type 1 Dimension Specifications
+
+Dimensions modeled as SCD Type 1 overwrite attributes in-place, reflecting the current state:
+
+* **`dim_customer`:** Keyed HMAC-SHA256 digest `customer_sk` serves as the immutable business key. Nightly RFM scoring overwrites quintiles (`rfm_recency_score`, `rfm_frequency_score`, `rfm_monetary_score`), segment names (`rfm_segment_name`), and churn indicators in-place (`FR-015`).
+* **`dim_promotion`:** Overwrites discount parameters and clearance markdown aging tiers (`BRL-05`) in-place.
+* **`dim_campaign`:** Overwrites marketing media channels, dates, and total budgets in-place.
+* **`dim_supplier`:** Overwrites monthly trailing lead-time averages (`FR-025`) and on-time fulfillment ratings in-place.
+* **`dim_payment_method`:** Overwrites negotiated gateway MDR fee schedules in-place (`FR-011`).
 
 ---
 
-#### 3.5 `gold.dim_promotion` (SCD Type 1 — Discount Mechanics & Clearance Tiers)
-* **Surrogate Key:** `promotion_key` (`INTEGER GENERATED ALWAYS AS IDENTITY`).
-* **Natural Key:** `promo_code` (`VARCHAR(30)`).
-* **SCD Strategy:** **SCD Type 1 (Overwrite)**.
-* **Unique Constraints:** `promotion_key` (PK), `promo_code` (UNIQUE).
-* **Attributes:**
-  * `promo_name`, `discount_type` (`PERCENTAGE`, `FLAT_AMOUNT`, `BOGO`, `CLEARANCE_MARKDOWN`).
-  * `discount_value`, `start_date`, `end_date`.
-  * `clearance_aging_tier`: `NONE`, `TIER_60_DAYS`, `TIER_90_DAYS`, `TIER_120_DAYS` (`BRL-05`).
-  * `is_clearance_flag`: Identifies stock liquidation markdowns (`SC-08`).
-* **Historical Change Handling:** Promotion definitions are updated in-place. Changes in promotion dates or discount values overwrite existing rows.
+### 6. Negative Sentinel Record Master Framework
 
----
-
-#### 3.6 `gold.dim_campaign` (SCD Type 1 — Marketing Broadcast Metadata)
-* **Surrogate Key:** `campaign_key` (`INTEGER GENERATED ALWAYS AS IDENTITY`).
-* **Natural Key:** `campaign_id` (`VARCHAR(30)`).
-* **SCD Strategy:** **SCD Type 1 (Overwrite)**.
-* **Unique Constraints:** `campaign_key` (PK), `campaign_id` (UNIQUE).
-* **Attributes:**
-  * `campaign_name`, `communication_channel` (`SMS`, `WHATSAPP`, `EMAIL`).
-  * `start_date`, `end_date`, `total_budget_inr`, `target_category_name`.
-* **Historical Change Handling:** Campaign budgets and metadata are maintained in-place.
-
----
-
-#### 3.7 `gold.dim_supplier` (SCD Type 1 — Commercial Vendor Master)
-* **Surrogate Key:** `supplier_key` (`INTEGER GENERATED ALWAYS AS IDENTITY`).
-* **Natural Key:** `vendor_id` (`VARCHAR(30)`).
-* **SCD Strategy:** **SCD Type 1 (Overwrite)**.
-* **Unique Constraints:** `supplier_key` (PK), `vendor_id` (UNIQUE).
-* **Attributes:**
-  * `vendor_name`, `gstin_number` (15-character GSTIN).
-  * `payment_terms_days` (Contractual credit days).
-  * `trailing_avg_lead_time_days` (Updated monthly based on ERP PO fulfillment velocity per `FR-025`).
-  * `vendor_reliability_rating` (On-time fulfillment score).
-* **Historical Change Handling:** Lead-time indexes and performance ratings are overwritten during monthly supplier evaluations.
-
----
-
-#### 3.8 `gold.dim_payment_method` (SCD Type 1 — Tender Channels & MDR Schedules)
-* **Surrogate Key:** `payment_method_key` (`INTEGER GENERATED ALWAYS AS IDENTITY`).
-* **Natural Key:** Compound: `[tender_type_code, acquirer_network]`.
-* **SCD Strategy:** **SCD Type 1 (Overwrite)**.
-* **Unique Constraints:** `payment_method_key` (PK), `UNIQUE (tender_type_code, acquirer_network)`.
-* **Attributes:**
-  * `tender_type_code`: `CASH`, `UPI`, `CC`, `DC`, `VOUCHER`.
-  * `tender_category`: `PHYSICAL_CASH`, `DIGITAL_INSTANT`, `CARDS`.
-  * `acquirer_network`: `PINE_LABS`, `PAYTM`, `HDFC`, `INTERNAL`.
-  * `contracted_mdr_fee_pct`: Contractual fee fraction (e.g. `0.0175` for 1.75% MDR).
-* **Historical Change Handling:** Contractual MDR percentages are maintained in-place. (Note: The actual fee applied to each historical transaction is stored explicitly as `expected_mdr_fee_amount` in `fact_payments`).
-
----
-
-### 4. Special Surrogate Key & Sentinel Record Framework
-
-To maintain strict referential integrity and prevent inner-join row drops in Power BI and SQL data marts when source transactions contain missing or optional foreign keys, every dimension table pre-allocates **Sentinel Records**:
+To eliminate inner-join row drops during dimensional analysis, the following sentinel records are permanently pre-allocated:
 
 ```
 +---------------+-------------------+-----------------------+-----------------------------------------------------------------+
-| Sentinel Key  | Dimension Name    | Natural Key Assigned  | Semantic Meaning & Usage                                        |
+| Sentinel Key  | Target Dimension  | Assigned Natural Key  | Business Semantic Justification                                 |
 +---------------+-------------------+-----------------------+-----------------------------------------------------------------+
-| -1            | dim_customer      | 'GUEST_WALK_IN'       | Anonymous cash/walk-in customer with no loyalty phone number.   |
-| -1            | dim_promotion     | 'NO_PROMOTION'        | Regular retail transaction with zero promo discounts applied.   |
-| -1            | dim_campaign      | 'NO_CAMPAIGN'         | Organic retail sale with no marketing broadcast attribution.    |
-| -1            | dim_supplier      | 'UNKNOWN_SUPPLIER'    | Unmapped or in-house manufactured product.                      |
+| -1            | dim_date          | '1900-01-01'          | UNKNOWN_DATE: Corrupted or missing transaction date.           |
+| -2            | dim_date          | '1900-01-02'          | NOT_APPLICABLE_DATE: Optional date (e.g. unredeemed coupon).    |
+| -1            | dim_customer      | 'GUEST_WALK_IN'       | Anonymous cash shopper with no registered loyalty profile.      |
+| -1            | dim_promotion     | 'NO_PROMOTION'        | Standard retail transaction with zero promo discounts applied.  |
+| -1            | dim_campaign      | 'NO_CAMPAIGN'         | Organic sales transaction with no marketing campaign link.      |
+| -1            | dim_supplier      | 'UNKNOWN_SUPPLIER'    | In-house merchandise or unmapped supplier.                      |
 | -2            | dim_store         | 'STORE_UNMAPPED'      | Late-arriving store master record awaiting initial sync.        |
-| -2            | dim_product       | 'SKU_INFERRED'        | Scanned barcode not yet present in ERP master (provisional SKU).|
+| -2            | dim_product       | 'SKU_INFERRED'        | Scanned barcode not yet present in ERP catalog (`FR-004`).      |
 +---------------+-------------------+-----------------------+-----------------------------------------------------------------+
 ```
-
-#### 4.1 SQL Implementation Pattern for Sentinel Records
-Sentinel records are inserted into dimension tables with explicit negative identity keys (`OVERRIDING SYSTEM VALUE`), guaranteeing that outer joins are never required for basic star schema queries.

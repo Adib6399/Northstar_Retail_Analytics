@@ -114,3 +114,4 @@ To satisfy corporate financial auditability requirements (`NFR-015`–`NFR-017`)
 ```
 
 *Audit Trail Integrity:* Any number on an executive report can be traced backwards through `ingestion_batch_id` and `source_record_id` to the exact physical register lane, shift, and cashier timestamp that generated the transaction.
+

@@ -1,17 +1,18 @@
 # Northstar Retail Group — Enterprise Retail Analytics Platform
-## Stage 5.2A: Reconciliation Data Model Specification (4-Way Decoupled Hub)
+## Stage 5.2A: Reconciliation Data Model Specification (Revised Post-Audit)
 
 ---
 
 ### 1. Document Control & Governance Mandates
 
-* **Document Identifier:** `NRG-PDD-5.2A-007`
-* **Phase:** Stage 5.2A — Physical Database Design
-* **Scope:** Physical data structures, financial precision rules, matching keys, discrepancy threshold bindings, and exception ticketing workflows for the **4-Way Decoupled Reconciliation Hub**.
+* **Document Identifier:** `NRG-PDD-5.2A-007-REV2`
+* **Phase:** Stage 5.2A — Physical Database Design (Post-Audit Revisions)
+* **Scope:** Physical data structures, financial precision rules, matching keys, configurable discrepancy thresholds, and decoupled audit architectures for the **4-Way Decoupled Reconciliation Hub**.
 * **Governing Architectural Decisions:**
   * `BDL-02`: Decoupled 4-Way Reconciliation Architecture (Independent audit execution).
   * `BDL-04`: Strict Read-Only Architecture (Zero automated source modifications).
   * `BDL-06`: Configurable Discrepancy Threshold (Default ₹500 via control table).
+  * Stage 5.2A Audit Finding: **ERP Movement Types (e.g. `251` and `451`) are formally classified as provisional mapping assumptions** pending confirmed interface specifications from the central ERP system (`SRC-002`).
 
 ---
 
@@ -52,7 +53,7 @@ graph TD
     end
 
     subgraph "Gold Layer: Unified Analytical Presentation"
-        FACT[gold.fact_reconciliation<br/>Grain: One Reconciled Audit Comparison Record]
+        FACT[gold.fact_reconciliation<br/>PK: recon_fact_key, date_key]
     end
 
     L1 -->|Reconciliation Domain: 1| FACT
@@ -99,36 +100,42 @@ graph TD
 * **Exception Ticketing Rule:**
   * Dropped Tender: POS tender un-cleared after 48 hours ($T+2$) triggers Treasury Alert (`FR-011`).
   * MDR Fee Drift: $\Delta_{\text{MDR Fee}} \ge ₹100.00$ triggers Acquirer Overcharge Ticket.
-* **Operational Remediation Interface:** Treasury Dispute Desk (`PIR-006`). Automatically compiles pre-formatted Excel/CSV dispute packages with bank UTRs for acquirer clawback requests.
+* **Operational Remediation Interface:** Treasury Dispute Desk (`PIR-006`). Automatically compiles pre-formatted dispute packages with bank UTRs for acquirer clawback requests.
 
 ---
 
 #### 3.3 Leg 3: POS Scanned Units vs. ERP Inventory Decrement (`BP-005`)
 * **Process Focus:** Phantom inventory, unposted sync batches, and retail shrinkage drift (`FR-012`, `FR-016`).
+* **Provisional Movement Type Classification:**
+  * *Conceptual Category:* `SALES_DECREMENT` (Provisional SAP Movement Type `251`; reversal `252`).
+  * *Governance Note:* Movement code `251` is treated as a **provisional design assumption**. If Northstar's ERP utilizes different codes (e.g. Navision item ledger entries or custom codes), the physical reconciliation model binds to the canonical category `SALES_DECREMENT` via `gold.ref_inventory_movement_type` without altering reconciliation logic.
 * **Comparison Grain:** **Store-SKU Daily Posting Balance** (`[store_id, sku_id, posting_date]`).
 * **Matching Join Key:** `store_id || '-' || sku_id || '-' || date_key`.
 * **System A Measure (POS Scans):**
   $$\text{POS Net Scanned Units} = \sum (\text{Quantity Sold}) - \sum (\text{Quantity Returned})$$
 * **System B Measure (ERP Decrements):**
-  $$\text{ERP Decremented Units} = \sum (\text{Movement 251 Units}) - \sum (\text{Movement 252 Units})$$
+  $$\text{ERP Decremented Units} = \sum (\text{Canonical SALES\_DECREMENT Units})$$
 * **Mathematical Variance:**
   $$\Delta_{\text{Units}} = \text{POS Net Scanned Units} - \text{ERP Decremented Units}$$
   $$\Delta_{\text{Cost Value}} = \Delta_{\text{Units}} \times \text{Standard Cost Price}$$
 * **Exception Ticketing Rule:**
   $$\text{IF } |\Delta_{\text{Cost Value}}| > \text{PARAM\_DISCREPANCY\_THRESHOLD} \text{ (₹500.00) THEN } \text{Flag for Cycle Count}$$
-* **Operational Remediation Interface:** Store Cycle Count Workbench (`PIR-008`). Flags exactly 5 to 10 top-variance SKUs daily for a morning 15-minute physical shelf count, eliminating disruptive quarterly store closures (`SC-04`).
+* **Operational Remediation Interface:** Store Cycle Count Workbench (`PIR-008`). Flags top 5 to 10 variance SKUs daily for a morning 15-minute shelf count, eliminating disruptive quarterly store closures (`SC-04`).
 
 ---
 
 #### 3.4 Leg 4: Customer Returns vs. Quarantine / Refund Ledgers (`BP-006`)
 * **Process Focus:** Fraudulent customer returns, stolen merchandise refund scams, and missing quarantine stock (`FR-013`).
+* **Provisional Movement Type Classification:**
+  * *Conceptual Category:* `RETURNS_QUARANTINE_RECEIPT` (Provisional SAP Movement Type `451`).
+  * *Governance Note:* Movement code `451` is treated as a **provisional design assumption**. The reconciliation model binds to the canonical category `RETURNS_QUARANTINE_RECEIPT` in `gold.ref_inventory_movement_type`.
 * **Comparison Grain:** **Return Credit Voucher Line Item** (`[return_receipt_id, return_line_number]`).
 * **Matching Join Key:** `return_receipt_id || '-' || return_line_number`.
 * **System A Measure (POS Refund Voucher):**
   $$\text{POS Refund Disbursed} = \text{Credit/Cash Disbursed to Customer}$$
   $$\text{POS Claimed Returned Units} = \text{Physical Units Accepted by Cashier}$$
 * **System B Measure (ERP Quarantine Intake):**
-  $$\text{ERP Quarantine Units} = \text{Units Checked into Blocked Quarantine Stock (Movement Type 451)}$$
+  $$\text{ERP Quarantine Units} = \text{Units Checked into Blocked Quarantine Stock (Canonical Category)}$$
 * **Mathematical Variance:**
   $$\Delta_{\text{Quarantine Units}} = \text{POS Claimed Returned Units} - \text{ERP Quarantine Units}$$
 * **Exception Ticketing Rules:**

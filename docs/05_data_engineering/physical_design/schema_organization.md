@@ -104,3 +104,4 @@ To guarantee data security, audit integrity, and prevent unauthorized data tampe
 #### 4.1 Strict Read-Only Operational Boundary (`BDL-04`)
 * None of the platform database roles possess write, execute, or network connection privileges to the operational POS edge databases, ERP SAP/Navision databases, or banking portals.
 * Upstream operational modifications are completely blocked at the architectural and network layers.
+
