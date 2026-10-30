@@ -495,16 +495,16 @@
 ---
 
 #### 4.3 Table: `control.control_campaign_assignment_registry`
-* **Physical PK:** `assignment_id` (`UUID`)
+* **Physical PK:** `assignment_id` (`BIGINT GENERATED ALWAYS AS IDENTITY`)
 * **Canonical Unique Constraint:** `CONSTRAINT uq_campaign_customer_canonical UNIQUE (campaign_id, customer_sk)`
 * **Surrogate Unique Constraint:** `CONSTRAINT uq_campaign_customer_surrogate UNIQUE (campaign_key, customer_key)`
 * **Role:** Unpartitioned authoritative state register guaranteeing global customer assignment uniqueness, canonical HMAC reproducibility, and cohort immutability across campaign dates.
-* **Storage Footprint:** Modeled at ~155–190 MB heap + ~160–210 MB indexes (~315–400 MB total for 1,000,000 assignments); storage labeled as **pending empirical measurement during Stage 5.3 benchmarking** (`pg_total_relation_size`).
+* **Storage Footprint:** Modeled at ~211 MiB heap (~221 MB at 90% usable page capacity) + ~165–215 MB B-tree indexes (~365–440 MB total for 1,000,000 assignments); storage labeled as **pending empirical measurement during Stage 5.3 benchmarking** (`pg_total_relation_size`).
 * **Immutability Enforcement:** Role-based access control (REVOKE UPDATE/DELETE) combined with PostgreSQL engine trigger `trg_prevent_locked_assignment_mutation` preventing changes to locked attributes (`campaign_id`, `customer_sk`, `campaign_key`, `customer_key`, `assignment_date_key`, `is_holdout_control_flag`, `assignment_hash_value`, `holdout_key_version`).
 
 | Column Name | PostgreSQL Data Type | Nullable | Key Type | Default Value | Business Description |
 | :--- | :--- | :---: | :---: | :--- | :--- |
-| `assignment_id` | `UUID` | NO | PK | `gen_random_uuid()` | Canonical assignment surrogate identifier |
+| `assignment_id` | `BIGINT` | NO | PK | `GENERATED ALWAYS AS IDENTITY` | Compact 64-bit surrogate primary key |
 | `campaign_id` | `VARCHAR(50)` | NO | Natural/Unique | None | Immutable upstream campaign business code (HMAC input 1) |
 | `customer_sk` | `CHAR(64)` | NO | Natural/Unique | None | Immutable customer cryptographic pseudonym digest (HMAC input 2) |
 | `campaign_key` | `INTEGER` | NO | FK/Unique | None | Foreign key referencing `dim_campaign.campaign_key` |
@@ -527,7 +527,7 @@
 | Column Name | PostgreSQL Data Type | Nullable | Key Type | Default Value | Business Description |
 | :--- | :--- | :---: | :---: | :--- | :--- |
 | `audit_log_id` | `BIGINT` | NO | PK | `GENERATED ALWAYS AS IDENTITY` | Audit surrogate identifier |
-| `assignment_id` | `UUID` | NO | FK | None | Target record in `control_campaign_assignment_registry` |
+| `assignment_id` | `BIGINT` | NO | FK | None | Target record in `control_campaign_assignment_registry` |
 | `action_type` | `VARCHAR(30)` | NO | None | None | `'STATUTORY_OPT_OUT'`, `'FRAUD_INVALIDATION'`, `'OVERRIDE'` |
 | `performed_by_role` | `VARCHAR(50)` | NO | None | None | Executing database/service role |
 | `authorized_by_ticket`| `VARCHAR(50)` | NO | None | None | ITSM ticket reference (e.g. `'JIRA-SEC-8921'`) |
@@ -538,7 +538,7 @@
 
 ---
 
-#### 4.4 Table: `gold.ref_reconciliation_domain`
+#### 4.5 Table: `gold.ref_reconciliation_domain`
 * **Physical PK:** `recon_domain_key` (`INTEGER GENERATED ALWAYS AS IDENTITY`)
 
 | Column Name | PostgreSQL Data Type | Nullable | Key Type | Default Value | Business Description |
@@ -551,7 +551,7 @@
 
 ---
 
-#### 4.5 Table: `gold.ref_inventory_movement_type` (Provisional Mapping Table)
+#### 4.6 Table: `gold.ref_inventory_movement_type` (Provisional Mapping Table)
 * **Physical PK:** `movement_type_key` (`INTEGER GENERATED ALWAYS AS IDENTITY`)
 * **Governance Note:** Movement codes (e.g. `251`, `451`) are provisional design assumptions pending ERP vendor confirmation (`ODQ-03`).
 
@@ -565,7 +565,7 @@
 
 ---
 
-#### 4.6 Table: `gold.ref_return_reason`
+#### 4.7 Table: `gold.ref_return_reason`
 * **Physical PK:** `return_reason_key` (`INTEGER GENERATED ALWAYS AS IDENTITY`)
 
 | Column Name | PostgreSQL Data Type | Nullable | Key Type | Default Value | Business Description |

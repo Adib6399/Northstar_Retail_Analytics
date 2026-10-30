@@ -61,11 +61,23 @@ This certified specification resolves all implementation-readiness findings:
 #### 3.1 The PostgreSQL 16 Partitioning Challenge
 In `gold.fact_campaign_exposure`, the table is range-partitioned by `assignment_date_key`. Under PostgreSQL 16 declarative partitioning, a unique index on `(campaign_key, customer_key)` cannot be created globally across the partitioned table unless `assignment_date_key` is included in the index. Consequently, the local constraint `UNIQUE (campaign_key, customer_key, assignment_date_key)` allows an anomaly where a customer could be assigned to the same campaign on two different dates across different partitions.
 
-#### 3.2 Unpartitioned Control Registry Solution & Canonical Identifier Mapping
+#### 3.2 Unpartitioned Control Registry Solution & Key Architecture
 To guarantee absolute global assignment uniqueness without altering the 9-fact inventory, an **unpartitioned control registry** is established in the `control` schema:
 * **Table:** `control.control_campaign_assignment_registry`
-* **Natural Business Key Constraint:** `CONSTRAINT uq_campaign_customer_canonical UNIQUE (campaign_id, customer_sk)`
-* **Relational Surrogate Key Constraint:** `CONSTRAINT uq_campaign_customer_surrogate UNIQUE (campaign_key, customer_key)`
+* **Surrogate Primary Key:** `CONSTRAINT pk_campaign_assignment_reg PRIMARY KEY (assignment_id)` (`BIGINT GENERATED ALWAYS AS IDENTITY`)
+* **Canonical Natural Unique Constraint:** `CONSTRAINT uq_campaign_customer_canonical UNIQUE (campaign_id, customer_sk)`
+* **Relational Surrogate Unique Constraint:** `CONSTRAINT uq_campaign_customer_surrogate UNIQUE (campaign_key, customer_key)`
+
+##### Architectural Distinction: Surrogate Primary Key vs Business Uniqueness Constraints
+1. **Surrogate Primary Key (`assignment_id` BIGINT GENERATED ALWAYS AS IDENTITY):**
+   * *Function:* Provides an internal, immutable, compact 64-bit integer surrogate identifier for physical tuple addressing.
+   * *Technical Role:* Powers efficient B-tree index traversal, serves as a high-performance foreign key reference for audit logging (`control.control_campaign_assignment_audit_log.assignment_id`), and directly links to the analytical fact table surrogate key (`gold.fact_campaign_exposure.exposure_fact_key`).
+2. **Canonical Natural Uniqueness Constraint (`UNIQUE (campaign_id, customer_sk)`):**
+   * *Function:* Enforces enterprise business uniqueness against the real-world upstream entities: the natural campaign identifier (`campaign_id` VARCHAR) and the customer's permanent cryptographic pseudonym (`customer_sk` CHAR(64)).
+   * *Technical Role:* Prevents a customer from being enrolled multiple times into the same marketing campaign across different dates or ingestion drops, regardless of warehouse surrogate re-sequencing, SCD Type 2 dimension splits, or warehouse rebuilds.
+3. **Relational Surrogate Uniqueness Constraint (`UNIQUE (campaign_key, customer_key)`):**
+   * *Function:* Enforces relational 1:1 join integrity against the current dimensional star schema surrogate keys (`gold.dim_campaign` and `gold.dim_customer`).
+   * *Technical Role:* Prevents Cartesian fan-out and double-counting during downstream star-schema SQL aggregations in Gold marts and Power BI DirectQuery models.
 
 ##### Canonical Identifier Mapping:
 * **Canonical Input (Stable & Immutable):**
@@ -146,24 +158,85 @@ Rather than silently masking incoming mismatches with an unconditional `ON CONFL
    * Incoming `ingestion_batch_id == registry.ingestion_batch_id` with matching payload.
    * *Resolution:* Logged as `BATCH_REPLAY_SKIPPED`; pipeline commits zero modifications and terminates successfully.
 
-#### 3.5 Physical Storage Footprint & Capacity Assessment
-For a representative enterprise campaign volume of **1,000,000 assignment records** (10 active campaigns $\times$ 100,000 targeted customers):
-* **Tuple Overhead & Heap Storage:**
-  * PostgreSQL `HeapTupleHeader` (23 bytes) + null bitmap (1 byte) = 24 bytes (8-byte aligned).
-  * Stored attributes (fixed-width 8-byte types, 4-byte integers, 1-byte booleans, UUIDs, and varlena string descriptors) require ~140–160 bytes of user payload per tuple after MAXALIGN padding.
-  * Adding Item Pointer (`ItemIdData`, 4 bytes), each physical tuple consumes ~170–190 bytes on a standard 8 KB page.
-  * At 90% fill factor (~38–42 tuples per 8 KB page), 1,000,000 records consume **~155 MB to ~190 MB** in heap table storage.
-* **Index Storage Overhead:**
-  * Primary Key B-Tree Index (`assignment_id` UUID): ~35 MB to ~45 MB.
-  * Unique Surrogate B-Tree Index (`campaign_key, customer_key`): ~30 MB to ~40 MB.
-  * Unique Canonical B-Tree Index (`campaign_id, customer_sk`): ~70 MB to ~90 MB.
-  * Supporting Date & Batch B-Tree Indexes: ~25 MB to ~35 MB.
-  * Total Index Footprint: **~160 MB to ~210 MB**.
-* **Total Physical Footprint:**
-  * Combined heap table and indexes require an estimated **~315 MB to ~400 MB** (or ~220 MB to ~280 MB without auxiliary canonical indexes).
-  * MVCC vacuum overhead accommodates 10–20% dead tuple headroom during bulk ingestion updates.
-* **Measurement Limitation & Governance Caveat:**
-  * *Governance Notice:* This capacity figure is a theoretical engineering estimate based on PostgreSQL 16 on-disk alignment rules. **Final exact physical storage is pending empirical measurement during Stage 5.3 synthetic volume benchmarking (`pg_total_relation_size`)**. No unsupported artificial precision is claimed.
+#### 3.5 Physical Storage Footprint & Capacity Arithmetic
+A rigorous theoretical heap and index storage recalculation for **1,000,000 assignment records** (10 active campaigns $\times$ 100,000 targeted customers) under PostgreSQL 16 on a 64-bit architecture with 8 KB pages:
+
+##### Step 1: Bytes Per Row (Tuple Payload, Header & Alignment)
+* **Fixed-Width Attributes (48 bytes):**
+  * `assignment_id` (`BIGINT`): 8 bytes
+  * `customer_key` (`BIGINT`): 8 bytes
+  * `assignment_timestamp` (`TIMESTAMPTZ`): 8 bytes
+  * `load_timestamp` (`TIMESTAMPTZ`): 8 bytes
+  * `ingestion_batch_id` (`UUID`): 16 bytes
+* **4-Byte & 1-Byte Attributes (10 bytes):**
+  * `campaign_key` (`INTEGER`): 4 bytes
+  * `assignment_date_key` (`INTEGER`): 4 bytes
+  * `is_holdout_control_flag` (`BOOLEAN`): 1 byte
+  * `is_locked_flag` (`BOOLEAN`): 1 byte
+* **Variable-Width & Numeric Attributes (~105 bytes):**
+  * `assignment_hash_value` (`NUMERIC(20, 0)`): ~16 bytes (8-byte varlena header + numeric digits)
+  * `holdout_key_version` (`VARCHAR(20)`): ~3 bytes (1-byte header + 2-byte `'v1'`)
+  * `campaign_id` (`VARCHAR(50)`): ~21 bytes (1-byte header + average 20-character campaign code)
+  * `customer_sk` (`CHAR(64)`): ~65 bytes (1-byte header + 64-character hex digest)
+* **Raw User Payload:** $48 + 10 + 105 = 163$ bytes.
+* **Heap Tuple Header:**
+  * Fixed `HeapTupleHeaderData`: 23 bytes
+  * Null Bitmap (13 columns): $\lceil 13 / 8 \rceil = 2$ bytes
+  * Unpadded Header Size: $23 + 2 = 25$ bytes
+  * Aligned Header (`t_hoff` to 8-byte `MAXALIGN` boundary): **32 bytes** (or 24 bytes if packed with 1-byte bitmap).
+* **Total Tuple On-Disk Size:**
+  * Header (25–32 B) + Payload (163 B) = 188–195 bytes
+  * Aligned Tuple Size (`MAXALIGN` to 8-byte boundary): **192 to 200 bytes per tuple**.
+* **Line Pointer Overhead:**
+  * Each tuple requires an entry in the page line pointer array (`ItemIdData`): **4 bytes**.
+  * **Effective Storage per Row on Page:** $192 + 4 = \mathbf{196 \text{ bytes}}$ (minimum) to $200 + 4 = \mathbf{204 \text{ bytes}}$ (maximum).
+
+##### Step 2: Usable Page Capacity & Effective Rows Per Page
+* Standard PostgreSQL page size: **8,192 bytes** (8 KB).
+* Page Header (`PageHeaderData`): **24 bytes**.
+* Raw available page space: $8,192 - 24 = 8,168$ bytes.
+* **At 90% Usable Page Capacity (Fillfactor = 90):**
+  $$\text{Usable Page Space} = \lfloor 8,168 \times 0.90 \rfloor = \mathbf{7,351 \text{ bytes}}$$
+* **Effective Rows Per Page:**
+  * At 196 bytes/row: $\lfloor 7,351 / 196 \rfloor = \mathbf{37 \text{ rows per page}}$.
+  * At 204 bytes/row: $\lfloor 7,351 / 204 \rfloor = \mathbf{36 \text{ rows per page}}$.
+  * *(At 100% fill factor: $\lfloor 8,168 / 196 \rfloor = 41$ rows/page; $\lfloor 8,168 / 204 \rfloor = 40$ rows/page).*
+
+##### Step 3: Required Heap Pages
+* **At 90% Usable Capacity (37 rows/page):**
+  $$\text{Required Heap Pages} = \left\lceil \frac{1,000,000}{37} \right\rceil = \mathbf{27,028 \text{ pages}}$$
+  *(At 36 rows/page: $\lceil 1,000,000 / 36 \rceil = 27,778$ pages; at 100% fill factor: $\lceil 1,000,000 / 41 \rceil = 24,391$ pages).*
+
+##### Step 4: Heap Storage in MB
+* **At 90% Usable Capacity (27,028 pages):**
+  $$\text{Heap Size} = 27,028 \times 8,192 \text{ bytes} = 221,413,376 \text{ bytes} \approx \mathbf{211.16 \text{ MiB}} \ (221.41 \text{ MB})$$
+* **Heap Storage Operating Range:** **~191 MiB to ~217 MiB** (~200 MB to ~227 MB).
+
+##### Step 5: Index Storage Estimates (B-Tree on 1,000,000 Rows)
+* **Primary Key Index (`assignment_id` BIGINT):**
+  * 8-byte key + 6-byte TID + 8-byte header = ~24 bytes aligned + 2-byte line pointer $\approx$ 26 bytes/entry.
+  * At standard ~70% B-tree leaf fill factor: ~4,500–5,500 pages $\approx$ **~35 MB to ~45 MB**.
+* **Unique Surrogate Index on `(campaign_key, customer_key)`:**
+  * 4-byte int + 8-byte bigint = 12-byte key + 6-byte TID + header $\approx$ 32 bytes aligned.
+  * At ~70% B-tree leaf fill factor: ~4,000–5,000 pages $\approx$ **~30 MB to ~40 MB**.
+* **Unique Canonical Index on `(campaign_id, customer_sk)`:**
+  * ~21-byte varchar + 65-byte char = ~86-byte key + 6-byte TID + header $\approx$ 104 bytes aligned.
+  * At ~70% B-tree leaf fill factor: ~10,000–12,500 pages $\approx$ **~80 MB to ~100 MB**.
+* **Supporting Date B-Tree Index on `(assignment_date_key)`:** **~20 MB to ~30 MB**.
+* **Total Estimated Index Footprint:** **~165 MB to ~215 MB**.
+
+##### Step 6: Total Estimated Registry Footprint & Empirical Uncertainty Boundary
+* **Total Physical Footprint (Heap + Indexes):**
+  $$\text{Total Storage} = \text{Heap (200–227 MB)} + \text{Indexes (165–215 MB)} \approx \mathbf{365 \text{ MB to } 442 \text{ MB}}$$
+* **Vacuum & Maintenance Headroom:** Autovacuum maintains a 10–20% dead-tuple threshold during batch staging merges.
+* **Empirical Measurement Limitation & Governance Boundary:**
+  * *Notice:* All index sizes and page packing ratios are theoretical engineering ranges based on standard PostgreSQL 16 heuristics.
+  * **Actual physical table sizing is strictly pending empirical measurement during Stage 5.3 synthetic volume benchmarking** using:
+    ```sql
+    SELECT pg_size_pretty(pg_relation_size('control.control_campaign_assignment_registry')) AS heap_size,
+           pg_size_pretty(pg_total_relation_size('control.control_campaign_assignment_registry')) AS total_size;
+    ```
+  * Zero unsupported artificial precision is assumed.
 
 ---
 
@@ -214,7 +287,7 @@ erDiagram
     dim_product ||--o{ fact_demand_forecast : "product_link"
 
     control_campaign_assignment_registry {
-        UUID assignment_id PK
+        BIGINT assignment_id PK
         VARCHAR campaign_id NaturalKey
         CHAR customer_sk NaturalKey
         INTEGER campaign_key FK

@@ -124,8 +124,9 @@ To support reproducible A/B testing and incrementality measurement (`FR-018`) wh
 #### 5.1 Unpartitioned Global Assignment Registry & Canonical Identifier Mapping
 Because `gold.fact_campaign_exposure` is range-partitioned on `assignment_date_key` (enforcing PostgreSQL local unique constraint `UNIQUE (campaign_key, customer_key, assignment_date_key)`), an unpartitioned gatekeeper table is maintained in the `control` schema:
 * **Table:** `control.control_campaign_assignment_registry`
-* **Canonical Constraint:** `CONSTRAINT uq_campaign_customer_canonical UNIQUE (campaign_id, customer_sk)`
-* **Surrogate Constraint:** `CONSTRAINT uq_campaign_customer_surrogate UNIQUE (campaign_key, customer_key)`
+* **Surrogate Primary Key:** `CONSTRAINT pk_campaign_assignment_reg PRIMARY KEY (assignment_id)` (`BIGINT GENERATED ALWAYS AS IDENTITY`)
+* **Canonical Unique Constraint:** `CONSTRAINT uq_campaign_customer_canonical UNIQUE (campaign_id, customer_sk)`
+* **Surrogate Unique Constraint:** `CONSTRAINT uq_campaign_customer_surrogate UNIQUE (campaign_key, customer_key)`
 * **Canonical Mapping:**
   * `campaign_id` (`VARCHAR(50)`): Natural campaign business identifier from upstream marketing systems.
   * `customer_sk` (`CHAR(64)`): Cryptographic pseudonym generated at the ingestion boundary from customer phone number and `HMAC_PEPPER_SECRET`.

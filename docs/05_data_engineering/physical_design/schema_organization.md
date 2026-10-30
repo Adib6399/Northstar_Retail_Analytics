@@ -65,8 +65,8 @@ The database physical layout is partitioned into **five functional schemas** rep
   * `control.control_batch_audit`: Ingestion batch audit log capturing start/end times, rows loaded, and error payloads.
   * `control.control_threshold_config`: Dynamic system configuration table storing `PARAM_DISCREPANCY_THRESHOLD` (default ₹500 per `BDL-06`).
   * `control.control_pipeline_watermark`: High-watermark tracking table for incremental ELT runs.
-  * `control.control_campaign_assignment_registry`: **Unpartitioned Global Assignment Registry** enforcing cross-partition customer assignment uniqueness (`UNIQUE (campaign_id, customer_sk)` and `UNIQUE (campaign_key, customer_key)`), cohort assignment immutability via RBAC and triggers, and explicit exception handling for conflicting cohorts/dates/hashes.
-  * `control.control_campaign_assignment_audit_log`: Append-only governance ledger recording authorized corrections and statutory opt-outs without mutating historical assignment rows in place.
+  * `control.control_campaign_assignment_registry`: **Unpartitioned Global Assignment Registry** (`PRIMARY KEY (assignment_id)` `BIGINT GENERATED ALWAYS AS IDENTITY`) enforcing cross-partition customer assignment uniqueness (`UNIQUE (campaign_id, customer_sk)` and `UNIQUE (campaign_key, customer_key)`), cohort assignment immutability via RBAC and triggers, and explicit exception handling for conflicting cohorts/dates/hashes.
+  * `control.control_campaign_assignment_audit_log`: Append-only governance ledger (`PRIMARY KEY (audit_log_id)` `BIGINT GENERATED ALWAYS AS IDENTITY`, FK `assignment_id BIGINT`) recording authorized corrections and statutory opt-outs without mutating historical assignment rows in place.
 
 ---
 
