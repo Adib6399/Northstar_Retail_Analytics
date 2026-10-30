@@ -1,0 +1,96 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# Environment Variables & Secrets (CRITICAL SECURITY EXCLUSIONS)
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.secret
+*.pepper
+
+# Data Storage Directories (Exclude Local & Generated Datasets, keep .gitkeep)
+data/raw/*
+!data/raw/.gitkeep
+data/bronze/*
+!data/bronze/.gitkeep
+data/silver/*
+!data/silver/.gitkeep
+data/gold/*
+!data/gold/.gitkeep
+data/reference/*
+!data/reference/.gitkeep
+
+# Operational Logs
+logs/*.log
+*.log
+
+# Docker Volumes & Persistent Database Data
+docker/volumes/
+postgres_data/
+.docker/
+
+# dbt Artifacts & Compiled Files
+dbt_project/target/
+dbt_project/dbt_packages/
+dbt_project/logs/
+dbt_project/dbt_modules/
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE & Editor Settings
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo

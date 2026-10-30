@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_Process_BP002_TOBE" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Northstar Process Architect" exporterVersion="2.0">
+  <bpmn:collaboration id="Collaboration_Process_BP002_TOBE">
+    <bpmn:participant id="Participant_Process_BP002_TOBE" name="Northstar Retail Group — BP-002 TO-BE: Automated Dynamic DOI &amp; Replenishment Advisory" processRef="Process_BP002_TOBE" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_BP002_TOBE" name="BP-002 TO-BE: Automated Dynamic DOI &amp; Replenishment Advisory" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_1">
+      <bpmn:lane id="Lane_Engine_002B" name="Analytics Platform Replenishment Engine">
+        <bpmn:flowNodeRef>Start_002B</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_002B_1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_002B_2</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_002B_1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_002B_3</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_002B_4</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_002B_5</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Ops_002B" name="Store Managers &amp; DC Operations">
+        <bpmn:flowNodeRef>Task_002B_6</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_002B_7</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_002B</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="Start_002B" name="Timer: 04:45 IST Daily">
+      <bpmn:outgoing>Flow_002B_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="Task_002B_1" name="Ingest ERP Midnight Stock &amp; POS Velocity">
+      <bpmn:incoming>Flow_002B_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_002B_2</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Task_002B_2" name="Calculate Dynamic DOI &amp; ABC Stratification">
+      <bpmn:incoming>Flow_002B_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_002B_3</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="Gateway_002B_1" name="Class-A SKU DOI &lt; 3.0 Days?">
+      <bpmn:incoming>Flow_002B_3</bpmn:incoming>
+      <bpmn:outgoing>Flow_002B_4</bpmn:outgoing>
+      <bpmn:outgoing>Flow_002B_5</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="Task_002B_3" name="Generate High-Priority Stockout Risk Flag">
+      <bpmn:incoming>Flow_002B_4</bpmn:incoming>
+      <bpmn:outgoing>Flow_002B_6</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Task_002B_4" name="Algorithmic Replenishment Sizing &amp; Allocation">
+      <bpmn:incoming>Flow_002B_5</bpmn:incoming>
+      <bpmn:incoming>Flow_002B_6</bpmn:incoming>
+      <bpmn:outgoing>Flow_002B_7</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Task_002B_5" name="Publish 06:00 IST Morning Inventory Workbench">
+      <bpmn:incoming>Flow_002B_7</bpmn:incoming>
+      <bpmn:outgoing>Flow_002B_8</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="Task_002B_6" name="Store Manager Reviews &amp; Confirms Reorder Lines">
+      <bpmn:incoming>Flow_002B_8</bpmn:incoming>
+      <bpmn:outgoing>Flow_002B_9</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="Task_002B_7" name="Export Structured STO Batch File to Native ERP BDL-04">
+      <bpmn:incoming>Flow_002B_9</bpmn:incoming>
+      <bpmn:outgoing>Flow_002B_10</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="End_002B" name="Optimized DC Stock Allocation Released">
+      <bpmn:incoming>Flow_002B_10</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_002B_1" sourceRef="Start_002B" targetRef="Task_002B_1" />
+    <bpmn:sequenceFlow id="Flow_002B_2" sourceRef="Task_002B_1" targetRef="Task_002B_2" />
+    <bpmn:sequenceFlow id="Flow_002B_3" sourceRef="Task_002B_2" targetRef="Gateway_002B_1" />
+    <bpmn:sequenceFlow id="Flow_002B_4" sourceRef="Gateway_002B_1" targetRef="Task_002B_3" name="Yes" />
+    <bpmn:sequenceFlow id="Flow_002B_5" sourceRef="Gateway_002B_1" targetRef="Task_002B_4" name="No" />
+    <bpmn:sequenceFlow id="Flow_002B_6" sourceRef="Task_002B_3" targetRef="Task_002B_4" />
+    <bpmn:sequenceFlow id="Flow_002B_7" sourceRef="Task_002B_4" targetRef="Task_002B_5" />
+    <bpmn:sequenceFlow id="Flow_002B_8" sourceRef="Task_002B_5" targetRef="Task_002B_6" />
+    <bpmn:sequenceFlow id="Flow_002B_9" sourceRef="Task_002B_6" targetRef="Task_002B_7" />
+    <bpmn:sequenceFlow id="Flow_002B_10" sourceRef="Task_002B_7" targetRef="End_002B" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_Process_BP002_TOBE">
+    <bpmndi:BPMNPlane id="BPMNPlane_Process_BP002_TOBE" bpmnElement="Collaboration_Process_BP002_TOBE">
+      <bpmndi:BPMNShape id="Participant_Process_BP002_TOBE_di" bpmnElement="Participant_Process_BP002_TOBE" isHorizontal="true">
+        <dc:Bounds x="120" y="80" width="1380" height="480" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Engine_002B_di" bpmnElement="Lane_Engine_002B" isHorizontal="true">
+        <dc:Bounds x="150" y="80" width="1350" height="240" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Ops_002B_di" bpmnElement="Lane_Ops_002B" isHorizontal="true">
+        <dc:Bounds x="150" y="320" width="1350" height="240" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Start_002B_di" bpmnElement="Start_002B">
+        <dc:Bounds x="200" y="160" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_002B_1_di" bpmnElement="Task_002B_1">
+        <dc:Bounds x="280" y="138" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_002B_2_di" bpmnElement="Task_002B_2">
+        <dc:Bounds x="420" y="138" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_002B_1_di" bpmnElement="Gateway_002B_1">
+        <dc:Bounds x="560" y="153" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_002B_3_di" bpmnElement="Task_002B_3">
+        <dc:Bounds x="660" y="100" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_002B_4_di" bpmnElement="Task_002B_4">
+        <dc:Bounds x="800" y="138" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_002B_5_di" bpmnElement="Task_002B_5">
+        <dc:Bounds x="940" y="138" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_002B_6_di" bpmnElement="Task_002B_6">
+        <dc:Bounds x="1080" y="378" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_002B_7_di" bpmnElement="Task_002B_7">
+        <dc:Bounds x="1220" y="378" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_002B_di" bpmnElement="End_002B">
+        <dc:Bounds x="1370" y="400" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_002B_1_di" bpmnElement="Flow_002B_1">
+        <di:waypoint x="236" y="178" />
+        <di:waypoint x="280" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_002B_2_di" bpmnElement="Flow_002B_2">
+        <di:waypoint x="380" y="178" />
+        <di:waypoint x="420" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_002B_3_di" bpmnElement="Flow_002B_3">
+        <di:waypoint x="520" y="178" />
+        <di:waypoint x="560" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_002B_4_di" bpmnElement="Flow_002B_4">
+        <di:waypoint x="585" y="153" />
+        <di:waypoint x="585" y="140" />
+        <di:waypoint x="660" y="140" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_002B_5_di" bpmnElement="Flow_002B_5">
+        <di:waypoint x="610" y="178" />
+        <di:waypoint x="800" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_002B_6_di" bpmnElement="Flow_002B_6">
+        <di:waypoint x="760" y="140" />
+        <di:waypoint x="780" y="140" />
+        <di:waypoint x="780" y="178" />
+        <di:waypoint x="800" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_002B_7_di" bpmnElement="Flow_002B_7">
+        <di:waypoint x="900" y="178" />
+        <di:waypoint x="940" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_002B_8_di" bpmnElement="Flow_002B_8">
+        <di:waypoint x="1040" y="178" />
+        <di:waypoint x="1060" y="178" />
+        <di:waypoint x="1060" y="418" />
+        <di:waypoint x="1080" y="418" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_002B_9_di" bpmnElement="Flow_002B_9">
+        <di:waypoint x="1180" y="418" />
+        <di:waypoint x="1220" y="418" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_002B_10_di" bpmnElement="Flow_002B_10">
+        <di:waypoint x="1320" y="418" />
+        <di:waypoint x="1370" y="418" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

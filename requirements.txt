@@ -1,0 +1,27 @@
+# ==============================================================================
+# Northstar Retail Group — Enterprise Retail Analytics Platform
+# Stage 5.1 Practical Portfolio Baseline Dependencies
+# ==============================================================================
+
+# Core Data Processing & Manipulation
+pandas>=2.2.0
+
+# Database Connectivity & ORM Engine
+sqlalchemy>=2.0.25
+psycopg[binary]>=3.1.18
+
+# Data Transformation & Semantic Modeling
+dbt-core>=1.7.0
+dbt-postgres>=1.7.0
+
+# Configuration, Environment & Secrets Management
+python-dotenv>=1.0.0
+pydantic>=2.6.0
+pydantic-settings>=2.1.0
+pyyaml>=6.0.1
+
+# HTTP Client (for API metadata / verification)
+requests>=2.31.0
+
+# Quality Assurance & Testing Framework
+pytest>=8.0.0

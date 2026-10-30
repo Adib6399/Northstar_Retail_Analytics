@@ -1,0 +1,31 @@
+# ==============================================================================
+# Northstar Retail Group — Enterprise Retail Analytics Platform
+# Stage 5.1 dbt Project Configuration Foundation
+# ==============================================================================
+
+name: 'northstar_analytics'
+version: '1.0.0'
+config-version: 2
+
+profile: 'northstar_postgres'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Model Materialization Strategies (Aligned with Kimball Architecture)
+models:
+  northstar_analytics:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: ephemeral
+    marts:
+      +materialized: table

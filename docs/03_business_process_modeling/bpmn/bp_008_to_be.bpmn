@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_Process_BP008_TOBE" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Northstar Process Architect" exporterVersion="2.0">
+  <bpmn:collaboration id="Collaboration_Process_BP008_TOBE">
+    <bpmn:participant id="Participant_Process_BP008_TOBE" name="Northstar Retail Group — BP-008 TO-BE: Automated Statistical Forecasting &amp; Calendar Alignment" processRef="Process_BP008_TOBE" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_BP008_TOBE" name="BP-008 TO-BE: Automated Statistical Forecasting &amp; Calendar Alignment" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_1">
+      <bpmn:lane id="Lane_Engine_008B" name="Analytics Platform Forecasting Engine">
+        <bpmn:flowNodeRef>Start_008B</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_008B_1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_008B_2</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_008B_3</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_008B_1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_008B_4</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Merch_008B" name="Category Merchandisers &amp; Procurement">
+        <bpmn:flowNodeRef>Task_008B_5</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_008B_6</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_008B</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="Start_008B" name="Timer: 05:00 IST Daily">
+      <bpmn:outgoing>Flow_008B_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="Task_008B_1" name="Ingest Sales History &amp; Enriched Calendar Index">
+      <bpmn:incoming>Flow_008B_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_008B_2</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Task_008B_2" name="Align Shifting Regional Lunar Festivals">
+      <bpmn:incoming>Flow_008B_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_008B_3</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Task_008B_3" name="Execute Holt-Winters &amp; Auto-ARIMA BDL-07">
+      <bpmn:incoming>Flow_008B_3</bpmn:incoming>
+      <bpmn:outgoing>Flow_008B_4</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="Gateway_008B_1" name="SKU Forecast MAPE &lt; 18%?">
+      <bpmn:incoming>Flow_008B_4</bpmn:incoming>
+      <bpmn:outgoing>Flow_008B_5</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="Task_008B_4" name="Calculate Net PO Advisory factoring MOQ &amp; Lead Time">
+      <bpmn:incoming>Flow_008B_5</bpmn:incoming>
+      <bpmn:outgoing>Flow_008B_6</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="Task_008B_5" name="Merchandiser Confirms Quantities in Workbench">
+      <bpmn:incoming>Flow_008B_6</bpmn:incoming>
+      <bpmn:outgoing>Flow_008B_7</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="Task_008B_6" name="Export Structured PO Batch to Native ERP BDL-04">
+      <bpmn:incoming>Flow_008B_7</bpmn:incoming>
+      <bpmn:outgoing>Flow_008B_8</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="End_008B" name="Optimized Supplier Procurement Executed">
+      <bpmn:incoming>Flow_008B_8</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_008B_1" sourceRef="Start_008B" targetRef="Task_008B_1" />
+    <bpmn:sequenceFlow id="Flow_008B_2" sourceRef="Task_008B_1" targetRef="Task_008B_2" />
+    <bpmn:sequenceFlow id="Flow_008B_3" sourceRef="Task_008B_2" targetRef="Task_008B_3" />
+    <bpmn:sequenceFlow id="Flow_008B_4" sourceRef="Task_008B_3" targetRef="Gateway_008B_1" />
+    <bpmn:sequenceFlow id="Flow_008B_5" sourceRef="Gateway_008B_1" targetRef="Task_008B_4" name="Certified" />
+    <bpmn:sequenceFlow id="Flow_008B_6" sourceRef="Task_008B_4" targetRef="Task_008B_5" />
+    <bpmn:sequenceFlow id="Flow_008B_7" sourceRef="Task_008B_5" targetRef="Task_008B_6" />
+    <bpmn:sequenceFlow id="Flow_008B_8" sourceRef="Task_008B_6" targetRef="End_008B" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_Process_BP008_TOBE">
+    <bpmndi:BPMNPlane id="BPMNPlane_Process_BP008_TOBE" bpmnElement="Collaboration_Process_BP008_TOBE">
+      <bpmndi:BPMNShape id="Participant_Process_BP008_TOBE_di" bpmnElement="Participant_Process_BP008_TOBE" isHorizontal="true">
+        <dc:Bounds x="120" y="80" width="1380" height="480" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Engine_008B_di" bpmnElement="Lane_Engine_008B" isHorizontal="true">
+        <dc:Bounds x="150" y="80" width="1350" height="240" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Merch_008B_di" bpmnElement="Lane_Merch_008B" isHorizontal="true">
+        <dc:Bounds x="150" y="320" width="1350" height="240" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Start_008B_di" bpmnElement="Start_008B">
+        <dc:Bounds x="200" y="160" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_008B_1_di" bpmnElement="Task_008B_1">
+        <dc:Bounds x="280" y="138" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_008B_2_di" bpmnElement="Task_008B_2">
+        <dc:Bounds x="420" y="138" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_008B_3_di" bpmnElement="Task_008B_3">
+        <dc:Bounds x="560" y="138" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_008B_1_di" bpmnElement="Gateway_008B_1">
+        <dc:Bounds x="700" y="153" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_008B_4_di" bpmnElement="Task_008B_4">
+        <dc:Bounds x="800" y="138" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_008B_5_di" bpmnElement="Task_008B_5">
+        <dc:Bounds x="950" y="378" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_008B_6_di" bpmnElement="Task_008B_6">
+        <dc:Bounds x="1100" y="378" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_008B_di" bpmnElement="End_008B">
+        <dc:Bounds x="1260" y="400" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_008B_1_di" bpmnElement="Flow_008B_1">
+        <di:waypoint x="236" y="178" />
+        <di:waypoint x="280" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_008B_2_di" bpmnElement="Flow_008B_2">
+        <di:waypoint x="380" y="178" />
+        <di:waypoint x="420" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_008B_3_di" bpmnElement="Flow_008B_3">
+        <di:waypoint x="520" y="178" />
+        <di:waypoint x="560" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_008B_4_di" bpmnElement="Flow_008B_4">
+        <di:waypoint x="660" y="178" />
+        <di:waypoint x="700" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_008B_5_di" bpmnElement="Flow_008B_5">
+        <di:waypoint x="750" y="178" />
+        <di:waypoint x="800" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_008B_6_di" bpmnElement="Flow_008B_6">
+        <di:waypoint x="900" y="178" />
+        <di:waypoint x="925" y="178" />
+        <di:waypoint x="925" y="418" />
+        <di:waypoint x="950" y="418" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_008B_7_di" bpmnElement="Flow_008B_7">
+        <di:waypoint x="1050" y="418" />
+        <di:waypoint x="1100" y="418" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_008B_8_di" bpmnElement="Flow_008B_8">
+        <di:waypoint x="1200" y="418" />
+        <di:waypoint x="1260" y="418" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

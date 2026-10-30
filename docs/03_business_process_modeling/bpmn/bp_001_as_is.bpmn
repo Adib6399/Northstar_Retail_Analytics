@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_Process_BP001_ASIS" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Northstar Process Architect" exporterVersion="2.0">
+  <bpmn:collaboration id="Collaboration_Process_BP001_ASIS">
+    <bpmn:participant id="Participant_Process_BP001_ASIS" name="Northstar Retail Group — BP-001 AS-IS: Manual Daily Sales Reporting Compilation" processRef="Process_BP001_ASIS" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_BP001_ASIS" name="BP-001 AS-IS: Manual Daily Sales Reporting Compilation" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_1">
+      <bpmn:lane id="Lane_Store" name="Store Operations &amp; Cashiers">
+        <bpmn:flowNodeRef>Start_001A</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_001A_1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_001A_2</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_001A_3</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_001A_4</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_HQ" name="Corporate FP&amp;A Analysts">
+        <bpmn:flowNodeRef>Task_001A_5</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_001A_1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_001A_6</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_001A_7</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_001A</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="Start_001A" name="Store Close 21:30 IST">
+      <bpmn:outgoing>Flow_001A_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:manualTask id="Task_001A_1" name="Count Cash Drawer &amp; Print Till Tape">
+      <bpmn:incoming>Flow_001A_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_001A_2</bpmn:outgoing>
+    </bpmn:manualTask>
+    <bpmn:userTask id="Task_001A_2" name="Export Local POS Daily CSV">
+      <bpmn:incoming>Flow_001A_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_001A_3</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Task_001A_3" name="Copy-Paste CSV into Excel DSR Template">
+      <bpmn:incoming>Flow_001A_3</bpmn:incoming>
+      <bpmn:outgoing>Flow_001A_4</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:sendTask id="Task_001A_4" name="Email DSR Spreadsheet to HQ Inbox">
+      <bpmn:incoming>Flow_001A_4</bpmn:incoming>
+      <bpmn:outgoing>Flow_001A_5</bpmn:outgoing>
+    </bpmn:sendTask>
+    <bpmn:userTask id="Task_001A_5" name="FP&amp;A Ingests 30 Store Spreadsheets 09:00 IST">
+      <bpmn:incoming>Flow_001A_5</bpmn:incoming>
+      <bpmn:outgoing>Flow_001A_6</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="Gateway_001A_1" name="Missing Stores or Formula Errors?">
+      <bpmn:incoming>Flow_001A_6</bpmn:incoming>
+      <bpmn:outgoing>Flow_001A_7</bpmn:outgoing>
+      <bpmn:outgoing>Flow_001A_9</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="Task_001A_6" name="Call Store Managers to Re-send Spreadsheets">
+      <bpmn:incoming>Flow_001A_7</bpmn:incoming>
+      <bpmn:outgoing>Flow_001A_8</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Task_001A_7" name="Manually Compile Master Enterprise Excel">
+      <bpmn:incoming>Flow_001A_8</bpmn:incoming>
+      <bpmn:incoming>Flow_001A_9</bpmn:incoming>
+      <bpmn:outgoing>Flow_001A_10</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="End_001A" name="Executive PDF Emailed 14:00-16:00 IST">
+      <bpmn:incoming>Flow_001A_10</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_001A_1" sourceRef="Start_001A" targetRef="Task_001A_1" />
+    <bpmn:sequenceFlow id="Flow_001A_2" sourceRef="Task_001A_1" targetRef="Task_001A_2" />
+    <bpmn:sequenceFlow id="Flow_001A_3" sourceRef="Task_001A_2" targetRef="Task_001A_3" />
+    <bpmn:sequenceFlow id="Flow_001A_4" sourceRef="Task_001A_3" targetRef="Task_001A_4" />
+    <bpmn:sequenceFlow id="Flow_001A_5" sourceRef="Task_001A_4" targetRef="Task_001A_5" />
+    <bpmn:sequenceFlow id="Flow_001A_6" sourceRef="Task_001A_5" targetRef="Gateway_001A_1" />
+    <bpmn:sequenceFlow id="Flow_001A_7" sourceRef="Gateway_001A_1" targetRef="Task_001A_6" name="Yes" />
+    <bpmn:sequenceFlow id="Flow_001A_8" sourceRef="Task_001A_6" targetRef="Task_001A_7" />
+    <bpmn:sequenceFlow id="Flow_001A_9" sourceRef="Gateway_001A_1" targetRef="Task_001A_7" name="No" />
+    <bpmn:sequenceFlow id="Flow_001A_10" sourceRef="Task_001A_7" targetRef="End_001A" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_Process_BP001_ASIS">
+    <bpmndi:BPMNPlane id="BPMNPlane_Process_BP001_ASIS" bpmnElement="Collaboration_Process_BP001_ASIS">
+      <bpmndi:BPMNShape id="Participant_Process_BP001_ASIS_di" bpmnElement="Participant_Process_BP001_ASIS" isHorizontal="true">
+        <dc:Bounds x="120" y="80" width="1380" height="480" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Store_di" bpmnElement="Lane_Store" isHorizontal="true">
+        <dc:Bounds x="150" y="80" width="1350" height="240" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_HQ_di" bpmnElement="Lane_HQ" isHorizontal="true">
+        <dc:Bounds x="150" y="320" width="1350" height="240" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Start_001A_di" bpmnElement="Start_001A">
+        <dc:Bounds x="200" y="160" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_001A_1_di" bpmnElement="Task_001A_1">
+        <dc:Bounds x="280" y="138" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_001A_2_di" bpmnElement="Task_001A_2">
+        <dc:Bounds x="420" y="138" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_001A_3_di" bpmnElement="Task_001A_3">
+        <dc:Bounds x="560" y="138" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_001A_4_di" bpmnElement="Task_001A_4">
+        <dc:Bounds x="700" y="138" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_001A_5_di" bpmnElement="Task_001A_5">
+        <dc:Bounds x="840" y="378" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_001A_1_di" bpmnElement="Gateway_001A_1">
+        <dc:Bounds x="990" y="393" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_001A_6_di" bpmnElement="Task_001A_6">
+        <dc:Bounds x="1080" y="320" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_001A_7_di" bpmnElement="Task_001A_7">
+        <dc:Bounds x="1220" y="378" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_001A_di" bpmnElement="End_001A">
+        <dc:Bounds x="1370" y="400" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_001A_1_di" bpmnElement="Flow_001A_1">
+        <di:waypoint x="236" y="178" />
+        <di:waypoint x="280" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_001A_2_di" bpmnElement="Flow_001A_2">
+        <di:waypoint x="380" y="178" />
+        <di:waypoint x="420" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_001A_3_di" bpmnElement="Flow_001A_3">
+        <di:waypoint x="520" y="178" />
+        <di:waypoint x="560" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_001A_4_di" bpmnElement="Flow_001A_4">
+        <di:waypoint x="660" y="178" />
+        <di:waypoint x="700" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_001A_5_di" bpmnElement="Flow_001A_5">
+        <di:waypoint x="750" y="218" />
+        <di:waypoint x="750" y="418" />
+        <di:waypoint x="840" y="418" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_001A_6_di" bpmnElement="Flow_001A_6">
+        <di:waypoint x="940" y="418" />
+        <di:waypoint x="990" y="418" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_001A_7_di" bpmnElement="Flow_001A_7">
+        <di:waypoint x="1015" y="393" />
+        <di:waypoint x="1015" y="360" />
+        <di:waypoint x="1080" y="360" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_001A_8_di" bpmnElement="Flow_001A_8">
+        <di:waypoint x="1180" y="360" />
+        <di:waypoint x="1200" y="360" />
+        <di:waypoint x="1200" y="418" />
+        <di:waypoint x="1220" y="418" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_001A_9_di" bpmnElement="Flow_001A_9">
+        <di:waypoint x="1040" y="418" />
+        <di:waypoint x="1220" y="418" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_001A_10_di" bpmnElement="Flow_001A_10">
+        <di:waypoint x="1320" y="418" />
+        <di:waypoint x="1370" y="418" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

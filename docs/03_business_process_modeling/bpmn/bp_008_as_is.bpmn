@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_Process_BP008_ASIS" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Northstar Process Architect" exporterVersion="2.0">
+  <bpmn:collaboration id="Collaboration_Process_BP008_ASIS">
+    <bpmn:participant id="Participant_Process_BP008_ASIS" name="Northstar Retail Group — BP-008 AS-IS: Manual Demand Planning &amp; Flat Growth" processRef="Process_BP008_ASIS" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_BP008_ASIS" name="BP-008 AS-IS: Manual Demand Planning &amp; Flat Growth" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_1">
+      <bpmn:lane id="Lane_Plan_008A" name="Category Merchandisers &amp; DC Logistics">
+        <bpmn:flowNodeRef>Start_008A</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_008A_1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_008A_2</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_008A_3</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_008A_4</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_008A</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="Start_008A" name="Seasonal Festival Planning Window">
+      <bpmn:outgoing>Flow_008A_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="Task_008A_1" name="Export Prior Year Sales to Excel Sheets">
+      <bpmn:incoming>Flow_008A_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_008A_2</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Task_008A_2" name="Apply Flat +10% Multiplier (Ignore Lunar Shift)">
+      <bpmn:incoming>Flow_008A_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_008A_3</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Task_008A_3" name="Issue Large Locked Advance Supplier POs">
+      <bpmn:incoming>Flow_008A_3</bpmn:incoming>
+      <bpmn:outgoing>Flow_008A_4</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:manualTask id="Task_008A_4" name="Mid-Season Emergency Freight &amp; Stockouts">
+      <bpmn:incoming>Flow_008A_4</bpmn:incoming>
+      <bpmn:outgoing>Flow_008A_5</bpmn:outgoing>
+    </bpmn:manualTask>
+    <bpmn:endEvent id="End_008A" name="Severe Post-Season Markdown Liquidation">
+      <bpmn:incoming>Flow_008A_5</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_008A_1" sourceRef="Start_008A" targetRef="Task_008A_1" />
+    <bpmn:sequenceFlow id="Flow_008A_2" sourceRef="Task_008A_1" targetRef="Task_008A_2" />
+    <bpmn:sequenceFlow id="Flow_008A_3" sourceRef="Task_008A_2" targetRef="Task_008A_3" />
+    <bpmn:sequenceFlow id="Flow_008A_4" sourceRef="Task_008A_3" targetRef="Task_008A_4" />
+    <bpmn:sequenceFlow id="Flow_008A_5" sourceRef="Task_008A_4" targetRef="End_008A" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_Process_BP008_ASIS">
+    <bpmndi:BPMNPlane id="BPMNPlane_Process_BP008_ASIS" bpmnElement="Collaboration_Process_BP008_ASIS">
+      <bpmndi:BPMNShape id="Participant_Process_BP008_ASIS_di" bpmnElement="Participant_Process_BP008_ASIS" isHorizontal="true">
+        <dc:Bounds x="120" y="80" width="1380" height="480" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Plan_008A_di" bpmnElement="Lane_Plan_008A" isHorizontal="true">
+        <dc:Bounds x="150" y="80" width="1350" height="480" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Start_008A_di" bpmnElement="Start_008A">
+        <dc:Bounds x="200" y="240" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_008A_1_di" bpmnElement="Task_008A_1">
+        <dc:Bounds x="280" y="218" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_008A_2_di" bpmnElement="Task_008A_2">
+        <dc:Bounds x="420" y="218" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_008A_3_di" bpmnElement="Task_008A_3">
+        <dc:Bounds x="560" y="218" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_008A_4_di" bpmnElement="Task_008A_4">
+        <dc:Bounds x="700" y="218" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_008A_di" bpmnElement="End_008A">
+        <dc:Bounds x="860" y="240" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_008A_1_di" bpmnElement="Flow_008A_1">
+        <di:waypoint x="236" y="258" />
+        <di:waypoint x="280" y="258" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_008A_2_di" bpmnElement="Flow_008A_2">
+        <di:waypoint x="380" y="258" />
+        <di:waypoint x="420" y="258" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_008A_3_di" bpmnElement="Flow_008A_3">
+        <di:waypoint x="520" y="258" />
+        <di:waypoint x="560" y="258" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_008A_4_di" bpmnElement="Flow_008A_4">
+        <di:waypoint x="660" y="258" />
+        <di:waypoint x="700" y="258" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_008A_5_di" bpmnElement="Flow_008A_5">
+        <di:waypoint x="800" y="258" />
+        <di:waypoint x="860" y="258" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

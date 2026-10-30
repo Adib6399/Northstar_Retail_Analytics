@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_Process_BP003_ASIS" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Northstar Process Architect" exporterVersion="2.0">
+  <bpmn:collaboration id="Collaboration_Process_BP003_ASIS">
+    <bpmn:participant id="Participant_Process_BP003_ASIS" name="Northstar Retail Group — BP-003 AS-IS: Manual POS-Till Reconciliation" processRef="Process_BP003_ASIS" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_BP003_ASIS" name="BP-003 AS-IS: Manual POS-Till Reconciliation" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_1">
+      <bpmn:lane id="Lane_Store_003A" name="Store Cashier &amp; Cash Office Supervisor">
+        <bpmn:flowNodeRef>Start_003A</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_003A_1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_003A_2</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_003A_3</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_003A_1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_003A_4</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_003A_5</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Audit_003A" name="Corporate Internal Audit">
+        <bpmn:flowNodeRef>Task_003A_6</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_003A</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="Start_003A" name="Cashier Shift Ends 21:30 IST">
+      <bpmn:outgoing>Flow_003A_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="Task_003A_1" name="Print POS Thermal Z-Report">
+      <bpmn:incoming>Flow_003A_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_003A_2</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:manualTask id="Task_003A_2" name="Manually Count Physical Cash &amp; Slips">
+      <bpmn:incoming>Flow_003A_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_003A_3</bpmn:outgoing>
+    </bpmn:manualTask>
+    <bpmn:userTask id="Task_003A_3" name="Compare Count to Z-Report in Paper Sheet">
+      <bpmn:incoming>Flow_003A_3</bpmn:incoming>
+      <bpmn:outgoing>Flow_003A_4</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="Gateway_003A_1" name="Shortage Detected?">
+      <bpmn:incoming>Flow_003A_4</bpmn:incoming>
+      <bpmn:outgoing>Flow_003A_5</bpmn:outgoing>
+      <bpmn:outgoing>Flow_003A_6</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:manualTask id="Task_003A_4" name="Cashier Pays Out-of-Pocket (&lt;₹200)">
+      <bpmn:incoming>Flow_003A_5</bpmn:incoming>
+      <bpmn:outgoing>Flow_003A_7</bpmn:outgoing>
+    </bpmn:manualTask>
+    <bpmn:manualTask id="Task_003A_5" name="Log Variance in Store Spiral Ledger (&gt;₹200)">
+      <bpmn:incoming>Flow_003A_6</bpmn:incoming>
+      <bpmn:outgoing>Flow_003A_8</bpmn:outgoing>
+    </bpmn:manualTask>
+    <bpmn:userTask id="Task_003A_6" name="Audit Samples Envelopes 15-30 Days Later">
+      <bpmn:incoming>Flow_003A_7</bpmn:incoming>
+      <bpmn:incoming>Flow_003A_8</bpmn:incoming>
+      <bpmn:outgoing>Flow_003A_9</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="End_003A" name="Delayed Audit Discrepancy Close">
+      <bpmn:incoming>Flow_003A_9</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_003A_1" sourceRef="Start_003A" targetRef="Task_003A_1" />
+    <bpmn:sequenceFlow id="Flow_003A_2" sourceRef="Task_003A_1" targetRef="Task_003A_2" />
+    <bpmn:sequenceFlow id="Flow_003A_3" sourceRef="Task_003A_2" targetRef="Task_003A_3" />
+    <bpmn:sequenceFlow id="Flow_003A_4" sourceRef="Task_003A_3" targetRef="Gateway_003A_1" />
+    <bpmn:sequenceFlow id="Flow_003A_5" sourceRef="Gateway_003A_1" targetRef="Task_003A_4" name="&lt;₹200" />
+    <bpmn:sequenceFlow id="Flow_003A_6" sourceRef="Gateway_003A_1" targetRef="Task_003A_5" name="&gt;₹200" />
+    <bpmn:sequenceFlow id="Flow_003A_7" sourceRef="Task_003A_4" targetRef="Task_003A_6" />
+    <bpmn:sequenceFlow id="Flow_003A_8" sourceRef="Task_003A_5" targetRef="Task_003A_6" />
+    <bpmn:sequenceFlow id="Flow_003A_9" sourceRef="Task_003A_6" targetRef="End_003A" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_Process_BP003_ASIS">
+    <bpmndi:BPMNPlane id="BPMNPlane_Process_BP003_ASIS" bpmnElement="Collaboration_Process_BP003_ASIS">
+      <bpmndi:BPMNShape id="Participant_Process_BP003_ASIS_di" bpmnElement="Participant_Process_BP003_ASIS" isHorizontal="true">
+        <dc:Bounds x="120" y="80" width="1380" height="480" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Store_003A_di" bpmnElement="Lane_Store_003A" isHorizontal="true">
+        <dc:Bounds x="150" y="80" width="1350" height="240" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Audit_003A_di" bpmnElement="Lane_Audit_003A" isHorizontal="true">
+        <dc:Bounds x="150" y="320" width="1350" height="240" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Start_003A_di" bpmnElement="Start_003A">
+        <dc:Bounds x="200" y="160" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_003A_1_di" bpmnElement="Task_003A_1">
+        <dc:Bounds x="280" y="138" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_003A_2_di" bpmnElement="Task_003A_2">
+        <dc:Bounds x="420" y="138" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_003A_3_di" bpmnElement="Task_003A_3">
+        <dc:Bounds x="560" y="138" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_003A_1_di" bpmnElement="Gateway_003A_1">
+        <dc:Bounds x="700" y="153" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_003A_4_di" bpmnElement="Task_003A_4">
+        <dc:Bounds x="800" y="100" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_003A_5_di" bpmnElement="Task_003A_5">
+        <dc:Bounds x="800" y="200" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_003A_6_di" bpmnElement="Task_003A_6">
+        <dc:Bounds x="1020" y="378" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_003A_di" bpmnElement="End_003A">
+        <dc:Bounds x="1180" y="400" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_003A_1_di" bpmnElement="Flow_003A_1">
+        <di:waypoint x="236" y="178" />
+        <di:waypoint x="280" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_003A_2_di" bpmnElement="Flow_003A_2">
+        <di:waypoint x="380" y="178" />
+        <di:waypoint x="420" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_003A_3_di" bpmnElement="Flow_003A_3">
+        <di:waypoint x="520" y="178" />
+        <di:waypoint x="560" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_003A_4_di" bpmnElement="Flow_003A_4">
+        <di:waypoint x="660" y="178" />
+        <di:waypoint x="700" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_003A_5_di" bpmnElement="Flow_003A_5">
+        <di:waypoint x="725" y="153" />
+        <di:waypoint x="725" y="140" />
+        <di:waypoint x="800" y="140" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_003A_6_di" bpmnElement="Flow_003A_6">
+        <di:waypoint x="725" y="203" />
+        <di:waypoint x="725" y="240" />
+        <di:waypoint x="800" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_003A_7_di" bpmnElement="Flow_003A_7">
+        <di:waypoint x="900" y="140" />
+        <di:waypoint x="960" y="140" />
+        <di:waypoint x="960" y="418" />
+        <di:waypoint x="1020" y="418" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_003A_8_di" bpmnElement="Flow_003A_8">
+        <di:waypoint x="900" y="240" />
+        <di:waypoint x="960" y="240" />
+        <di:waypoint x="960" y="418" />
+        <di:waypoint x="1020" y="418" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_003A_9_di" bpmnElement="Flow_003A_9">
+        <di:waypoint x="1120" y="418" />
+        <di:waypoint x="1180" y="418" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

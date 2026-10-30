@@ -1,0 +1,40 @@
+version: "3.8"
+
+# ==============================================================================
+# Northstar Retail Group — Enterprise Retail Analytics Platform
+# Stage 5.1 Local Development Docker Compose Configuration
+# ==============================================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: northstar_postgres_dev
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-northstar_analytics_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-northstar_dev_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-placeholder_dev_password_change_me}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-northstar_dev_user} -d $${POSTGRES_DB:-northstar_analytics_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - northstar_network
+
+volumes:
+  postgres_data:
+    name: northstar_postgres_data
+    driver: local
+
+networks:
+  northstar_network:
+    name: northstar_network
+    driver: bridge
