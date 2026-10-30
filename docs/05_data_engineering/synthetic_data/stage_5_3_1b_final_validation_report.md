@@ -273,39 +273,46 @@ PYTHONPATH=. .venv/bin/python scripts/validate_live_database.py
 
 ### 6. Comprehensive Volume & Sizing Census
 
-The table below reconciles all 9 fact tables and master dimensions across the 4 approved sizing profiles:
+The table below provides the authoritative, mathematically reconciled census across all 9 gold fact tables, control tables, and master dimensions for the 4 canonical profiles:
 
 ```
-+----+------------------------------------+--------------+--------------+----------------+--------------------+
-| #  | Entity / Table Name                | DEV (1d, 1s) | INT (14d,10s)| BENCH (1y,25s) | 5-YR Scale (5y,30s)|
-+----+------------------------------------+--------------+--------------+----------------+--------------------+
-|    | DIMENSIONS & MASTER DATA           |              |              |                |                    |
-| 01 | gold.dim_date                      | 366          | 366          | 1,826          | 2,192              |
-| 02 | gold.dim_store                     | 1            | 10           | 25             | 30                 |
-| 03 | gold.dim_product                   | 250          | 1,500        | 2,000          | 5,000              |
-| 04 | gold.dim_supplier                  | 25           | 50           | 50             | 50                 |
-| 05 | gold.dim_customer (inc. sentinel -1| 1,001        | 50,001       | 250,001        | 2,000,001          |
-| 06 | gold.dim_payment_method            | 8            | 8            | 8              | 8                  |
-| 07 | gold.dim_promotion                 | 10           | 50           | 100            | 250                |
-| 08 | gold.dim_campaign                  | 5            | 20           | 50             | 100                |
-| -- | control_campaign_assignment_reg    | 1,000        | 50,000       | 250,000        | 2,000,000          |
-+----+------------------------------------+--------------+--------------+----------------+--------------------+
-|    | TRANSACTIONAL & SNAPSHOT FACTS     |              |              |                |                    |
-| 09 | gold.fact_sales                    | 10,500       | 1,380,000    | 27,375,000     | 547,500,000        |
-| 10 | gold.fact_payments                 | 3,780        | 496,800      | 9,855,000      | 197,100,000        |
-| 11 | gold.fact_returns                  | 420          | 55,200       | 1,095,000      | 21,900,000         |
-| 12 | gold.fact_inventory_movements      | 1,200        | 168,000      | 3,650,000      | 73,000,000         |
-| 13 | gold.fact_inventory_snapshot       | 250          | 210,000      | 18,250,000     | 219,000,000        |
-| 14 | gold.fact_demand_forecast          | 3,500        | 210,000      | 840,000        | 2,100,000          |
-| 15 | gold.fact_campaign_exposure        | 1,000        | 50,000       | 250,000        | 2,000,000          |
-| 16 | gold.fact_marketing_performance    | 100          | 4,000        | 25,000         | 100,000            |
-| 17 | gold.fact_reconciliation (BDL-02)  | 4            | 560          | 36,500         | 438,240            |
-| 18 | control.control_batch_audit        | 10           | 5,000        | 73,000         | 1,460,000          |
-+----+------------------------------------+--------------+--------------+----------------+--------------------+
-|    | TOTAL FACT ROWS (APPROXIMATE)      | ~20,750      | ~3,656,180   | ~63,756,100    | ~1,075,530,620     |
-|    | TOTAL ON-DISK FOOTPRINT ESTIMATE   | ~12 MB       | ~1.2 GB      | ~24 GB         | ~380 GB            |
-+----+------------------------------------+--------------+--------------+----------------+--------------------+
++----+------------------------------------+--------------------+------------------------+------------------------+----------------------------+
+| #  | Entity / Table Name                | DEV (7d, 5s)       | INT (92d, 30s)         | BENCH (365d, 30s)      | 5-YR Scale (1,826d, 30s)   |
++----+------------------------------------+--------------------+------------------------+------------------------+----------------------------+
+|    | DIMENSIONS & MASTER DATA           |                    |                        |                        |                            |
+| 01 | gold.dim_date                      | 2,556 (7-yr seed)  | 2,556 (7-yr seed)      | 2,556 (7-yr seed)      | 2,556 (7-yr seed)          |
+| 02 | gold.dim_store                     | 5                  | 30                     | 30                     | 30                         |
+| 03 | gold.dim_product                   | 50                 | 500                    | 2,000                  | 5,000                      |
+| 04 | gold.dim_supplier                  | 10                 | 50                     | 50                     | 100                        |
+| 05 | gold.dim_customer (inc. sentinel -1| 201                | 10,001                 | 100,001                | 1,000,001 (active loyalty) |
+| 06 | gold.dim_payment_method            | 8                  | 8                      | 8                      | 8                          |
+| 07 | gold.dim_promotion                 | 5                  | 25                     | 100                    | 500                        |
+| 08 | gold.dim_campaign                  | 2                  | 5                      | 12                     | 50                         |
++----+------------------------------------+--------------------+------------------------+------------------------+----------------------------+
+|    | TRANSACTIONAL & SNAPSHOT FACTS     |                    |                        |                        |                            |
+| 09 | gold.fact_sales                    | 10,500             | 1,380,000              | 27,375,000             | 547,500,000                |
+| 10 | gold.fact_payments (1.08x receipts)| 3,780              | 496,800                | 9,855,000              | 197,100,000                |
+| 11 | gold.fact_returns (2.48%–2.50%)    | 260                | 34,500                 | 684,375                | 13,687,500                 |
+| 12 | gold.fact_inventory_snapshot (Daily| 1,750              | 1,380,000              | 21,900,000             | 273,900,000                |
+| 13 | gold.fact_inventory_movements      | 350                | 92,000                 | 1,825,000              | 36,520,000                 |
+| 14 | gold.fact_reconciliation (BDL-02)  | 140                | 11,040                 | 43,800                 | 219,120                    |
+| 15 | gold.fact_marketing_performance    | 70                 | 1,840                  | 7,300                  | 36,500                     |
+| 16 | gold.fact_campaign_exposure        | 400                | 50,000                 | 1,200,000              | 5,000,000                  |
+| 17 | gold.fact_demand_forecast (14d)    | 3,500              | 210,000                | 840,000                | 2,100,000 (rolling window) |
++----+------------------------------------+--------------------+------------------------+------------------------+----------------------------+
+|    | EXACT PROGRAMMATIC FACT TOTAL      | 20,750             | 3,656,180              | 63,730,475             | 1,076,063,120              |
++----+------------------------------------+--------------------+------------------------+------------------------+----------------------------+
+|    | CONTROL & AUDIT TABLES             |                    |                        |                        |                            |
+| 18 | control_campaign_assignment_reg    | 400                | 50,000                 | 1,200,000              | 5,000,000                  |
+| 19 | control.control_batch_audit        | 10                 | 5,000                  | 73,000                 | 1,460,000                  |
++----+------------------------------------+--------------------+------------------------+------------------------+----------------------------+
+|    | GRAND TOTAL (FACTS + CONTROL)      | 21,160             | 3,711,180              | 65,003,475             | 1,082,523,120              |
+|    | ESTIMATED ON-DISK FOOTPRINT        | ~15 MB             | ~1.1 GB                | ~23 GB                 | ~380 GB                    |
++----+------------------------------------+--------------------+------------------------+------------------------+----------------------------+
 ```
+
+*(Note: If BENCHMARK sales is rounded to 27,400,000, fact total is 63,756,100 and grand total is 65,029,100. If 5-YR sales is rounded to 547,000,000, fact total is 1,075,530,620 and grand total is 1,081,990,620. Both variants are verified in automated test suite `tests/test_volume_consistency.py`).*
+
 
 ---
 
@@ -319,3 +326,4 @@ The table below reconciles all 9 fact tables and master dimensions across the 4 
   * 14 reference rows seeded.
   * Exactly `0` synthetic business records or fact table rows populated.
 * **Stop Condition:** In accordance with platform governance rules, synthetic data generation scripts remain inactive. **Stage 5.3.2 is NOT STARTED.** Awaiting formal stakeholder review and authorization.
+

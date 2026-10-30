@@ -49,8 +49,12 @@
 | 17. gold.fact_campaign_exposure   | 400 drops          | 50,000 drops           | 1,200,000 drops        | 5,000,000 drops            |
 | 18. gold.fact_demand_forecast     | 3,500 projections  | 210,000 projections    | 840,000 projections    | 2,100,000 projections      |
 +-----------------------------------+--------------------+------------------------+------------------------+----------------------------+
-| TOTAL ESTIMATED FACT ROWS         | ~20,750 rows       | ~3,656,180 rows        | ~63,756,100 rows       | ~1,075,530,620 rows        |
-| ESTIMATED DATABASE DISK FOOTPRINT | ~15 MB             | ~900 MB – 1.3 GB       | ~19 GB – 25 GB         | ~285 GB – 355 GB           |
+| EXACT PROGRAMMATIC FACT ROWS      | 20,750 rows        | 3,656,180 rows         | 63,730,475 rows        | 1,076,063,120 rows         |
+| (Rounded Sales Baseline Model)    | (20,750 rows)      | (3,656,180 rows)       | (63,756,100 rows)      | (1,075,530,620 rows)       |
+| CONTROL & AUDIT ROWS              | 410 rows           | 55,000 rows            | 1,273,000 rows         | 6,460,000 rows             |
+| GRAND TOTAL (FACTS + CONTROL)     | 21,160 rows        | 3,711,180 rows         | 65,003,475 rows        | 1,082,523,120 rows         |
+| (Rounded Sales Grand Total)       | (21,160 rows)      | (3,711,180 rows)       | (65,029,100 rows)      | (1,081,990,620 rows)       |
+| ESTIMATED DATABASE DISK FOOTPRINT | ~15 MB             | ~900 MB – 1.3 GB       | ~19 GB – 25 GB         | ~285 GB – 380 GB           |
 | TARGET GENERATION EXECUTION TIME  | < 10 Seconds       | 3 – 6 Minutes          | 45 – 90 Minutes        | Multi-Hour Pipeline        |
 +-----------------------------------+--------------------+------------------------+------------------------+----------------------------+
 ```

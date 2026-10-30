@@ -44,6 +44,14 @@ venv.bak/
 *.secret
 *.pepper
 
+# Database Backups & Cluster Globals Dumps (CRITICAL SECURITY EXCLUSIONS)
+backups/*
+!backups/.gitkeep
+*.dump
+*.sql.gz
+*.backup
+
+
 # Data Storage Directories (Exclude Local & Generated Datasets, keep .gitkeep)
 data/raw/*
 !data/raw/.gitkeep
