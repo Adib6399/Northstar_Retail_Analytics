@@ -115,3 +115,39 @@ To satisfy corporate financial auditability requirements (`NFR-015`–`NFR-017`)
 
 *Audit Trail Integrity:* Any number on an executive report can be traced backwards through `ingestion_batch_id` and `source_record_id` to the exact physical register lane, shift, and cashier timestamp that generated the transaction.
 
+---
+
+### 5. Marketing Holdout Assignment Lineage & Cryptographic Allocation
+
+To support reproducible A/B testing and incrementality measurement (`FR-018`) while adhering to data lineage and immutability standards:
+
+#### 5.1 Unpartitioned Global Assignment Registry (`control.control_campaign_assignment_registry`)
+Because `gold.fact_campaign_exposure` is range-partitioned on `assignment_date_key` (enforcing PostgreSQL local unique constraint `UNIQUE (campaign_key, customer_key, assignment_date_key)`), an unpartitioned gatekeeper table is maintained in the `control` schema:
+* **Table:** `control.control_campaign_assignment_registry`
+* **Global Constraint:** `UNIQUE (campaign_key, customer_key)` across all dates and execution batches.
+* **Function:** Serves as the authoritative point of record for initial cohort assignment. Once an assignment is registered, `is_locked_flag` is set to `TRUE`, freezing the assignment for the campaign lifecycle.
+
+#### 5.2 Deterministic HMAC-SHA256 Integer-Threshold Algorithm
+Holdout allocation is computed deterministically at the pipeline ingestion boundary using the first 8 bytes of an HMAC-SHA256 digest:
+
+$$\text{digest} = \text{HMAC-SHA256}(\text{key}=\text{CAMPAIGN\_HOLDOUT\_SECRET\_V1}, \text{msg}=\text{campaign\_id} \parallel ':' \parallel \text{customer\_sk})$$
+
+The first 8 bytes of the hexadecimal digest are converted into an unsigned 64-bit integer ($U$) in **Big-Endian network byte order**:
+
+$$U = \sum_{i=0}^{7} \text{byte}[i] \times 256^{7-i}$$
+
+The integer threshold for an exact 10% target holdout allocation is:
+
+$$\text{Threshold} = \lfloor 0.10 \times 2^{64} \rfloor = \text{0x1999999999999999} = 1,844,674,407,370,955,161$$
+
+* **Cohort Assignment Rule:**
+  $$\text{is\_holdout\_control\_flag} = \begin{cases} \text{TRUE} & \text{if } U < \text{0x1999999999999999} \\ \text{FALSE} & \text{otherwise} \end{cases}$$
+
+#### 5.3 Ingestion Idempotency & Edge-Case Handling
+1. **First-Time Ingestion:** Canonical assignment is inserted into `control.control_campaign_assignment_registry` and propagated to `gold.fact_campaign_exposure`.
+2. **Duplicate Ingestion (Same Batch/Date):** Skipped idempotently via `ON CONFLICT DO NOTHING`.
+3. **Conflicting Cohort Batch:** If an upstream file attempts to reassign a customer to a different cohort, the registry rejects the reassignment, writes a warning to the pipeline log, and retains the canonical historical assignment.
+4. **Late-Arriving / Replayed Batches:** Registry validates assignment date against campaign start; historical cohort assignment remains immutable.
+5. **Key Rotation & Versioning:** `holdout_key_version` (`v1`) is recorded on every registry row to ensure that historical assignments are never recalculated if the campaign holdout secret is rotated.
+
+

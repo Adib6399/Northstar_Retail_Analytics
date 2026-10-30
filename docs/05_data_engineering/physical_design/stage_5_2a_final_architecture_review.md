@@ -20,19 +20,25 @@
 +----+------------------------------------+-----------------------+---------------------------------------------------------------+
 | #  | Final Review Finding               | Resolution Status     | Architectural Correction Implemented                          |
 +----+------------------------------------+-----------------------+---------------------------------------------------------------+
-| 01 | FactCampaignExposure Partition &   | RESOLVED & CONFORMED  | Partition key updated to `assignment_date_key` so holdout     |
+| 01 | FactCampaignExposure Partition &   | RESOLVED & CONFORMED  | Partition key conformed to `assignment_date_key` so holdout   |
 |    | Event Model (Holdout Storage)      |                       | control records (which are intentionally never dispatched) can|
 |    |                                    |                       | be stored and partitioned accurately alongside treatment rows.|
 |    |                                    |                       | Multiple dispatch attempts decoupled into operational staging |
 |    |                                    |                       | (`silver.stg_campaign_dispatch_attempts`), preserving fact set.|
 +----+------------------------------------+-----------------------+---------------------------------------------------------------+
-| 02 | Campaign Holdout Hashing           | RESOLVED & REPLACED   | Replaced CRC32 with a deterministic Keyed HMAC-SHA256 strategy|
-|    | (Deterministic HMAC-SHA256)        |                       | using an isolated `CAMPAIGN_HOLDOUT_SECRET` and canonical     |
-|    |                                    |                       | `campaign_id:customer_sk` input. Explicitly acknowledged that |
-|    |                                    |                       | hashing yields an expected 10% allocation (mu=0.10) with      |
-|    |                                    |                       | binomial variance, normalized via scaling factors in reporting.|
+| 02 | Global Campaign Assignment         | RESOLVED & DESIGNED   | Designed unpartitioned `control.control_campaign_assignment_  |
+|    | Uniqueness (Cross-Partition Gate)  |                       | registry` with `UNIQUE (campaign_key, customer_key)` to       |
+|    |                                    |                       | strictly prevent re-assignments across different dates,       |
+|    |                                    |                       | overcoming PostgreSQL 16 partitioned table constraint limits. |
+|    |                                    |                       | Canonical assignment ID, locked cohort, and replay idempotency.|
 +----+------------------------------------+-----------------------+---------------------------------------------------------------+
-| 03 | NFR-006 Capacity Accounting        | RESOLVED & RECONCILED | Disaggregated capacity into a transparent 10-component model: |
+| 03 | Campaign Holdout Hashing           | RESOLVED & SPECIFIED  | Deterministic Keyed HMAC-SHA256 with Big-Endian 64-bit uint   |
+|    | (Deterministic Integer Threshold)  |                       | conversion: U < floor(0.10 * 2^64) = 0x1999999999999999.      |
+|    |                                    |                       | Eliminates floating-point precision loss and boundary issues. |
+|    |                                    |                       | Key versioning (v1) and binomial variance normalization via   |
+|    |                                    |                       | population ratio scaling factors in FactMarketingPerformance.  |
++----+------------------------------------+-----------------------+---------------------------------------------------------------+
+| 04 | NFR-006 Capacity Accounting        | RESOLVED & RECONCILED | Disaggregated capacity into a transparent 10-component model: |
 |    | (Storage Disaggregation & Pruning) |                       | Primary DB volume (~872 GB), auxiliary raw lake (~120 GB), and|
 |    |                                    |                       | backup staging (~350 GB), eliminating double-counting of raw  |
 |    |                                    |                       | 420 GB source data. Rigorously separated planner partition    |
@@ -88,13 +94,15 @@
 
 All affected design artifacts under `docs/05_data_engineering/physical_design/` have been updated and synchronized:
 
-1. `physical_database_design.md` — Updated master entity constraint matrix, `assignment_date_key` partitioning, and Mermaid ERD.
-2. `physical_data_dictionary.md` — Updated column specifications for `fact_campaign_exposure` and all fact primary keys.
-3. `fact_table_grain_definitions.md` — Updated event model for campaign exposure, HMAC-SHA256 holdout hashing specification, and multi-run forecast grains.
-4. `partitioning_and_indexing_strategy.md` — Updated partition constraint catalog and rigorous separation of planner pruning from query execution.
-5. `reconciliation_data_model.md` — Updated to certified baseline with provisional ERP movement types.
-6. `nfr_006_capacity_assessment.md` — Comprehensive 10-component storage disaggregation model and multi-volume infrastructure layout.
-7. `stage_5_2a_final_architecture_review.md` — Final architectural certification report.
+1. `physical_database_design.md` — Updated master entity matrix (9 facts, 8 dimensions, 6 control/ref tables), global campaign assignment registry architecture, `assignment_date_key` partitioning, and Mermaid ERD.
+2. `physical_data_dictionary.md` — Updated column specifications for `fact_campaign_exposure`, unpartitioned `control_campaign_assignment_registry` (`assignment_id`, `UNIQUE (campaign_key, customer_key)`), and composite fact primary keys.
+3. `fact_table_grain_definitions.md` — Updated event model for campaign exposure, global uniqueness via control registry, exact HMAC-SHA256 Big-Endian 64-bit uint integer threshold ($U < \text{0x1999999999999999}$), and multi-run forecast grains.
+4. `partitioning_and_indexing_strategy.md` — Updated partition constraint catalog and rigorous separation of planner pruning (<5ms) from query execution.
+5. `schema_organization.md` — Cataloged `control.control_campaign_assignment_registry` in the `control` schema with access policies.
+6. `audit_and_lineage_design.md` — Added Section 5 detailing marketing holdout cryptographic lineage, integer threshold allocation, and batch conflict/replay handling.
+7. `reconciliation_data_model.md` — Updated to certified baseline with provisional ERP movement types.
+8. `nfr_006_capacity_assessment.md` — Comprehensive 10-component storage disaggregation model and multi-volume infrastructure layout.
+9. `stage_5_2a_final_architecture_review.md` — Final architectural certification report.
 
 ---
 

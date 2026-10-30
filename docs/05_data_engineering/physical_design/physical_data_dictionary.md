@@ -460,7 +460,7 @@
 
 ---
 
-### 4. Physical Data Dictionary: Control & Reference Tables (5 Tables)
+### 4. Physical Data Dictionary: Control & Reference Tables (6 Tables)
 
 #### 4.1 Table: `control.control_batch_audit`
 * **Physical PK:** `(batch_id, batch_start_timestamp)` (Partitioned annually by start timestamp)
@@ -494,7 +494,28 @@
 
 ---
 
-#### 4.3 Table: `gold.ref_reconciliation_domain`
+#### 4.3 Table: `control.control_campaign_assignment_registry`
+* **Physical PK:** `assignment_id` (`UUID`)
+* **Global Unique Constraint:** `CONSTRAINT uq_campaign_customer_global UNIQUE (campaign_key, customer_key)`
+* **Role:** Unpartitioned authoritative state register guaranteeing global customer assignment uniqueness and cohort immutability across campaign dates.
+
+| Column Name | PostgreSQL Data Type | Nullable | Key Type | Default Value | Business Description |
+| :--- | :--- | :---: | :---: | :--- | :--- |
+| `assignment_id` | `UUID` | NO | PK | `gen_random_uuid()` | Canonical assignment identifier |
+| `campaign_key` | `INTEGER` | NO | FK/Unique | None | Foreign key referencing `dim_campaign.campaign_key` |
+| `customer_key` | `INTEGER` | NO | FK/Unique | None | Foreign key referencing `dim_customer.customer_key` |
+| `assignment_date_key` | `INTEGER` | NO | FK | None | Locked assignment date referencing `dim_date.date_key` |
+| `assignment_timestamp` | `TIMESTAMPTZ` | NO | None | `CURRENT_TIMESTAMP` | Exact cohort generation timestamp |
+| `is_holdout_control_flag`| `BOOLEAN` | NO | None | None | Assigned cohort (`TRUE` = 10% Control, `FALSE` = Treatment) |
+| `assignment_hash_value`| `NUMERIC(20, 0)`| NO | None | None | Exact 64-bit unsigned integer $U$ from HMAC-SHA256 digest |
+| `holdout_key_version` | `VARCHAR(20)` | NO | None | `'v1'` | Secret key version used during hashing |
+| `is_locked_flag` | `BOOLEAN` | NO | None | `TRUE` | Immutability lock preventing post-launch reassignment |
+| `ingestion_batch_id` | `UUID` | NO | Audit | None | Pipeline run identifier that registered the assignment |
+| `load_timestamp` | `TIMESTAMPTZ` | NO | Audit | `CURRENT_TIMESTAMP` | System insertion timestamp |
+
+---
+
+#### 4.4 Table: `gold.ref_reconciliation_domain`
 * **Physical PK:** `recon_domain_key` (`INTEGER GENERATED ALWAYS AS IDENTITY`)
 
 | Column Name | PostgreSQL Data Type | Nullable | Key Type | Default Value | Business Description |
@@ -507,7 +528,7 @@
 
 ---
 
-#### 4.4 Table: `gold.ref_inventory_movement_type` (Provisional Mapping Table)
+#### 4.5 Table: `gold.ref_inventory_movement_type` (Provisional Mapping Table)
 * **Physical PK:** `movement_type_key` (`INTEGER GENERATED ALWAYS AS IDENTITY`)
 * **Governance Note:** Movement codes (e.g. `251`, `451`) are provisional design assumptions pending ERP vendor confirmation (`ODQ-03`).
 
@@ -521,7 +542,7 @@
 
 ---
 
-#### 4.5 Table: `gold.ref_return_reason`
+#### 4.6 Table: `gold.ref_return_reason`
 * **Physical PK:** `return_reason_key` (`INTEGER GENERATED ALWAYS AS IDENTITY`)
 
 | Column Name | PostgreSQL Data Type | Nullable | Key Type | Default Value | Business Description |

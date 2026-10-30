@@ -125,46 +125,44 @@
 * **Partition Key:** `assignment_date_key` (Range partitioned by Year).
   * *Critical Architectural Justification:* In a marketing experiment, **control-group customers are intentionally quarantined from communication** and therefore **never dispatched**. If partitioned on dispatch date, control records would possess a NULL partition key, violating PostgreSQL 16 partitioning rules. Partitioning on `assignment_date_key` (the calendar date the audience cohort was locked) guarantees that both treatment and control populations are stored, partitioned, and queried uniformly.
 * **Physical Primary Key:** Composite Key `(exposure_fact_key, assignment_date_key)`.
-* **Business Key & Uniqueness:** `campaign_key + customer_key`.
-  * *Intra-Partition:* Enforced via a local unique index on `(campaign_key, customer_key, assignment_date_key)`.
-  * *Cross-Partition:* A customer is enrolled in a specific broadcast campaign exactly once. Enforced in Silver staging deduplication:
-    ```sql
-    ROW_NUMBER() OVER (
-        PARTITION BY campaign_key, customer_key 
-        ORDER BY assignment_timestamp ASC
-    )
-    ```
-* **Foreign Key Strategy:** Foreign keys reference `dim_date.date_key` (assignment date), `dim_campaign.campaign_key`, and `dim_customer.customer_key`.
+* **Business Key & Global Uniqueness Architecture:** `campaign_key + customer_key`.
+  * *Intra-Partition Constraint:* Enforced via a local unique index on `(campaign_key, customer_key, assignment_date_key)`.
+  * *Global Cross-Partition Gatekeeper:* Enforced strictly by the unpartitioned control table `control.control_campaign_assignment_registry` via `UNIQUE (campaign_key, customer_key)`. Downstream analytical fact rows in `fact_campaign_exposure` are populated exclusively from confirmed registry entries, eliminating duplicate or drifting cohort assignments across dates.
 
-##### 2.8.1 Cryptographic HMAC-SHA256 Holdout Hashing Specification
-To eliminate hashing collisions, non-uniform distributions, and vulnerabilities associated with CRC32:
+##### 2.8.1 Cryptographic HMAC-SHA256 Holdout Hashing & Integer Threshold Specification
+To eliminate hashing collisions, non-uniform distributions, and floating-point normalization anomalies:
 1. **Canonical Input Construction:**
-   The input string is formed by concatenating the business campaign ID and the customer's pseudonymized key separated by a colon:
+   Formed by concatenating the business campaign ID and the customer's pseudonymized key separated by a colon:
    $$\text{canonical\_input} = \text{campaign\_id} \parallel ':' \parallel \text{customer\_sk}$$
 2. **Secret-Key Management & Versioning:**
-   The assignment engine utilizes a dedicated platform secret `CAMPAIGN_HOLDOUT_SECRET` (managed via the secure environment configuration / secrets vault, strictly isolated from the customer PII pepper secret). Key versioning is tracked via `holdout_key_version` (`v1`).
-3. **Deterministic Assignment Algorithm:**
-   * Compute the HMAC-SHA256 digest over the canonical input using `CAMPAIGN_HOLDOUT_SECRET`.
-   * Extract the first 8 bytes (64 bits) of the hex digest and interpret them as an unsigned 64-bit integer.
-   * Divide by $2^{64} - 1$ to obtain a normalized floating-point score $S \in [0.0, 1.0)$:
-     $$S = \frac{\text{uint64}(\text{HMAC-SHA256}_{64}(\text{canonical\_input}, \text{SECRET}))}{2^{64} - 1}$$
-   * **Assignment Rule:**
-     $$\text{is\_holdout\_control\_flag} = \begin{cases} \mathbf{TRUE} & \text{if } S < 0.10 \quad (\text{Control Cohort: Quarantined}) \\ \mathbf{FALSE} & \text{if } S \ge 0.10 \quad (\text{Treatment Cohort: Dispatched}) \end{cases}$$
+   The assignment engine utilizes a dedicated platform secret `CAMPAIGN_HOLDOUT_SECRET` (managed via the secure environment configuration / secrets vault, strictly isolated from the customer PII pepper secret). Key versioning is tracked via `holdout_key_version = 'v1'`.
+3. **Big-Endian 64-Bit Conversion & Integer-Threshold Logic:**
+   * Compute the HMAC-SHA256 digest (32 bytes) over `canonical_input` using `CAMPAIGN_HOLDOUT_SECRET`.
+   * Extract the first 8 bytes (64 bits) of the raw binary digest and interpret them as an unsigned 64-bit integer $U$ using **Big-Endian (network) byte order**:
+     $$U = \text{uint64\_from\_big\_endian}(\text{HMAC-SHA256}(\text{canonical\_input}, \text{SECRET})[0:8])$$
+   * Evaluate against the exact mathematical integer threshold representing 10% of the $2^{64}$ domain:
+     $$\text{Threshold} = \lfloor 0.10 \times 2^{64} \rfloor = \text{0x1999999999999999} = 1,844,674,407,370,955,161$$
+   * **Deterministic Integer Threshold Rule:**
+     $$\text{is\_holdout\_control\_flag} = \begin{cases} \mathbf{TRUE} & \text{if } U < \text{0x1999999999999999} \quad (\text{Control Cohort: Quarantined}) \\ \mathbf{FALSE} & \text{if } U \ge \text{0x1999999999999999} \quad (\text{Treatment Cohort: Dispatched}) \end{cases}$$
+   * *Benefit:* Pure 64-bit integer comparison eliminates floating-point division anomalies (where $(2^{64}-1)/(2^{64}-1)$ could yield 1.0) and guarantees bit-identical reproducibility across Python, SQL, and C runtime environments.
 4. **Expected versus Exact 10% Allocation:**
-   * **Governance Clarification:** Hashing into a continuous uniform distribution $[0.0, 1.0)$ provides an **expected value of 10%** ($\mu = 0.10$), with a standard deviation governed by the binomial distribution $\sigma = \sqrt{N \cdot p \cdot (1-p)}$.
-   * For an audience of $N = 100,000$, the expected control count is $10,000 \pm 190$ customers ($9.81\%$ to $10.19\%$ at $95\%$ confidence).
+   * **Governance Clarification:** Hashing into the uniform 64-bit integer domain $[0, 2^{64}-1]$ provides an **expected value of 10%** ($\mu = 0.10$), with a standard deviation governed by the binomial distribution $\sigma = \sqrt{N \cdot p \cdot (1-p)}$.
+   * An exact 10% count is neither claimed nor mathematically possible via independent cryptographic hashing. For an audience of $N = 100,000$, the realized control group is $10,000 \pm 190$ customers ($9.81\%$ to $10.19\%$ at $95\%$ confidence).
    * **Attribution Normalization:** Closed-loop attribution in `FactMarketingPerformance` normalizes this slight variance mathematically by scaling control sales by the exact realized population ratio:
      $$\text{Baseline Control Sales} = \text{Control Sales} \times \left( \frac{N_{\text{treatment}}}{N_{\text{control}}} \right)$$
-5. **Reproducibility & Auditability:**
-   Because `is_holdout_control_flag` is immutably persisted in `FactCampaignExposure` at campaign creation time, historical audits verify cohort assignments directly from the database record without re-evaluating the hash or exposing `CAMPAIGN_HOLDOUT_SECRET`.
+5. **Historical Assignment Preservation & Key Rotation Resilience:**
+   * Cohort assignment is persisted immutably in `control.control_campaign_assignment_registry` alongside $U$ (`assignment_hash_value`) and `holdout_key_version`.
+   * **Rotation Invariant:** Historical assignments are **never recomputed** when `CAMPAIGN_HOLDOUT_SECRET` is rotated. Audits verify cohort validity directly from the stored database record without re-evaluating the hash or exposing the secret key.
 6. **Strict Dispatch Quarantine:**
-   The dispatch execution query explicitly enforces:
-   ```sql
-   SELECT customer_phone, message_text 
-   FROM silver.stg_campaign_dispatch_queue
-   WHERE is_holdout_control_flag = FALSE;
-   ```
-   Control customers are strictly excluded from dispatch queues.
+   The dispatch execution query explicitly enforces `WHERE is_holdout_control_flag = FALSE`. Control customers are strictly excluded from outbound dispatch queues.
+
+##### 2.8.2 Control Registry Ingestion Behaviors
+The unpartitioned table `control.control_campaign_assignment_registry` governs all assignment operations:
+* **First-Time Assignments:** Inserted into registry; upon successful commit, downstream fact row is created in `gold.fact_campaign_exposure`.
+* **Duplicate Assignments:** Re-encountering an identical `(campaign_key, customer_key)` triggers `ON CONFLICT DO NOTHING`, safely suppressing duplicates.
+* **Conflicting Cohort Assignments:** If an incoming record claims treatment while the registry records control (or vice versa), the registry's locked assignment prevails. The record is flagged with `data_quality_status = 'QUARANTINED_CONFLICTING_COHORT'` in staging logs.
+* **Late-Arriving Assignments:** If a customer was not previously assigned, they are registered under the current date. If already assigned on an earlier date, the original assignment date and cohort are strictly preserved.
+* **Replayed Ingestion Batches:** Safely idempotent. Because the registry rejects duplicates on `(campaign_key, customer_key)`, downstream fact insertion queries produce zero duplicate rows.
 
 ##### 2.8.2 Lifecycle Event Representation & Multiple Dispatch Attempts
 * **Fact Scope:** `FactCampaignExposure` represents the **Customer Cohort Assignment & Net Exposure Event**.
