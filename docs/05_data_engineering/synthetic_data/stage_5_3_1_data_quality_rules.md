@@ -1,0 +1,161 @@
+# Northstar Retail Group — Enterprise Retail Analytics Platform
+## Stage 5.3.1: Synthetic Data Quality & Validation Rules
+
+---
+
+### 1. Document Control & Quality Framework
+
+* **Document Identifier:** `NRG-STAGE-5.3.1-DQR-V1.0`
+* **Lead Engineer:** Senior PostgreSQL 16 Database Engineer & Data Architect
+* **Phase:** Stage 5.3.1 — Synthetic Data Generation Design & Backup Verification
+* **Scope:** Explicit, automated data quality assertions and mathematical constraints enforced during and immediately following synthetic batch generation.
+* **Governing Rule:** Every synthetic generation batch must be verified against these deterministic rules prior to transaction commit. If any assertion fails, the entire batch transaction rolls back immediately.
+
+---
+
+### 2. Tiered Data Quality Assertion Matrix
+
+```
++----+----------------------------+-------------------------------------+-------------------------------------------------------------------------+
+| #  | Quality Domain             | Validation Check                    | Mathematical / Relational Quality Assertion                             |
++----+----------------------------+-------------------------------------+-------------------------------------------------------------------------+
+| 01 | Dimensional Integrity      | Customer Key Standardization        | All customer_key values are BIGINT. Anonymous records reference -1.     |
+| 02 | Dimensional Integrity      | SCD Type 2 Temporal Validity        | effective_from < effective_to. Exactly 1 row WHERE is_current = TRUE.   |
+| 03 | Financial & Accounting     | POS Basket Mathematical Identity    | Taxable Value = Gross Sales - Discount. Net Sales = Taxable + GST.      |
+| 04 | Financial & Accounting     | GST Split Integrity (Intra-State)   | CGST Amount == SGST Amount. Total GST == CGST + SGST.                   |
+| 05 | Financial & Accounting     | Tender Balancing Identity           | SUM(tender_amount) per invoice == net_sales_inr of that invoice.        |
+| 06 | Returns & Refunds          | Return Line Item Referential Guard  | original_pos_invoice_number & line exist in fact_sales. Return <= Sale. |
+| 07 | Returns & Refunds          | Refund Amount Ceiling               | refund_amount_inr <= original net_sales_inr of returned line item.      |
+| 08 | Inventory Conservation     | Daily Balance Flow Equation         | Closing Stock_t == Opening_t + Receipts_t - Sales_t + Returns_t.        |
+| 09 | Inventory Conservation     | Stockout Flag Consistency           | stockout_flag == TRUE iff closing_stock_quantity == 0.                  |
+| 10 | Marketing Governance       | Deterministic Holdout Split         | Control Group ratio == 10% (+/- 0.5% tolerance at N >= 1,000).          |
+| 11 | Marketing Governance       | Holdout Quarantine Enforcement      | If is_holdout_control_flag == TRUE: dispatch_ts IS NULL & NOT_DISPATCHED.|
+| 12 | Marketing Governance       | Composite FK Linkage                | (assignment_id, assignment_date_key) exists in control registry.        |
+| 13 | 4-Way Reconciliation       | Variance Balance Identity           | variance_amount_inr == source_amount_inr - target_amount_inr.          |
+| 14 | 4-Way Reconciliation       | Discrepancy Ticket Logic            | ticket_generated_flag == TRUE iff ABS(variance) > tolerance_threshold. |
+| 15 | Platform Performance       | Partition Boundary Placement        | 100% of rows reside in partitions matching their temporal partition key.|
++----+----------------------------+-------------------------------------+-------------------------------------------------------------------------+
+```
+
+---
+
+### 3. Detailed Data Quality Assertions & SQL Audit Checks
+
+#### 3.1 Financial & POS Invoice Integrity Checks
+* **Assertion 1 (Net Sales Accounting):**
+  $$\text{net\_sales\_inr} = \text{taxable\_value\_inr} + \text{cgst\_amount\_inr} + \text{sgst\_amount\_inr} + \text{igst\_amount\_inr}$$
+* **Assertion 2 (Tender Reconciliation):**
+  Every POS invoice must have corresponding payment tender records in `fact_payments` whose sum exactly equals the invoice's `net_sales_inr`:
+  ```sql
+  SELECT s.pos_invoice_number, s.total_net_sales, p.total_tendered
+  FROM (
+      SELECT pos_invoice_number, SUM(net_sales_inr) AS total_net_sales
+      FROM gold.fact_sales
+      GROUP BY pos_invoice_number
+  ) s
+  JOIN (
+      SELECT pos_invoice_number, SUM(tender_amount_inr) AS total_tendered
+      FROM gold.fact_payments
+      WHERE payment_status = 'SUCCESS'
+      GROUP BY pos_invoice_number
+  ) p ON s.pos_invoice_number = p.pos_invoice_number
+  WHERE ABS(s.total_net_sales - p.total_tendered) > 0.01;
+  ```
+  *Assertion Requirement:* Exactly `0` rows returned.
+
+#### 3.2 Returns & Historical Lineage Checks
+* **Assertion 3 (Sales Lineage):**
+  For all referenced returns (`is_unreferenced_return_flag = FALSE`), the original invoice number and line number must resolve to an authentic historical sale in `gold.fact_sales`:
+  ```sql
+  SELECT r.return_receipt_id, r.original_pos_invoice_number, r.original_pos_line_number
+  FROM gold.fact_returns r
+  LEFT JOIN gold.fact_sales s 
+    ON r.original_pos_invoice_number = s.pos_invoice_number 
+   AND r.original_pos_line_number = s.pos_line_number
+  WHERE r.is_unreferenced_return_flag = FALSE AND s.sales_fact_key IS NULL;
+  ```
+  *Assertion Requirement:* Exactly `0` rows returned.
+
+#### 3.3 Inventory Flow Conservation Checks
+* **Assertion 4 (Daily SKU Continuity):**
+  Across consecutive daily inventory snapshots for any store-SKU combination, the opening stock on day $t$ must equal the closing stock on day $t-1$:
+  ```sql
+  SELECT curr.store_key, curr.product_key, curr.date_key, curr.opening_stock_quantity, prev.closing_stock_quantity
+  FROM gold.fact_inventory_snapshot curr
+  JOIN gold.fact_inventory_snapshot prev
+    ON curr.store_key = prev.store_key
+   AND curr.product_key = prev.product_key
+   AND curr.date_key = prev.date_key + 1
+  WHERE curr.opening_stock_quantity != prev.closing_stock_quantity;
+  ```
+  *Assertion Requirement:* Exactly `0` rows returned.
+
+#### 3.4 Marketing Campaign & Holdout Integrity Checks
+* **Assertion 5 (Quarantined Control Group Integrity):**
+  Every control customer record in `fact_campaign_exposure` must have `is_holdout_control_flag = TRUE`, `dispatch_timestamp IS NULL`, and `delivery_status = 'NOT_DISPATCHED'`. Zero control customers may receive communication dispatches:
+  ```sql
+  SELECT exposure_fact_key, customer_key, dispatch_timestamp, delivery_status
+  FROM gold.fact_campaign_exposure
+  WHERE is_holdout_control_flag = TRUE 
+    AND (dispatch_timestamp IS NOT NULL OR delivery_status != 'NOT_DISPATCHED');
+  ```
+  *Assertion Requirement:* Exactly `0` rows returned.
+
+* **Assertion 6 (10% Deterministic Cohort Split):**
+  In any campaign with $\ge 1,000$ assigned customers in `control.control_campaign_assignment_registry`, the ratio of control customers must be between 9.5% and 10.5%:
+  ```sql
+  SELECT campaign_id,
+         count(*) AS total_assignments,
+         count(*) FILTER (WHERE is_control_group = TRUE) AS control_count,
+         ROUND(100.0 * count(*) FILTER (WHERE is_control_group = TRUE) / count(*), 2) AS control_pct
+  FROM control.control_campaign_assignment_registry
+  GROUP BY campaign_id
+  HAVING count(*) >= 1000 
+     AND (ROUND(100.0 * count(*) FILTER (WHERE is_control_group = TRUE) / count(*), 2) NOT BETWEEN 9.50 AND 10.50);
+  ```
+  *Assertion Requirement:* Exactly `0` rows returned.
+
+---
+
+### 4. Foreign-Key Safe Ingestion Sequencing Graph
+
+To eliminate foreign key constraint violations during bulk data generation, tables must be loaded in strict topological dependency order:
+
+```
++---------------------------------------------------------------------------------------------------+
+|                            FOREIGN-KEY-SAFE INGESTION SEQUENCE GRAPH                              |
++---------------------------------------------------------------------------------------------------+
+|                                                                                                   |
+|   TIER 1: CALENDARS & STATIC REFERENCE DATA                                                       |
+|   1. gold.dim_date (Pre-populated calendar dimension: 2021-01-01 to 2027-12-31)                   |
+|   2. gold.ref_reconciliation_domain (Pre-seeded: 4 rows)                                          |
+|   3. gold.ref_inventory_movement_type (Pre-seeded: 5 rows)                                        |
+|   4. gold.ref_return_reason (Pre-seeded: 5 rows)                                                  |
+|                                                                                                   |
+|   TIER 2: CONFORMED MASTER ENTITIES (Zero External Foreign Keys)                                  |
+|   5. gold.dim_supplier (50 vendors)                                                               |
+|   6. gold.dim_store (30 retail stores)                                                            |
+|   7. gold.dim_payment_method (8 tender types)                                                     |
+|   8. gold.dim_promotion (Active promotional campaigns & vouchers)                                 |
+|   9. gold.dim_campaign (Marketing campaign definitions)                                           |
+|                                                                                                   |
+|   TIER 3: SECONDARY MASTER ENTITIES (Dependent on Tier 2)                                         |
+|   10. gold.dim_product (References dim_supplier via primary_supplier_key)                          |
+|   11. gold.dim_customer (References sentinel -1, seeds loyalty profiles)                          |
+|                                                                                                   |
+|   TIER 4: CAMPAIGN REGISTRY & BASELINE SNAPSHOTS                                                  |
+|   12. control.control_campaign_assignment_registry (References dim_campaign, dim_customer, date)  |
+|   13. gold.fact_inventory_snapshot [Day 0 Initial Baseline Stock]                                 |
+|                                                                                                   |
+|   TIER 5: TRANSACTIONAL FACTS (Sequential Daily Generation Batches)                               |
+|   14. gold.fact_sales (References store, product, customer, promo, date)                          |
+|   15. gold.fact_payments (References sales invoice, store, payment_method, customer, date)        |
+|   16. gold.fact_returns (References historical sales invoice & line, store, product, date)        |
+|   17. gold.fact_inventory_movements (References sales reductions, receipts, store, product, date) |
+|   18. gold.fact_inventory_snapshot [Day t Closing Balance Update]                                 |
+|   19. gold.fact_campaign_exposure (References campaign registry composite key, campaign, customer)|
+|   20. gold.fact_reconciliation (References store, recon domain, date)                             |
+|   21. gold.fact_demand_forecast (Forward projections: store, product, target_date)                |
+|                                                                                                   |
++---------------------------------------------------------------------------------------------------+
+```
