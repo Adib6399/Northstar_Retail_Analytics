@@ -1,27 +1,31 @@
 # ==============================================================================
 # Northstar Retail Group — Enterprise Retail Analytics Platform
 # Stage 5.1 Practical Portfolio Baseline Dependencies
+#
+# RECOMMENDED PYTHON RUNTIME: Python 3.12.x
+# Note: Host reports Python 3.14.5. Complete stack compatibility (specifically
+# dbt-core 1.7.x and compiled wheels for pandas/psycopg) is verified for Python 3.12.
 # ==============================================================================
 
-# Core Data Processing & Manipulation
-pandas>=2.2.0
+# Core Data Processing & Tabular Manipulation
+pandas==2.2.2
 
-# Database Connectivity & ORM Engine
-sqlalchemy>=2.0.25
-psycopg[binary]>=3.1.18
+# Database Connectivity & ORM Engine (PostgreSQL 16+)
+sqlalchemy==2.0.35
+psycopg[binary]==3.1.19
 
-# Data Transformation & Semantic Modeling
-dbt-core>=1.7.0
-dbt-postgres>=1.7.0
+# In-Warehouse Transformation & Semantic Modeling
+dbt-core==1.7.18
+dbt-postgres==1.7.18
 
 # Configuration, Environment & Secrets Management
-python-dotenv>=1.0.0
-pydantic>=2.6.0
-pydantic-settings>=2.1.0
-pyyaml>=6.0.1
+python-dotenv==1.0.1
+pydantic==2.8.2
+pydantic-settings==2.4.0
+pyyaml==6.0.2
 
-# HTTP Client (for API metadata / verification)
-requests>=2.31.0
+# HTTP Client (for Metadata & API discovery)
+requests==2.32.3
 
 # Quality Assurance & Testing Framework
-pytest>=8.0.0
+pytest==8.3.2

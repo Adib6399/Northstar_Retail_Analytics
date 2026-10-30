@@ -96,3 +96,4 @@ def check_database_connectivity() -> Tuple[bool, str]:
         return False, f"PostgreSQL connection failed ({masked_url}): {type(e).__name__}: {str(e)}"
 
     return False, f"Unable to establish database connection to {masked_url}"
+

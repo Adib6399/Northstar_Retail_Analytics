@@ -9,3 +9,4 @@
 -- ==============================================================================
 
 SELECT 'Northstar Retail Analytics PostgreSQL 16 container successfully initialized' AS status;
+

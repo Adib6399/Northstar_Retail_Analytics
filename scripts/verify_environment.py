@@ -23,15 +23,19 @@ def print_header(title: str) -> None:
 
 
 def check_python_version() -> bool:
-    print_header("1. Python Version Check")
+    print_header("1. Python Version Check & Compatibility Evaluation")
     major = sys.version_info.major
     minor = sys.version_info.minor
     micro = sys.version_info.micro
     version_str = f"{major}.{minor}.{micro}"
-    print(f"Detected Python Version: {version_str} ({sys.executable})")
+    print(f"Detected Host Python: {version_str} ({sys.executable})")
 
     if major == 3 and minor >= 11:
-        print("  -> PASS: Python version meets requirement (>= 3.11).")
+        print("  -> RUNTIME CHECK: Python runtime meets minimum platform requirement (>= 3.11).")
+        if minor == 14:
+            print("  -> COMPATIBILITY FINDING: Python 3.14 lacks upstream binary wheel support for dbt-core 1.7+")
+            print("     and compiled extensions (psycopg/pandas).")
+            print("  -> RECOMMENDED BASELINE: Python 3.12.x established as authoritative implementation baseline.")
         return True
     else:
         print("  -> FAIL: Python version does not meet requirement (>= 3.11).")
@@ -211,3 +215,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

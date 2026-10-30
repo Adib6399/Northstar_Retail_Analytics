@@ -38,3 +38,4 @@ networks:
   northstar_network:
     name: northstar_network
     driver: bridge
+

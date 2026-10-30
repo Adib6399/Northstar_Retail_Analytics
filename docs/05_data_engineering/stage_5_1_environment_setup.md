@@ -22,7 +22,7 @@ Stage 5.1 operationalizes the **Practical Portfolio Baseline Stack** formally se
 +------------------------------------+----------------------------------+---------------------------------------------------------------+
 | Functional Domain                  | Selected Technology & Target Ver | Architectural Role & Implementation Responsibility            |
 +------------------------------------+----------------------------------+---------------------------------------------------------------+
-| Programming Runtime                | Python 3.11+ (Detected 3.14.5)   | Core language for ingestion, transformation, and testing      |
+| Programming Runtime                | Python 3.12.x (Baseline; Host 3.14.5)| Core language for ingestion, transformation, and testing      |
 | Relational Storage & Warehouse     | PostgreSQL 16+ (Dockerized)      | ACID-compliant single analytics database baseline             |
 | Data Manipulation & Extraction     | Pandas 2.2+ / Requests           | Data wrangling, file parsing, and tabular calculations        |
 | Relational Database Interface      | SQLAlchemy 2.0+ & Psycopg 3.1+   | Database connection pooling, dialect engine, and raw SQL exec |
@@ -185,10 +185,10 @@ In strict adherence to engineering integrity, actual test results executed on th
 | 05 | Database URL Masking           | python3 -m unittest tests  | PASS: Connection URL built; password masked as ••••••••       |
 | 06 | PII Redaction Logging Filter   | python3 -m unittest tests  | PASS: Phone (9845012345) & DB password scrubbed from logs     |
 | 07 | Docker Compose Manifest Check  | python3 -m unittest tests  | PASS: docker-compose.yml validated (PostgreSQL 16, healthcheck)|
-| 08 | Unit Test Suite Execution      | python3 -m unittest tests  | PASS: 6 of 6 unit tests executed and passed (0 errors, 0 fail)|
+| 08 | Unit Test Suite Execution      | python3 -m unittest tests  | PASS: 11 of 12 tests passed; 1 skipped (live DB not executed) |
 | 09 | Git Repository Tracking        | git status                 | PASS: Initialized on 'main'; .gitignore excludes .env & .venv |
 | 10 | Docker Daemon Availability     | which docker               | NOT DETECTED: Docker CLI not in PATH on host runner           |
-| 11 | PostgreSQL Live Connection     | python3 verify_env.py      | NOT CONNECTED: Expected in local prep prior to Docker start   |
+| 11 | PostgreSQL Live Connection     | python3 verify_env.py      | NOT EXECUTED: Expected in local prep prior to Docker start    |
 +----+--------------------------------+----------------------------+---------------------------------------------------------------+
 ```
 
@@ -196,8 +196,9 @@ In strict adherence to engineering integrity, actual test results executed on th
 
 ### 8. Known Issues & Operational Recommendations
 
-1. **Docker CLI on Host Environment:** Docker is not currently installed or exposed in PATH in this environment. To run the PostgreSQL 16 container, Docker Desktop or Colima must be running on the host machine. Alternatively, an external PostgreSQL 16 instance can be connected by updating `POSTGRES_HOST` and `POSTGRES_PORT` in `.env`.
-2. **Sandboxed Network Boundary for Package Installation:** In standard sandbox execution mode, outbound internet network access is restricted. Installing packages via `pip install -r requirements.txt` requires running outside the sandbox (`BypassSandbox: true`) or pre-cached wheels. The test suite has been engineered to run seamlessly under both standard Python `unittest` and `pytest`.
+1. **Python 3.12 Implementation Baseline:** While the host environment reports Python 3.14.5, complete stack compatibility (specifically `dbt-core` 1.7+ and binary wheels for `psycopg` and `pandas`) is officially verified for Python 3.12. Python 3.12 is established as the recommended implementation runtime.
+2. **Docker CLI on Host Environment:** Docker is not currently installed or exposed in PATH in this environment. To run the PostgreSQL 16 container, Docker Desktop or Colima must be running on the host machine. Alternatively, an external PostgreSQL 16 instance can be connected by updating `POSTGRES_HOST` and `POSTGRES_PORT` in `.env`.
+3. **Sandboxed Network Boundary for Package Installation:** In standard sandbox execution mode, outbound internet network access is restricted. Installing packages via `pip install -r requirements.txt` requires running outside the sandbox (`BypassSandbox: true`) or pre-cached wheels. The test suite has been engineered to run seamlessly under both standard Python `unittest` and `pytest`.
 
 ---
 
@@ -209,3 +210,4 @@ In accordance with strict enterprise governance rules:
 * **Zero mock or synthetic datasets have been generated.**
 * **Zero ingestion pipelines or dbt models have been implemented.**
 * **Stage 5.1 is officially certified. Stage 5.2 (Data Generation / DDL) will NOT be initiated without explicit authorization.**
+

@@ -1,7 +1,7 @@
 """
-Northstar Retail Analytics Platform — Environment & Configuration Unit Tests
-Validates the repository foundation, directory structure, environment configuration,
-and logging redaction filters.
+Northstar Retail Analytics Platform — Environment & Configuration Test Suite
+Provides test cases across configuration, directory foundation, logging security,
+Docker compose specifications, and database connectivity.
 """
 
 import sys
@@ -9,20 +9,43 @@ import logging
 import unittest
 from pathlib import Path
 from config.base import get_settings, PROJECT_ROOT
-from config.database import get_database_url
+from config.database import get_database_url, check_database_connectivity
 from config.logging_config import setup_logging, PIIRedactionFilter
 
 
-class TestEnvironmentSetup(unittest.TestCase):
-    """Test suite validating repository structure, environment settings, and security filters."""
+class TestConfigurationAndSettings(unittest.TestCase):
+    """Category 1: Configuration & Runtime Environment Tests."""
 
-    def test_python_version(self):
-        """Ensure Python version is 3.11 or higher."""
+    def test_python_runtime_compatibility(self):
+        """Ensure Python runtime is >= 3.11."""
         self.assertGreaterEqual(
             (sys.version_info.major, sys.version_info.minor),
             (3, 11),
-            f"Python version must be >= 3.11, found: {sys.version}",
+            f"Python runtime must be >= 3.11, detected: {sys.version}",
         )
+
+    def test_settings_initialization(self):
+        """Verify application settings initialize and parse environment defaults."""
+        settings = get_settings()
+        self.assertEqual(settings.app_name, "Northstar_Retail_Analytics")
+        self.assertEqual(settings.postgres_port, 5432)
+        self.assertEqual(settings.param_discrepancy_threshold, 500.0)
+        self.assertEqual(settings.pipeline_timezone, "Asia/Kolkata")
+        self.assertTrue(settings.is_development)
+
+    def test_database_url_generation(self):
+        """Verify standard database URL construction and password masking."""
+        url_masked = get_database_url(hide_password=True)
+        self.assertIn("postgresql+psycopg://", url_masked)
+        self.assertIn("••••••••", url_masked)
+
+        url_unmasked = get_database_url(hide_password=False)
+        self.assertIn("postgresql+psycopg://", url_unmasked)
+        self.assertNotIn("••••••••", url_unmasked)
+
+
+class TestDirectoryFoundation(unittest.TestCase):
+    """Category 2: Repository Structure & Directory Foundation Tests."""
 
     def test_directory_structure_exists(self):
         """Verify that all core project directories exist."""
@@ -53,57 +76,97 @@ class TestEnvironmentSetup(unittest.TestCase):
             dir_path = PROJECT_ROOT / rel_path
             self.assertTrue(dir_path.is_dir(), f"Expected directory missing: {rel_path}")
 
-    def test_settings_initialization(self):
-        """Verify application settings initialize and parse environment defaults."""
-        settings = get_settings()
-        self.assertEqual(settings.app_name, "Northstar_Retail_Analytics")
-        self.assertEqual(settings.postgres_port, 5432)
-        self.assertEqual(settings.param_discrepancy_threshold, 500.0)
-        self.assertEqual(settings.pipeline_timezone, "Asia/Kolkata")
-        self.assertTrue(settings.is_development)
+    def test_gitkeep_files_exist(self):
+        """Verify .gitkeep files exist in data subdirectories and logs."""
+        gitkeep_dirs = ["data/raw", "data/bronze", "data/silver", "data/gold", "data/reference", "logs"]
+        for rel_path in gitkeep_dirs:
+            gitkeep_path = PROJECT_ROOT / rel_path / ".gitkeep"
+            self.assertTrue(gitkeep_path.is_file(), f"Missing .gitkeep in: {rel_path}")
 
-    def test_database_url_generation(self):
-        """Verify standard database URL construction and password masking."""
-        url_masked = get_database_url(hide_password=True)
-        self.assertIn("postgresql+psycopg://", url_masked)
-        self.assertIn("••••••••", url_masked)
 
-        url_unmasked = get_database_url(hide_password=False)
-        self.assertIn("postgresql+psycopg://", url_unmasked)
-        self.assertNotIn("••••••••", url_unmasked)
+class TestLoggingSecurityRedaction(unittest.TestCase):
+    """Category 3: Logging Security & Privacy Redaction Tests (Audit 6)."""
 
-    def test_pii_redaction_logging_filter(self):
-        """Verify that phone numbers and passwords are scrubbed from log messages."""
-        pii_filter = PIIRedactionFilter()
+    def setUp(self):
+        self.pii_filter = PIIRedactionFilter()
 
-        # Test phone number scrubbing
-        record_phone = logging.LogRecord(
+    def test_phone_number_redaction(self):
+        """Verify 10-digit Indian mobile numbers are scrubbed."""
+        record = logging.LogRecord(
             name="test", level=logging.INFO, pathname="test.py", lineno=1,
-            msg="Customer mobile number is 9845012345 for transaction", args=(), exc_info=None
+            msg="Customer mobile is 9845012345 for transaction", args=(), exc_info=None
         )
-        pii_filter.filter(record_phone)
-        self.assertNotIn("9845012345", record_phone.msg)
-        self.assertIn("[REDACTED_PHONE]", record_phone.msg)
+        self.pii_filter.filter(record)
+        self.assertNotIn("9845012345", record.msg)
+        self.assertIn("[REDACTED_PHONE]", record.msg)
 
-        # Test password scrubbing
-        record_pwd = logging.LogRecord(
+    def test_email_address_redaction(self):
+        """Verify customer and employee email addresses are scrubbed."""
+        record = logging.LogRecord(
             name="test", level=logging.INFO, pathname="test.py", lineno=1,
-            msg="Connecting with password='super_secret_db_pass' to database", args=(), exc_info=None
+            msg="Dispatching DSR to regional_lead@northstar.in and finance@company.com", args=(), exc_info=None
         )
-        pii_filter.filter(record_pwd)
-        self.assertNotIn("super_secret_db_pass", record_pwd.msg)
-        self.assertIn("password=[REDACTED]", record_pwd.msg)
+        self.pii_filter.filter(record)
+        self.assertNotIn("regional_lead@northstar.in", record.msg)
+        self.assertNotIn("finance@company.com", record.msg)
+        self.assertEqual(record.msg.count("[REDACTED_EMAIL]"), 2)
 
-    def test_docker_compose_exists(self):
-        """Verify docker-compose.yml exists and contains postgres service definition."""
+    def test_password_parameter_redaction(self):
+        """Verify password key-value parameters are scrubbed."""
+        record = logging.LogRecord(
+            name="test", level=logging.INFO, pathname="test.py", lineno=1,
+            msg="Connecting with password='super_secret_db_pass' to host", args=(), exc_info=None
+        )
+        self.pii_filter.filter(record)
+        self.assertNotIn("super_secret_db_pass", record.msg)
+        self.assertIn("password=[REDACTED]", record.msg)
+
+    def test_database_uri_password_redaction(self):
+        """Verify database URIs containing credentials in exceptions are scrubbed."""
+        record = logging.LogRecord(
+            name="test", level=logging.ERROR, pathname="test.py", lineno=1,
+            msg="Connection failed for postgresql+psycopg://dbuser:mypassword123@localhost:5432/northstar_dev",
+            args=(), exc_info=None
+        )
+        self.pii_filter.filter(record)
+        self.assertNotIn("mypassword123", record.msg)
+        self.assertIn("://dbuser:[REDACTED]@", record.msg)
+
+    def test_payment_card_redaction(self):
+        """Verify 16-digit card-like patterns are scrubbed."""
+        record = logging.LogRecord(
+            name="test", level=logging.INFO, pathname="test.py", lineno=1,
+            msg="POS tender transaction card number 4111 2222 3333 4444 approved", args=(), exc_info=None
+        )
+        self.pii_filter.filter(record)
+        self.assertNotIn("4111 2222 3333 4444", record.msg)
+        self.assertIn("[REDACTED_CARD]", record.msg)
+
+
+class TestDockerComposeSpecification(unittest.TestCase):
+    """Category 4: Docker Compose Manifest Tests."""
+
+    def test_docker_compose_structure(self):
+        """Verify docker-compose.yml defines postgres 16 service, volume, and health check."""
         compose_path = PROJECT_ROOT / "docker-compose.yml"
         self.assertTrue(compose_path.exists(), "docker-compose.yml must exist")
         content = compose_path.read_text(encoding="utf-8")
         self.assertIn("postgres:16-alpine", content)
         self.assertIn("northstar_postgres_dev", content)
         self.assertIn("healthcheck:", content)
+        self.assertIn("postgres_data:", content)
+
+
+class TestDatabaseIntegration(unittest.TestCase):
+    """Category 5: Database Integration Tests (Conditional / Live Execution)."""
+
+    def test_database_live_connection(self):
+        """Test live database connectivity if PostgreSQL container is running."""
+        connected, msg = check_database_connectivity()
+        if not connected:
+            self.skipTest(f"PostgreSQL container is not running on host (NOT EXECUTED: {msg})")
+        self.assertTrue(connected)
 
 
 if __name__ == "__main__":
     unittest.main()
-

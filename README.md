@@ -102,7 +102,8 @@ docs/
     ├── stage_4_governance_reconciliation.md # Stage 4 cross-document governance reconciliation report
     └── stage_4_final_signoff.md           # Formal Stage 4 architecture sign-off & governance baseline certificate
 ├── docs/05_data_engineering/              # Stage 5: Data Engineering & Implementation
-    └── stage_5_1_environment_setup.md     # Stage 5.1 development environment & repository report
+    ├── stage_5_1_environment_setup.md     # Stage 5.1 development environment & repository report
+    └── stage_5_1_environment_readiness_audit.md # Stage 5.1 environment readiness audit report
 ├── config/                                # Application configuration, database engine & logging
 ├── data/                                  # Multi-tier data lakehouse (raw, bronze, silver, gold, ref)
 ├── ingestion/                             # T+1 overnight batch ingestion pipelines
@@ -292,6 +293,9 @@ docs/
 
 55. [**Stage 5.1 Environment Setup Report**](file:///Users/adibnoushad/Northstar_Retail_Analytics/docs/05_data_engineering/stage_5_1_environment_setup.md)
     Practical portfolio baseline environment report, package specifications, Docker Compose manifest, logging redaction filters, and validation results.
+
+56. [**Stage 5.1 Environment Readiness Audit**](file:///Users/adibnoushad/Northstar_Retail_Analytics/docs/05_data_engineering/stage_5_1_environment_readiness_audit.md)
+    Targeted environment readiness audit covering Python 3.12 compatibility, pinned dependencies, git check-ignore proof, Docker prerequisites, and test results.
 
 ---
 
