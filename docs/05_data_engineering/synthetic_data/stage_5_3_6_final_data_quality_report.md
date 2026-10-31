@@ -48,7 +48,7 @@ Every table across schemas `gold` and `control` was audited via direct catalog i
 #### 2.2 Dimension & Control Tables
 | Table Name | Scope & Grain | Canonical Target | Actual Live Count | Gate Status |
 | :--- | :--- | :---: | :---: | :---: |
-| `gold.dim_date` | 7-year enterprise calendar (`2024-01-01` to `2030-12-31`) | `2,556` | `2,556` | **PASS** |
+| `gold.dim_date` | 7-year enterprise calendar (`2021-01-01` to `2027-12-31`) | `2,556` | `2,556` | **PASS** |
 | `gold.dim_store` | Physical store locations (30 active stores) | `30` | `30` | **PASS** |
 | `gold.dim_product` | Active merchandise SKU catalog | `500` | `500` | **PASS** |
 | `gold.dim_customer` | Synthetic customer base + sentinel walk-in (`-1`) | `10,001` | `10,001` | **PASS** |
@@ -73,8 +73,8 @@ Comprehensive cross-fact auditing ensures that inter-table mathematical relation
 |   - Total POS Invoices Audited:            460,000 receipts                                        |
 |   - Reconciled Invoices:                   460,000 (100.0%)                                        |
 |   - Discrepant Invoices:                   0                                                       |
-|   - Total Tendered Amount:                 ₹308,826,051.48                                         |
-|   - Total Net Sales Invoiced:              ₹308,826,051.48                                         |
+|   - Total Tendered Amount:                 ₹6,245,601,789.24                                       |
+|   - Total Net Sales Invoiced:              ₹6,245,601,789.24                                       |
 |   - Split-Tender Rate:                     Exactly 8.00% (36,800 split-tender receipts)            |
 |                                                                                                    |
 | Check 2: Sales vs Customer Returns (Quantity & Refund Ceilings)                                    |
@@ -103,16 +103,16 @@ Comprehensive cross-fact auditing ensures that inter-table mathematical relation
 |   - Closing Stock Valuation Verified:      ₹113,873,284.10 closing enterprise inventory valuation  |
 |                                                                                                    |
 | Check 6: Marketing Performance & ROMI Governance                                                   |
-|   - Total Attributed Marketing Spend:      ₹2,729,564.00                                           |
-|   - Total Incremental Gross Margin Lift:   ₹2,994,625.00                                           |
+|   - Total Attributed Marketing Spend:      ₹4,479,416.40                                           |
+|   - Total Incremental Gross Margin Lift:   ₹4,914,206.60                                           |
 |   - Enterprise Weighted ROMI:              1.0971 (Margin Lift / Total Spend)                      |
 |   - Enterprise Unweighted Daily Avg ROMI:  1.2700 (Average of daily store-level ROMI ratios)      |
 |   - Governance Disclosure:                 Simpson's Paradox mathematically explained & documented |
 |                                                                                                    |
 | Check 7: Campaign Exposure & Holdout Suppression                                                   |
 |   - Total Cohort Assignments:              50,000 customers (5 campaigns x 10,000)                 |
-|   - Treatment Group (Dispatched):          45,022 assignments (90.04%)                             |
-|   - Control Group (Holdout):               4,978 assignments (9.96%, within 10% +/- 1% tolerance)  |
+|   - Treatment Group (Dispatched):          45,133 assignments (90.27%)                             |
+|   - Control Group (Holdout):               4,867 assignments (9.73%, within 10% +/- 1% tolerance)  |
 |   - Control Group Dispatches / Exposures:  0 (100% suppressed: NOT_DISPATCHED_HOLDOUT)             |
 |   - Control Group Coupon Redemptions:      0 (100% suppressed: Zero redemptions)                   |
 |   - PII Scrubbing & HMAC Privacy:          PASS (64-char SHA-256 digests, 0 plain-text PII)        |
@@ -123,7 +123,7 @@ Comprehensive cross-fact auditing ensures that inter-table mathematical relation
 |   - Domain 3: ERP Inventory (LEG3_INVENTORY): 2,760 audit records (30 stores x 92 days)            |
 |   - Domain 4: Returns Ledger (LEG4_RETURNS): 2,760 audit records (30 stores x 92 days)             |
 |   - Total Reconciliation Audit Records:    11,040 audit records (100% domain completeness)         |
-|   - Discrepancy Exception Tickets:         1,046 tickets generated (PENDING_REVIEW)                |
+|   - Discrepancy Exception Tickets:         164 tickets generated (PENDING_REVIEW)                  |
 |   - Partial Index Exercised:               idx_fact_recon_pending_discrepancy operational          |
 |                                                                                                    |
 | Check 9: Forward Demand Forecast (FR-024 & BP-008)                                                 |
@@ -204,3 +204,4 @@ In accordance with Section 8 of the Stage 5.3.6 authorization:
 
 **Formal Sign-Off Status:**
 Stage 5.3.6 — Demand Forecast Generation & Final Data Quality Gate: **COMPLETED, VALIDATED, AWAITING GOVERNANCE REVIEW.**
+
