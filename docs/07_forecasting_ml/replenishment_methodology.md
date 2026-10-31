@@ -1,11 +1,11 @@
 # Northstar Retail Group — Enterprise Retail Analytics Platform
 ## Stage 7: Replenishment Recommendation Methodology & Inventory Sizing
 
-**Document Version:** 1.1.0 (Governance-Reconciled)  
+**Document Version:** 1.1.1 (Final Governance Integrity Corrections)  
 **Status:** Approved & Validated  
 **Module:** `forecasting/replenishment.py`  
 **Database Profile:** PostgreSQL 16 Dev (`northstar_analytics_dev`)  
-**Scope:** Mathematical Formulation, Model Bias Interaction, and Operational Logic for Automated Replenishment Requisitions  
+**Scope:** Mathematical Formulation, Model Bias Interaction, and Operational Logic for Automated Replenishment Requisitions (Analytical Evaluation; No Production Deployment Implied)  
 
 ---
 
@@ -60,7 +60,7 @@ The champion LightGBM model exhibits an empirical **forecast bias of $-24.38\%$*
 
 #### 3.1 Operational Trade-Off: Overstock Protection vs Lost-Sales Exposure
 1. **Working Capital & Overstock Protection (Positive Factor):**
-   * Stage 6.2 and Stage 6.4 audits revealed that Northstar's network holds **₹1,785,329,210.62 in inventory valuation at cost**, with **4,965 store-SKU cells categorized as overstocked** (>60 days of supply).
+   * Stage 6.2 and Stage 6.4 audits revealed that Northstar's network holds **₹1,785,329,210.62 in inventory valuation at cost**, with **4,965 store-SKU cells categorized as overstocked** (> 30 days of inventory cover per Stage 6.2 and Stage 6.4 approved definitions).
    * A negatively biased model behaves conservatively, avoiding aggressive upward demand extrapolations that would otherwise bloat inventory and trigger heavy holding costs, working capital lockup, and post-festive markdown losses.
 2. **Lost-Sales & Service Level Exposure (Risk Factor):**
    * Conversely, a $-24.38\%$ under-forecast presents a clear operational risk: unbuffered replenishment recommendations based on systematically suppressed demand projections could lead to insufficient reorder quantities on fast-moving high-velocity SKUs, inducing recurring stockouts and lost revenue.

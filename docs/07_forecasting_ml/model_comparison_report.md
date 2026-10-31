@@ -1,7 +1,7 @@
 # Northstar Retail Group — Enterprise Retail Analytics Platform
 ## Stage 7: Model Comparison Report & Benchmark Evaluation
 
-**Document Version:** 1.1.0  
+**Document Version:** 1.1.1 (Final Governance Integrity Corrections)  
 **Status:** Approved & Governance-Reconciled  
 **Module:** `forecasting/evaluation.py`  
 **Database Profile:** PostgreSQL 16 Dev (`northstar_analytics_dev`)  
@@ -52,9 +52,10 @@ A rigorous full-precision inspection of the two leading gradient boosted decisio
 ```
 
 > [!NOTE]
-> **Governance Reconciliation on Model Metrics:**  
+> **Governance Reconciliation on Model Metrics & Champion Status:**  
 > At full precision, Scikit-learn's `HistGradientBoostingRegressor` achieves marginally lower error than LightGBM across MAE ($1.1296$ vs $1.1297$), RMSE ($1.6723$ vs $1.6758$), and Masked MAPE ($49.95\%$ vs $50.31\%$), while WAPE is virtually identical ($69.159\%$ vs $69.165\%$).  
-> LightGBM is **not** claimed to possess the lowest absolute error across all test metrics. Rather, LightGBM is selected as Enterprise Champion based on a transparent multi-criteria framework balancing near-identical predictive error with superior training velocity ($1.76\times$ faster), native categorical histogram binning, native Tweedie/Poisson objective support for intermittent counts, and standardized production deployment tooling.
+> LightGBM is **not** claimed to possess the lowest absolute error across all test metrics. Rather, LightGBM is selected as the **champion among evaluated candidate models** based on a transparent multi-criteria framework balancing near-identical predictive error with superior training velocity ($1.76\times$ faster), native categorical feature ingestion, built-in split gain interpretability, and low memory utilization.  
+> This designation reflects analytical benchmarking; **no production deployment or production validation is implied**. Consistent with governance reporting, the technical target in **FR-023 (Store-Category MAPE < 18.0%) was NOT achieved**, reaching **23.46%** (a gap of **+5.46 percentage points**).
 
 ---
 
@@ -106,7 +107,7 @@ xychart-beta
 On the holdout test period (`2026-10-18` to `2026-10-31`), total actual sales were 343,013.0 units, while LightGBM projected 259,397.2 units (net under-forecast of 83,615.8 units, or $-24.38\%$ bias):
 * **Root Cause (The Dussehra Festive Acceleration):** As established in Stage 7 EDA, network-wide sales jumped from an August/September baseline of $\approx 17,500$ units/day to **$24,500.9$ units/day** during the late October holdout window ($+41.58\%$ surge).
 * **Replenishment Implication & Lost Sales Risk:** Under-forecasting demand by $24.38\%$ during an acute seasonal surge creates **lost-sales exposure** if replenishment is sized purely on unadjusted baseline run-rates. High-velocity items in fast-moving categories (Groceries, Apparel) risk selling out before reorders arrive if customer traffic surges.
-* **The Counter-Risk (Overstock Protection):** Conversely, if the model had aggressively chased the Dussehra peak, forward ordering for November 01–14 would have created massive post-holiday surplus inventory right as demand normalizes, directly increasing the ₹375.48M overstock pool and forcing negative-margin markdowns ($> 20\%$).
+* **The Counter-Risk (Overstock Protection):** Conversely, if the model had aggressively chased the Dussehra peak, forward ordering for November 01–14 would have created massive post-holiday surplus inventory right as demand normalizes, directly increasing the ₹375.48M overstock pool (> 30 days of inventory cover across 4,965 store-SKU cells per Stage 6.2/6.4 findings) and forcing negative-margin markdowns ($> 20\%$).
 
 ---
 
@@ -114,10 +115,10 @@ On the holdout test period (`2026-10-18` to `2026-10-31`), total actual sales we
 
 ```
 +------------------------------+-------------------+--------------------+------------------------+---------------------------------------+
-| Candidate Model              | Training Duration | Inference Duration | Memory Footprint (RAM) | Production Tooling & Serialization    |
+| Candidate Model              | Training Duration | Inference Duration | Memory Footprint (RAM) | Feature Ingestion & Architecture      |
 +------------------------------+-------------------+--------------------+------------------------+---------------------------------------+
-| LightGBM Regressor (Champion)| 2.32 seconds      | 0.197 seconds      | < 350 MB               | Native text/binary booster, C API     |
-| HistGradientBoosting         | 4.09 seconds      | 0.142 seconds      | < 480 MB               | Scikit-learn pickle dependency        |
+| LightGBM Regressor (Champion)| 2.32 seconds      | 0.197 seconds      | < 350 MB               | Native category ingestion, gain imp.  |
+| HistGradientBoosting         | 4.09 seconds      | 0.142 seconds      | < 480 MB               | Requires cat.codes, scikit-learn      |
 | Random Forest Regressor      | 11.89 seconds     | 1.150 seconds      | ~ 1,450 MB             | Large serialized tree structures      |
 | Holt-Winters Benchmark       | Instant           | 0.650 seconds      | < 150 MB               | Hardcoded heuristic parameters        |
 | 14-Day Moving Average        | Instant           | 0.180 seconds      | < 120 MB               | SQL aggregation baseline              |
@@ -125,4 +126,4 @@ On the holdout test period (`2026-10-18` to `2026-10-31`), total actual sales we
 ```
 
 * **Training Scalability:** LightGBM trained in **2.32 seconds** ($1.76\times$ faster than HistGradientBoosting at $4.09$ seconds, and $5.1\times$ faster than Random Forest at $11.89$ seconds).
-* **Champion Justification:** LightGBM's superior training throughput, native categorical feature support (Fisher exact binning on gradients without label encoding), and native export capabilities make it the superior long-term platform choice for enterprise deployment.
+* **Champion Justification:** LightGBM's superior training throughput, native categorical feature ingestion (avoiding manual integer pre-encoding), built-in split gain feature importance, and low memory footprint justify its selection as champion among the evaluated candidate models (reflecting analytical benchmarking without implying production deployment).
