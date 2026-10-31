@@ -18,15 +18,15 @@ During Stage 6.3, the Enterprise Retail Analytics Platform (ERAP) conducted a co
                       NORTHSTAR ENTERPRISE RECONCILIATION SUMMARY CENSUS
 ========================================================================================
 Total Multi-Domain Audit Records:            11,040 (2,760 store-day audits per domain)
-Total Matched & In-Tolerance Records:         10,876 (98.51% operational match rate)
-Total Pending Investigation Tickets:            164 (1.49% exception ticket rate)
+Total In-Tolerance & Explained Records:       10,876 (98.51% workflow resolution rate)
+Total Pending Investigation Tickets:            164 (1.49% exception ticket rate; 41/domain)
 Total Incident Store-Dates (All Domains):         41 unique dates (simulated co-occurrence)
 Stores with Clean Audit Records (0 Tickets):       3 stores (STR-KA-001, STR-TN-002, STR-TS-004)
 Stores with Multi-Incident Patterns (2 Days):     14 stores (Tier-1 audit intervention required)
 Stores with Single-Incident Patterns (1 Day):     13 stores (Management review & routine monitor)
 
 FINANCIAL TENDER AT RISK (DOMAINS 1 & 2):
-  Total Financial Sales / Tender Invoiced:   ₹6,245,602,153.05
+  Total Financial Sales / Tender Invoiced:   ₹6,245,601,789.24
   Total Gross Physical Cash Till Variance:          ₹93,967.50 (0.0015% of enterprise turnover)
   Total Bank Gateway Settlement Variance:           ₹50,637.50 (0.0008% of enterprise turnover)
   Total Combined Financial Tender at Risk:         ₹144,605.00 (0.0023% of enterprise turnover)
@@ -40,8 +40,8 @@ PHYSICAL INVENTORY DRIFT AT RISK (DOMAINS 3 & 4):
   Unposted POS Sales Unit Gap:                1,545,023.0 units (Sampled periodic batching)
   Customer Merchandise Returns Scanned:          34,500.0 units (₹164.98M gross refund)
   ERP Movement Type 451 Units (Quarantine):      13,711.0 units (39.74% quarantine routing)
-  Unquarantined Return Unit Gap:                 20,789.0 units (Restocked saleable / lag)
-  Total Physical Stock Drift (Sales + Returns): 1,565,812.0 units
+  Unquarantined Return Unit Gap:                 20,789.0 units (17,837 pristine + 2,952 defect limit)
+  Total Physical Stock Drift (Sales + Returns): 1,565,812.0 net units (1,568,370 absolute units)
   - Ticketed Inventory Discrepancy Units:         21,359.0 units (21,001 sales + 358 returns)
 ========================================================================================
 ```
@@ -58,10 +58,10 @@ Domain 1 audits the daily financial reconciliation between Point of Sale (POS) t
 #### 2.1 Macro Financial Census & Global Exposure
 Across the enterprise network over 92 operating days:
 - **Total Audits Evaluated:** 2,760 daily store closing audits.
-- **In-Tolerance Records:** 2,719 audits ($98.51\%$) cleared within standard operational tolerance (`WITHIN_TOLERANCE`).
+- **In-Tolerance Records:** 2,719 audits ($98.51\%$) cleared within standard operational tolerance (`WITHIN_TOLERANCE`), including 91 zero-variance exact matches ($3.30\%$) and 2,628 immaterial variances averaging ₹22.51/day.
 - **Exception Tickets Generated:** 41 tickets ($1.49\%$) flagged with `CASH_DRAWER_OVER_SHORT` under `PENDING_REVIEW`.
-- **Invoiced POS Terminal Sales:** ₹6,245,602,153.05.
-- **Cashier Till Closing Tape Total:** ₹6,245,508,185.55.
+- **Invoiced POS Terminal Sales:** ₹6,245,601,789.24.
+- **Cashier Till Closing Tape Total:** ₹6,245,507,821.74.
 - **Net Unexplained Cash Shortage:** ₹93,967.50 ($0.0015\%$ of total sales turnover).
 - **Absolute Variance:** Exactly ₹93,967.50 (confirming that every variance incident was a net cash shortage; zero drawer overages were recorded).
 - **Average Daily Variance per Store:** ₹34.05/day.
@@ -111,10 +111,10 @@ Across the 496,800 payment transactions recorded in `gold.fact_payments`:
 - **Visa Debit Card (Axis Bank):** 23,610 transactions ($4.75\%$ share), ₹320,048,890.35 volume ($5.12\%$ share). Contracted MDR: $0.85\%$. **Total MDR Deducted: ₹2,720,414.74**. Net expected settlement: ₹317,328,475.61.
 - **RuPay Debit Card (SBI Payments):** 20,150 transactions ($4.06\%$ share), ₹219,767,819.72 volume ($3.52\%$ share). Zero MDR ($0.00\%$). Fully cleared.
 - **Gift Voucher (Northstar Internal):** 19,939 transactions ($4.01\%$ share), ₹191,171,189.50 volume ($3.06\%$ share). Zero MDR ($0.00\%$). Fully cleared.
-- **Enterprise Financial Impact:** Total merchant fee deductions of **₹22,389,069.84** reduce gross revenues from ₹6,245,602,153.05 to a net realizable cash settlement of **₹6,223,213,083.21** (effective fee drag of $0.3585\%$).
+- **Enterprise Financial Impact:** Total merchant fee deductions of **₹22,389,069.84** reduce gross revenues from ₹6,245,601,789.24 to a net realizable cash settlement of **₹6,223,212,719.40** (effective fee drag of $0.3585\%$).
 
 #### 3.2 Gateway Capture Variance Decomposition
-In `gold.fact_reconciliation`, simulated bank settlement credits totaled ₹6,245,551,515.55 against gross POS tender of ₹6,245,602,153.05:
+In `gold.fact_reconciliation`, simulated bank settlement credits totaled ₹6,245,551,151.74 against gross POS tender of ₹6,245,601,789.24:
 - **Total Gross Settlement Discrepancy:** ₹50,637.50 ($0.0008\%$ of tender).
 - **Ticketed Capture Variances (`GATEWAY_CAPTURE_VARIANCE`):** 41 tickets under `PENDING_REVIEW` totaling **₹37,785.00** ($74.62\%$ of settlement variance; average ticket ₹921.59, range ₹527.00 to ₹1,317.00).
 - **In-Tolerance Timing Differences (`CLEARED_SETTLEMENT`):** 2,719 audits totaling **₹12,852.50** ($25.38\%$ of settlement variance; average ₹4.73/audit).
@@ -188,30 +188,36 @@ Every returned unit is accounted for in operational classification:
 1. **DEFECT (Damaged / Defective Merchandise):**
    - 12,363 return records ($35.83\%$ share), 12,363.0 units.
    - Gross/Net Refund: ₹68,112,140.99 (Average refund: ₹5,509.35/unit).
-   - Disposition Routing: `DIRECT_QUARANTINE_SCRAP` ($100\%$ quarantine verified in store backroom).
+   - Disposition Routing: Received into blocked quarantine for quality review (`gold.fact_inventory_movements` Movement 451). Note: Movement 451 represents quarantine storage, not scrap write-off (Movement 551 has 0 rows in the warehouse).
 2. **WRONG_SIZE (Incorrect Size, Fit or Color):**
    - 7,819 return records ($22.66\%$ share), 7,819.0 units.
    - Gross/Net Refund: ₹21,825,348.63 (Average refund: ₹2,791.32/unit).
-   - Disposition Routing: `INSPECTION_PENDING_RESTOCK` (Routed to inspection staging for immediate resale).
+   - Disposition Routing: Resaleable restock candidate; inspection pending restock.
 3. **BUYER_REMORSE (Customer Changed Mind):**
    - 6,925 return records ($20.07\%$ share), 6,925.0 units.
    - Gross Refund: ₹42,331,603.59.
    - Restocking Fee Recovered: **₹2,092,736.39** ($5\%$ policy recovery).
    - Net Refund Liability: ₹40,238,867.20 (Average refund: ₹6,112.87/unit).
-   - Disposition Routing: `RESTOCKABLE_FEE_LEVIED` (Restocked directly to sales floor).
+   - Disposition Routing: Resaleable restock candidate; restocking fee levied.
 4. **EXPIRED (Perishable Merchandise Expired):**
    - 4,300 return records ($12.46\%$ share), 4,300.0 units.
    - Gross/Net Refund: ₹1,941,054.17 (Average refund: ₹451.41/unit).
-   - Disposition Routing: `DIRECT_QUARANTINE_SCRAP` (Direct waste disposal).
+   - Disposition Routing: Quarantine routing for disposal evaluation (quarantine storage, not scrap write-off).
 5. **NOT_AS_DESCRIBED (Packaging / Description Mismatch):**
    - 3,093 return records ($8.97\%$ share), 3,093.0 units.
    - Gross/Net Refund: ₹30,774,358.98 (Average refund: ₹9,949.68/unit).
-   - Disposition Routing: `INSPECTION_PENDING_RESTOCK` (Repackaging and resale).
+   - Disposition Routing: Resaleable restock candidate; repackaging and resale inspection.
 
-#### 5.3 Returns Reconciliation Status
-In `gold.fact_reconciliation` Domain 4:
-- `RESOLVED_EXPLAINED` (`RESTOCKED_SALEABLE_AND_QUARANTINE_LAG`): 2,719 audits ($98.51\%$) accounting for **22,989.0 absolute units** ($98.47\%$ of variance). These represent returned items inspected and restocked as saleable rather than quarantined.
-- `PENDING_REVIEW` (`QUARANTINE_RECEIPT_VARIANCE`): 41 tickets ($1.49\%$) accounting for **358.0 absolute units** ($1.53\%$ of variance; average ticket 8.73 units, range 0 to 44 units).
+#### 5.3 Return Disposition Accounting & The 2,952-Unit Limitation
+- **Total Customer Returns:** 34,500.0 units
+- **Defective & Expired Returns (`DEFECT` + `EXPIRED`):** $12,363.0 + 4,300.0 = \mathbf{16,663.0 \text{ units}}$
+- **Pristine / Resaleable Returns (`BUYER_REMORSE` + `WRONG_SIZE` + `NOT_AS_DESCRIBED`):** $6,925.0 + 7,819.0 + 3,093.0 = \mathbf{17,837.0 \text{ units}}$
+- **Quarantine Receipts Recorded (Movement 451):** **13,711.0 units**
+- **The 2,952-Unit Defective/Expired Gap:**
+  Movement 451 accounts for 13,711.0 units, leaving **2,952.0 units** of defective and expired merchandise without a matching quarantine GRN document ($16,663.0 - 13,711.0 = 2,952.0$). In accordance with Stage 5.3.4 and 5.3.5 governance certification, this gap represents an **unreconciled data coverage limitation** in the synthetic movement subledger. These units cannot be assumed to be restocked.
+- **Workflow Status in `gold.fact_reconciliation` Domain 4:**
+  - `RESOLVED_EXPLAINED` (`RESTOCKED_SALEABLE_AND_QUARANTINE_LAG`): 2,719 audits ($98.51\%$) accounting for **22,989.0 absolute units** (reflecting pristine shelf restock candidates plus quarantine lag).
+  - `PENDING_REVIEW` (`QUARANTINE_RECEIPT_VARIANCE`): 41 tickets ($1.49\%$) accounting for **358.0 absolute units** (average ticket 8.73 units).
 
 ---
 
@@ -232,6 +238,16 @@ By mapping all 11,040 audit records across all 4 domains into the Unified Severi
 | TOTAL ENTERPRISE CENSUS    |       11,040 |    100.00% |        2,760 |           2,760 |             2,760 |           2,760 |           ₹144,605.00 |                 1,568,370 u |
 +----------------------------+--------------+------------+--------------+-----------------+-------------------+-----------------+-----------------------+-----------------------------+
 ```
+
+#### Reconciliation Bridge: Macro Net Gap vs Severity Matrix Absolute Drift
+A mathematical bridge reconciles the macro net gap (1,565,812 units) with the sum of daily absolute discrepancies (1,568,370 units):
+- **Domain 3 (Sales Decrement):** Scanned sales exceeded ERP Movement 251 on every store-day ($A \ge B$), yielding identical net and absolute totals: **1,545,023.0 units** (21,001 ticketed + 1,524,022 explained).
+- **Domain 4 (Returns vs Quarantine):** Customer returns and quarantine GRN receipts occurred asynchronously. On 348 store-days, quarantine GRN receipts exceeded daily returns (prior days' return processing backlog), producing negative daily variances totaling **-1,279.0 units**. On 2,317 store-days, returns exceeded quarantine receipts, producing positive daily variances totaling **+22,068.0 units**.
+  - Net Arithmetic Balance: $+22,068.0 + (-1,279.0) = \mathbf{20,789.0 \text{ net units}}$.
+  - Absolute Operational Drift: $22,068.0 + |-1,279.0| = \mathbf{23,347.0 \text{ absolute units}}$ (358 ticketed + 22,989 explained).
+  - Inter-day timing swing offset: $2 \times 1,279.0 = \mathbf{2,558.0 \text{ units}}$.
+- **Enterprise Reconciliation:**
+  $$\text{Macro Net Gap } (1,565,812 \text{ u}) + \text{Domain 4 Timing Swing } (2,558 \text{ u}) = \text{Severity Matrix Absolute Drift } (1,568,370 \text{ u})$$
 
 #### Co-Occurring Anomaly Cluster Discovery
 Crucially, cluster analysis revealed that **all 41 exception tickets across each domain co-occur on the exact same 41 store-dates**:

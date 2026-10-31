@@ -34,11 +34,11 @@ The ERAP reconciliation framework models four distinct operational legs, each pa
 +------------------------------------+------------------------------------+-------------------------------+
 | LEG1_TILL                          | POS Terminal Sales Lines           | Cashier Daily Till Tape       |
 | Cash Drawer Reconciliation         | gold.fact_sales sum                | Cash count journal            |
-|                                    | (₹6,245,602,153.05)                | (₹6,245,508,185.55)           |
+|                                    | (₹6,245,601,789.24)                | (₹6,245,507,821.74)           |
 +------------------------------------+------------------------------------+-------------------------------+
 | LEG2_PAYMENT                       | POS Swiped Tender Records          | Bank Merchant Settlement      |
 | Gateway & Acquirer Settlement      | gold.fact_payments sum             | Gateway clearing report       |
-|                                    | (₹6,245,602,153.05)                | (₹6,245,551,515.55)           |
+|                                    | (₹6,245,601,789.24)                | (₹6,245,551,151.74)           |
 +------------------------------------+------------------------------------+-------------------------------+
 | LEG3_INVENTORY                     | POS Scanned Sales Units            | ERP Movement Type 251         |
 | Material Decrement Ledger          | gold.fact_sales quantity_sold      | gold.fact_inventory_movements |
