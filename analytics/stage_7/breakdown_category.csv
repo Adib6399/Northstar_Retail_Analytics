@@ -1,0 +1,5 @@
+Category,MAE,RMSE,WAPE_pct,Masked_MAPE_pct,Bias_pct,Total_Actual_Units
+Clothing & Apparel,1.0429,1.4051,71.34,40.19,-24.18,76754.0
+Electronics,0.6378,0.7982,104.2,59.1,-23.9,32131.0
+Groceries & FMCG,2.0755,2.7659,58.52,57.3,-24.62,186186.0
+Home & Kitchen,0.7627,0.9854,83.52,45.24,-24.07,47942.0

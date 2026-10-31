@@ -1,0 +1,2 @@
+Grain,MAE,RMSE,WAPE_pct,MAPE_pct,Bias_pct,Target_Threshold_pct,Target_Achieved,Target_Gap_pct
+Store x Category x Day (FR-023),49.84,66.0,24.41,23.46,-24.38,18.0,False,5.46

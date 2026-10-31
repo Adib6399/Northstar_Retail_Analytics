@@ -1,0 +1,4 @@
+Velocity_Class,MAE,RMSE,WAPE_pct,Masked_MAPE_pct,Bias_pct,Total_Actual_Units
+Class A,1.1835,1.7573,68.14,51.1,-24.31,160469.0
+Class B,1.1953,1.7574,67.41,49.28,-24.33,162350.0
+Class C,0.7085,0.911,91.36,51.49,-25.28,20194.0

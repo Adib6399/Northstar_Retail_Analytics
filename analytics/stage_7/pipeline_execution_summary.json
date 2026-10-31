@@ -1,0 +1,33 @@
+{
+  "execution_timestamp": "2026-10-31T21:09:46Z",
+  "elapsed_seconds": 31.87,
+  "selected_model": "v2.0.0-lightgbm",
+  "forecast_run_id": "b0000000-0000-4000-8000-000000000701",
+  "historical_date_range": "2026-08-01 to 2026-10-31 (92 days)",
+  "holdout_test_period": "2026-10-18 to 2026-10-31 (14 days)",
+  "forward_forecast_horizon": "2026-11-01 to 2026-11-14 (14 days)",
+  "total_forward_projected_units": 336170.77,
+  "total_reorder_units_recommended": 4136.24,
+  "total_reorder_cost_inr": 13888302.75,
+  "champion_model_metrics": {
+    "Model": "LightGBM Regressor (Champion)",
+    "MAE": 1.1297,
+    "RMSE": 1.6757,
+    "WAPE_pct": 69.16,
+    "Masked_MAPE_pct": 50.31,
+    "Bias_pct": -24.38,
+    "Total_Actual_Units": 343013.0,
+    "Total_Forecast_Units": 259397.2
+  },
+  "store_category_grain_metrics": {
+    "Grain": "Store x Category x Day (FR-023)",
+    "MAE": 49.84,
+    "RMSE": 66.0,
+    "WAPE_pct": 24.41,
+    "MAPE_pct": 23.46,
+    "Bias_pct": -24.38,
+    "Target_Threshold_pct": 18.0,
+    "Target_Achieved": false,
+    "Target_Gap_pct": 5.46
+  }
+}

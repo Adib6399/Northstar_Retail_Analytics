@@ -1,0 +1,9 @@
+Model,MAE,RMSE,WAPE_pct,Masked_MAPE_pct,Bias_pct,Total_Actual_Units,Total_Forecast_Units
+HistGradientBoosting,1.1296,1.6723,69.16,49.95,-23.32,343013.0,263029.5
+LightGBM Regressor (Champion),1.1297,1.6757,69.16,50.31,-24.38,343013.0,259397.2
+Random Forest Regressor,1.132,1.6674,69.3,50.85,-21.05,343013.0,270803.3
+Holt-Winters Benchmark,1.159,1.6666,70.96,52.93,-8.8,343013.0,312812.2
+14-Day Moving Average,1.1824,1.7215,72.39,53.16,-13.86,343013.0,295472.0
+7-Day Moving Average,1.2148,1.7584,74.37,56.32,-9.87,343013.0,309144.0
+Seasonal Naïve (t-7),1.4594,2.2008,89.35,80.4,-9.87,343013.0,309144.0
+Naïve (Last Value),1.706,2.5416,104.45,94.04,30.89,343013.0,448966.0
