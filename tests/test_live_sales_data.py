@@ -37,8 +37,7 @@ class TestLiveSalesData(unittest.TestCase):
     def test_other_facts_remain_empty(self):
         """Ensure unpopulated fact tables and control_batch_audit remain strictly empty (0 rows)."""
         unpopulated_facts = [
-            "fact_marketing_performance", "fact_campaign_exposure",
-            "fact_reconciliation", "fact_demand_forecast"
+            "fact_demand_forecast"
         ]
         with self.engine.connect() as conn:
             for fact in unpopulated_facts:

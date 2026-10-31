@@ -55,16 +55,18 @@ class Stage534Validator:
                     errors.append(f"Row count mismatch in gold.{tbl}: expected {exp_cnt:,}, found {cnt:,}")
             metrics["fact_row_counts"] = actual_counts
 
-            # Unpopulated facts strictly 0
-            zero_facts = [
-                "fact_marketing_performance", "fact_campaign_exposure",
-                "fact_reconciliation", "fact_demand_forecast"
-            ]
-            for zf in zero_facts:
+            # Boundary for remaining facts (allowed: 0 or authorized profile rows)
+            other_fact_allowances = {
+                "fact_marketing_performance": [0, config.marketing_performance_rows],
+                "fact_campaign_exposure": [0, config.campaign_exposure_drops],
+                "fact_reconciliation": [0, config.reconciliation_audits],
+                "fact_demand_forecast": [0],
+            }
+            for zf, allowed in other_fact_allowances.items():
                 cnt = conn.execute(text(f"SELECT count(*) FROM gold.{zf};")).scalar()
                 actual_counts[zf] = cnt
-                if cnt != 0:
-                    errors.append(f"BOUNDARY VIOLATION: gold.{zf} contains {cnt} rows (must be 0)")
+                if cnt not in allowed:
+                    errors.append(f"BOUNDARY VIOLATION: gold.{zf} contains {cnt} rows (allowed: {allowed})")
 
             audit_cnt = conn.execute(text("SELECT count(*) FROM control.control_batch_audit;")).scalar()
             actual_counts["control_batch_audit"] = audit_cnt

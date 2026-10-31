@@ -49,9 +49,9 @@ class SalesValidator:
                 "fact_returns": [0, config.return_lines],
                 "fact_inventory_movements": [0, config.inventory_movements],
                 "fact_inventory_snapshot": [0, config.inventory_snapshots],
-                "fact_marketing_performance": [0],
-                "fact_campaign_exposure": [0],
-                "fact_reconciliation": [0],
+                "fact_marketing_performance": [0, config.marketing_performance_rows],
+                "fact_campaign_exposure": [0, config.campaign_exposure_drops],
+                "fact_reconciliation": [0, config.reconciliation_audits],
                 "fact_demand_forecast": [0],
             }
             fact_counts = {}

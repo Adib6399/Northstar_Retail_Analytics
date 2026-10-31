@@ -51,8 +51,7 @@ class TestLiveMasterData(unittest.TestCase):
     def test_fact_tables_zero_row_boundary(self):
         """Ensure unpopulated fact tables and control_batch_audit remain strictly empty."""
         unpopulated_facts = [
-            "fact_marketing_performance", "fact_campaign_exposure",
-            "fact_reconciliation", "fact_demand_forecast"
+            "fact_demand_forecast"
         ]
         with self.engine.connect() as conn:
             # Authorized fact tables check
@@ -71,7 +70,16 @@ class TestLiveMasterData(unittest.TestCase):
             snp_cnt = conn.execute(text("SELECT count(*) FROM gold.fact_inventory_snapshot;")).scalar()
             self.assertIn(snp_cnt, [0, 1750, 1380000], f"Unexpected fact_inventory_snapshot count: {snp_cnt}")
 
-            # Remaining 4 fact tables must strictly remain 0
+            mktg_cnt = conn.execute(text("SELECT count(*) FROM gold.fact_marketing_performance;")).scalar()
+            self.assertIn(mktg_cnt, [0, 70, 1840], f"Unexpected fact_marketing_performance count: {mktg_cnt}")
+
+            exp_cnt = conn.execute(text("SELECT count(*) FROM gold.fact_campaign_exposure;")).scalar()
+            self.assertIn(exp_cnt, [0, 400, 50000], f"Unexpected fact_campaign_exposure count: {exp_cnt}")
+
+            rcn_cnt = conn.execute(text("SELECT count(*) FROM gold.fact_reconciliation;")).scalar()
+            self.assertIn(rcn_cnt, [0, 140, 11040], f"Unexpected fact_reconciliation count: {rcn_cnt}")
+
+            # Remaining fact tables must strictly remain 0
             for fact in unpopulated_facts:
                 act_cnt = conn.execute(text(f"SELECT count(*) FROM gold.{fact};")).scalar()
                 self.assertEqual(act_cnt, 0, f"Fact table {fact} is NOT empty: {act_cnt} rows")

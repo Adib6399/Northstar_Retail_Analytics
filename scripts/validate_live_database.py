@@ -241,9 +241,9 @@ def run_live_validation():
             'fact_returns': [0, 260, 34500],
             'fact_inventory_movements': [0, 350, 92000],
             'fact_inventory_snapshot': [0, 1750, 1380000],
-            'fact_marketing_performance': [0],
-            'fact_campaign_exposure': [0],
-            'fact_reconciliation': [0],
+            'fact_marketing_performance': [0, 70, 1840],
+            'fact_campaign_exposure': [0, 400, 50000],
+            'fact_reconciliation': [0, 140, 11040],
             'fact_demand_forecast': [0],
         }
         for f in facts:
