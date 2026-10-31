@@ -96,3 +96,4 @@ $$\frac{\partial f_{s, p, T, h}}{\partial Y_{s, p, t'}} \equiv 0 \quad \forall t
 By construction in `FeatureEngineeringPipeline.create_cutoff_dataset()`, historical sales columns are sliced strictly as:
 $$\text{hist\_cols} = \{ d \in \text{all\_dates} \mid d \le T \}$$
 All lag and rolling aggregates are computed exclusively over subsets of $\text{hist\_cols}$. The target actual $Y_{s, p, T+h}$ is segregated exclusively into the target variable vector $y$ and is never passed to feature selection or training input matrices. Thus, the system is strictly causal and leakage-free. $\blacksquare$
+

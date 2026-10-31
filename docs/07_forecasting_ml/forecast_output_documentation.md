@@ -97,3 +97,4 @@ The generated 210,000 forecast records were audited against the canonical databa
 
 * **Rationalized Working Capital:** Stage 5.3.6 projected $437,330$ units because it applied static heuristic multipliers to the peak October volume. Stage 7 LightGBM projects **$336,170.8$ units** ($24,012$ units/day), capturing post-festive normalization and preventing an estimated **₹101.1M in speculative over-procurement**.
 * **Zero Floor Elimination:** Unlike Holt-Winters which enforced an artificial $0.300$-unit floor on every SKU, LightGBM accurately projects $0.000$ units on highly intermittent slow-moving items.
+

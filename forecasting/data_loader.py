@@ -166,3 +166,4 @@ class ForecastingDataLoader:
         df_grid = df_grid.sort_values(["store_key", "product_key", "date_key"]).reset_index(drop=True)
 
         return df_grid, stores, products, dates
+

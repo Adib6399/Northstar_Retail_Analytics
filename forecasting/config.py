@@ -45,3 +45,4 @@ class ForecastingConfig:
 
 # Global default configuration instance
 DEFAULT_CONFIG = ForecastingConfig()
+

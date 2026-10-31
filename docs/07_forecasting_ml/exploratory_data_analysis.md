@@ -163,3 +163,4 @@ flowchart LR
 
 * **Dussehra Festival Alignment:** The festive peak occurred between `2026-10-15` and `2026-10-22`, causing network-wide shopping volume to reach **24,500.9 units/day** during the final two weeks of October.
 * **Impact on Model Training:** Models trained primarily on August and September baseline data will naturally experience an under-forecasting bias during late October unless feature engineering incorporates explicit festival indicator flags and peak offset counters.
+

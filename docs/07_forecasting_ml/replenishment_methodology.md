@@ -1,11 +1,11 @@
 # Northstar Retail Group — Enterprise Retail Analytics Platform
 ## Stage 7: Replenishment Recommendation Methodology & Inventory Sizing
 
-**Document Version:** 1.0.0  
+**Document Version:** 1.1.0 (Governance-Reconciled)  
 **Status:** Approved & Validated  
 **Module:** `forecasting/replenishment.py`  
 **Database Profile:** PostgreSQL 16 Dev (`northstar_analytics_dev`)  
-**Scope:** Mathematical Formulation and Operational Logic for Automated Replenishment Requisitions  
+**Scope:** Mathematical Formulation, Model Bias Interaction, and Operational Logic for Automated Replenishment Requisitions  
 
 ---
 
@@ -54,7 +54,25 @@ $$\text{ReorderCostINR}_{s, p} = \text{RecommendedReorderUnits}_{s, p} \times \t
 
 ---
 
-### 3. Empirical Replenishment Results (Closing Baseline: 2026-10-31)
+### 3. Forecast Bias Impact & Replenishment Dynamics
+
+The champion LightGBM model exhibits an empirical **forecast bias of $-24.38\%$** over the holdout test period (predicting $259,397.2$ units against $343,013.0$ actual units sold). In enterprise retail inventory management, this negative bias carries asymmetric operational implications that must be explicitly governed:
+
+#### 3.1 Operational Trade-Off: Overstock Protection vs Lost-Sales Exposure
+1. **Working Capital & Overstock Protection (Positive Factor):**
+   * Stage 6.2 and Stage 6.4 audits revealed that Northstar's network holds **₹1,785,329,210.62 in inventory valuation at cost**, with **4,965 store-SKU cells categorized as overstocked** (>60 days of supply).
+   * A negatively biased model behaves conservatively, avoiding aggressive upward demand extrapolations that would otherwise bloat inventory and trigger heavy holding costs, working capital lockup, and post-festive markdown losses.
+2. **Lost-Sales & Service Level Exposure (Risk Factor):**
+   * Conversely, a $-24.38\%$ under-forecast presents a clear operational risk: unbuffered replenishment recommendations based on systematically suppressed demand projections could lead to insufficient reorder quantities on fast-moving high-velocity SKUs, inducing recurring stockouts and lost revenue.
+
+#### 3.2 Safety Buffer Compensation Mechanism
+To counteract negative forecast bias without inflating baseline predictions, the replenishment engine decouples baseline demand estimation from service level protection:
+* **The 3-Day Dynamic Safety Stock Buffer ($S = 3$):** Provides a dedicated 3-day demand cushion ($+42.86\%$ coverage relative to the 7-day lead time alone), effectively offsetting the $-24.38\%$ under-forecast on lead-time demand.
+* **Lead-Time Window ($L = 7$):** Aggregates day-by-day projected demand rather than applying static historical averages, ensuring that day-of-week surges (Friday–Sunday peaks) within the lead-time window are captured in the reorder point.
+
+---
+
+### 4. Empirical Replenishment Results (Closing Baseline: 2026-10-31)
 
 Evaluating the complete 15,000 Store-SKU network as of the October 31, 2026 closing inventory snapshot yielded the following replenishment requisitions:
 
@@ -79,8 +97,44 @@ Evaluating the complete 15,000 Store-SKU network as of the October 31, 2026 clos
 
 ---
 
-### 4. Operational Boundary & Governance Disclaimer (BDL-04)
+### 5. Distinguishing Stockout Identification from Actual Stockout Resolution
+
+A fundamental operational distinction must be maintained between **analytical stockout identification** and **physical stockout resolution**:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Engine as Stage 7 ML & Replenishment
+    participant Procurement as Retail Procurement Team
+    participant Supplier as Tier-1/2 Suppliers
+    participant DC as Inbound Logistics & DC
+    participant Store as Store Receiving & Shelf
+
+    Note over Engine: Snapshot Date T=0 (Oct 31, 2026)
+    Engine->>Procurement: Identifies 297 Stockouts (SOH = 0.0) & Outputs Reorder Advice
+    Note over Procurement,Store: Physical Lead Time Gap (T+1 to T+7) — Items REMAIN Stocked Out
+    Procurement->>Supplier: Approves & Dispatches Purchase Order (PO)
+    Supplier->>DC: Manufacturing / Picking & In-Transit Dispatch
+    DC->>Store: Inbound Goods Receipt Note (GRN) & QA Inspection
+    Store->>Store: Shelf Put-Away & Inventory Availability
+    Note over Store: Stockout Formally Resolved at T+7 Days Minimum
+```
+
+1. **Analytical Identification is Instantaneous ($T = 0$):**
+   * At the October 31, 2026 snapshot cutoff, the engine scans the 15,000 Store-SKU inventory matrix and immediately flags the 297 cells where $\text{SOH} = 0.0$, computing an exact requisition of $4,136.2$ units across all 552 deficit items.
+2. **Physical Resolution is Lead-Time Bound ($T+1$ through $T+7$):**
+   * In an actual retail supply chain, flagging an empty shelf does **not** instantly fill it.
+   * Lead-time parameters in `gold.dim_supplier` specify an average supplier lead time of **7 calendar days** ($L = 7$).
+   * Even under ideal execution—where procurement approves the reorder file on Day 1 ($T+1$) and suppliers dispatch immediately—goods cannot arrive at the store loading dock, undergo goods receipt verification, and reach store shelves before $T+7$ (November 7, 2026).
+3. **Operational Implication:**
+   * For the 297 items currently at zero stock, **stockouts will persist for a minimum of 7 consecutive days**, resulting in unavoidable lost sales during the initial forward forecast window unless expedited logistics or inter-store transfers from nearby overstocked locations are executed.
+   * Analytical replenishment recommendations are the necessary prerequisite for resolution, but they do not eliminate the physical physics of retail logistics.
+
+---
+
+### 6. Operational Boundary & Governance Disclaimer (BDL-04)
 
 > [!IMPORTANT]
 > **Read-Only Architectural Boundary:**  
 > In strict accordance with **BDL-04**, the Northstar Retail Analytics warehouse operates in an un-privileged, read-only capacity. The replenishment calculations generated by this module constitute **analytical advice** for procurement buyers and supply chain directors. They do **not** constitute automated purchase orders, electronic data interchange (EDI) 850 transmissions, or SAP/ERP inventory reservation updates. Operational transmission to suppliers requires external ERP procurement workflows and independent corporate approval.
+

@@ -167,3 +167,4 @@ All models and pipelines operate under strict compliance with **BDL-04**:
 1. **Zero Database Modifications:** The production PostgreSQL warehouse remains strictly read-only. No records in `gold.fact_sales`, `gold.fact_inventory_snapshot`, or `gold.fact_demand_forecast` are overwritten or altered.
 2. **Reproducibility Guarantee:** All feature extraction, model seeds, and evaluation logic are fully deterministic (`random_state=42`).
 3. **Artifact Isolation:** Forward forecast datasets and replenishment advice are serialized to local analytical storage (`analytics/stage_7/` and `data/gold/stage_7_forecast/fact_demand_forecast_stage_7.parquet`).
+

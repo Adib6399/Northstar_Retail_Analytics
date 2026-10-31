@@ -97,3 +97,4 @@ class BaselineForecaster:
         trend = 1.0 + (0.002 * df_features["horizon_step"].values)
         raw_pred = base_vel * dow_mult * trend
         return np.clip(np.round(raw_pred, 3), 0.0, None)
+

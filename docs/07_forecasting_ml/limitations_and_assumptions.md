@@ -64,3 +64,4 @@ The demand forecasting and replenishment algorithms operate under the following 
 
 * **Read-Only Data Warehouse:** The analytics platform strictly adheres to **BDL-04**. The forecasting pipeline does not execute DDL, does not overwrite the approved Stage 5.3.6 baseline records in `gold.fact_demand_forecast`, and does not modify any historical sales or inventory facts.
 * **Separation of Advisory Advice:** All replenishment recommendations represent analytical intelligence for human category managers. The platform does not place automated vendor purchase orders.
+
