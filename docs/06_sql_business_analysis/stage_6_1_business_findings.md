@@ -292,23 +292,23 @@ During the audit window, customer service desks processed **34,500 return incide
 | :--- | :--- | :--- |
 | **Total Returned Line Items** | **34,500** | 2.50% Return Rate across network |
 | **Total Physical Units Returned** | **34,500** | 1.95% of 1,772,960 sold units |
-| **Gross Refund Liability** | **₹190,154,697.57** | 3.04% of Net Invoiced Sales |
+| **Gross Refund Liability** | **₹164,984,506.36** | 2.64% of Net Invoiced Sales |
 | **Restocking Fees Recovered** | **₹2,092,736.39** | Applicable only to Buyer Remorse (₹42.3M refund base) |
-| **Net Refund Impact** | **₹188,061,961.18** | Net enterprise cash returned |
-| **Average Refund Per Incident** | **₹5,511.73** | Reflects electronics return skew |
+| **Net Refund Impact** | **₹162,891,769.97** | Net enterprise cash returned |
+| **Average Refund Per Incident** | **₹4,782.16** | Reflects electronics return skew |
 
 ### 9.2 Return Reason Breakdown & Root Causes
 | Reason Code | Root Cause Description | Incidents | Incident Share % | Total Refund (INR) | Avg Refund (INR) | Restocking Fees (INR) |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
 | `DEFECT` | Damaged / Defective Merchandise | 12,363 | **35.83%** | ₹68,112,140.99 | ₹5,509.35 | ₹0.00 |
-| `WRONG_SIZE`| Incorrect Size / Fit / Color | 7,819 | **22.66%** | ₹43,099,444.82 | ₹5,512.14 | ₹0.00 |
 | `BUYER_REMORSE`| Customer Changed Mind | 6,925 | **20.07%** | ₹42,331,603.59 | ₹6,112.87 | **₹2,092,736.39** |
-| `EXPIRED` | Date Expiry / Spoilage | 4,300 | **12.46%** | ₹5,837,149.19 | ₹1,357.48 | ₹0.00 |
 | `NOT_AS_DESCRIBED`| Inconsistent Packaging / Spec | 3,093 | **8.97%** | ₹30,774,358.98 | ₹9,949.68 | ₹0.00 |
+| `WRONG_SIZE`| Incorrect Size / Fit / Color | 7,819 | **22.66%** | ₹21,825,348.63 | ₹2,791.32 | ₹0.00 |
+| `EXPIRED` | Date Expiry / Spoilage | 4,300 | **12.46%** | ₹1,941,054.17 | ₹451.41 | ₹0.00 |
 
 #### Strategic Commentary:
 - **Defect Dominance (35.83%):** Equipment defects and transit damages account for ₹68.11 million in refunds. Quality vendor chargebacks must be instituted for top defective Electronics brands.
-- **Apparel Sizing (22.66%):** Sizing inconsistencies account for ₹43.10 million in refunds. Implementing standardized digital trial rooms and standardized size charts will cut returns by ~15%.
+- **Apparel Sizing (22.66%):** Sizing inconsistencies account for ₹21.83 million in refunds. Implementing standardized digital trial rooms and standardized size charts will cut returns by ~15%.
 
 ---
 
@@ -319,14 +319,15 @@ Northstar processes payments across 8 distinct tender types spanning 5 major pay
 
 | Tender Code | Tender Category | Acquirer / Network | Contract MDR | Tender Count | Count Share % | Total Tender Volume (INR) | Value Share % | Deducted MDR Fees (INR) | Effective MDR Rate |
 | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `CC_VISA` | CREDIT_CARD | VISA | 1.65% | 124,200 | 25.00% | ₹1,561,400,447.31 | **25.00%** | ₹25,763,107.38 | 1.6500% |
-| `CC_MC` | CREDIT_CARD | MASTERCARD | 1.60% | 74,520 | 15.00% | ₹936,840,268.39 | **15.00%** | ₹14,989,444.29 | 1.6000% |
-| `UPI_GPAY` | UPI | NPCI_UPI | 0.00% | 89,424 | 18.00% | ₹1,124,208,322.06 | **18.00%** | ₹0.00 | 0.0000% |
-| `CASH` | CASH | STORE_CASH_TILL | 0.00% | 74,520 | 15.00% | ₹936,840,268.39 | **15.00%** | ₹0.00 | 0.0000% |
-| `DC_VISA` | DEBIT_CARD | VISA | 0.90% | 49,680 | 10.00% | ₹624,560,178.92 | **10.00%** | ₹5,621,041.61 | 0.9000% |
-| `UPI_PHONEPE`| UPI | NPCI_UPI | 0.00% | 34,776 | 7.00% | ₹437,192,125.25 | **7.00%** | ₹0.00 | 0.0000% |
-| `DC_RUPAY` | DEBIT_CARD | RUPAY | 0.00% | 24,840 | 5.00% | ₹312,280,089.46 | **5.00%** | ₹0.00 | 0.0000% |
-| `VOUCHER` | GIFT_VOUCHER | NORTHSTAR_GIFT | 0.00% | 24,840 | 5.00% | ₹312,280,089.46 | **5.00%** | ₹0.00 | 0.0000% |
+| `UPI_QR` | UPI | NPCI_BHIM | 0.00% | 199,649 | 40.19% | ₹2,555,682,755.80 | **40.92%** | ₹0.00 | 0.0000% |
+| `CASH` | Cash | IN_STORE_TILL | 0.00% | 106,819 | 21.50% | ₹1,311,893,611.12 | **21.01%** | ₹0.00 | 0.0000% |
+| `CC_VISA` | Credit Card | HDFC_BANK | 1.65% | 52,921 | 10.65% | ₹652,821,599.09 | **10.45%** | ₹10,771,555.77 | 1.6500% |
+| `UPI_AUTOPAY` | UPI | PAYTM_GATEWAY | 0.10% | 38,233 | 7.70% | ₹515,253,396.39 | **8.25%** | ₹515,253.90 | 0.1000% |
+| `CC_MASTERCARD`| Credit Card | ICICI_BANK | 1.75% | 35,479 | 7.14% | ₹478,962,565.03 | **7.67%** | ₹8,381,845.43 | 1.7500% |
+| `DC_VISA` | Debit Card | AXIS_BANK | 0.85% | 23,610 | 4.75% | ₹320,048,891.90 | **5.12%** | ₹2,720,414.74 | 0.8500% |
+| `DC_RUPAY` | Debit Card | SBI_PAYMENTS | 0.00% | 20,150 | 4.06% | ₹219,767,778.52 | **3.52%** | ₹0.00 | 0.0000% |
+| `GIFT_VOUCHER` | Gift Voucher | NORTHSTAR_INTERNAL| 0.00% | 19,939 | 4.01% | ₹191,171,191.39 | **3.06%** | ₹0.00 | 0.0000% |
+| **Total** | — | — | — | **496,800** | **100.00%** | **₹6,245,601,789.24** | **100.00%** | **₹22,389,069.84** | **0.3585%** |
 
 ### 10.2 Single-Tender vs Split-Tender Dynamics
 | Payment Mode | Tender Lines / Invoice | Invoices | Invoice Share % | Total Tender Volume (INR) | Revenue Share % | Average Receipt Value (INR) |
@@ -336,7 +337,7 @@ Northstar processes payments across 8 distinct tender types spanning 5 major pay
 
 #### Audit Certification:
 - **Canonical Compliance:** Matches the approved Stage 5.3.4 specification of exactly **8.00% split tenders** (36,800 dual-tender invoices producing 73,600 payment records; 496,800 total payment rows).
-- **Settlement Integrity:** Reconciles to 0.00 INR variance against sales revenue. Total gateway fee deductions totaled **₹46,373,593.28** with zero contractual rate leakage.
+- **Settlement Integrity:** Reconciles to 0.00 INR variance against sales revenue. Total gateway fee deductions totaled **₹22,389,069.84** with zero contractual rate leakage.
 
 ---
 
@@ -350,7 +351,7 @@ Northstar processes payments across 8 distinct tender types spanning 5 major pay
 | **Quarantined Damaged Stock** | **7,556 units** | Damaged, returned, awaiting vendor credit |
 | **In-Transit Warehouse Pipeline** | **44,523 units** | Replenishment shipments in transit |
 | **Grand Total Physical Units** | **776,536 units** | Total corporate inventory footprint |
-| **Total Working Capital at Cost** | **₹1,785,328,683.20** | Total balance sheet inventory valuation |
+| **Total Working Capital at Cost** | **₹1,785,329,210.62** | Total balance sheet inventory valuation |
 | **Average SOH per Store-SKU** | **48.3 units** | ~35.4 days of forward cover |
 | **Active Stockouts (0 SOH)** | **297 cells (1.98%)** | Below the 3.0% retail stockout ceiling |
 
@@ -385,9 +386,9 @@ Evaluating the 5 multi-channel campaigns active during Q3/Q4 demonstrates positi
 | Attribution Metric | Audited Value | Methodological / Mathematical Definition |
 | :--- | :--- | :--- |
 | **Total Media Spend** | **₹4,479,416.40** | Total direct ad expenditure across all campaigns |
-| **Attributed Test Cohort Sales** | **₹108,170,245.30** | Gross sales realized by targeted loyalty members |
-| **Attributed Control Cohort Sales**| **₹98,012,386.40** | Normalized sales realized by uncontacted holdout control |
-| **Incremental Sales Lift** | **₹10,157,858.90** | Test Sales - Control Sales |
+| **Attributed Test Cohort Sales** | **₹108,161,245.29** | Gross sales realized by targeted loyalty members |
+| **Attributed Control Cohort Sales**| **₹92,804,350.47** | Normalized sales realized by uncontacted holdout control |
+| **Incremental Sales Lift** | **₹15,356,894.82** | Test Sales - Control Sales |
 | **Incremental Gross Margin Lift** | **₹4,914,206.60** | Incremental Profit generated by campaigns |
 | **Enterprise Weighted ROMI** | **1.0971** | $\frac{\sum \text{Incremental Margin}}{\sum \text{Media Spend}} = \frac{₹4,914,206.60}{₹4,479,416.40}$ |
 | **Unweighted Mean Campaign ROMI** | **1.2700** | $\frac{1}{N} \sum (\text{Daily Store ROMI Ratio})$ |
@@ -503,3 +504,4 @@ flowchart TD
    - Deploy standardized digital sizing charts across the e-commerce and retail apparel lines to mitigate the 22.66% sizing return rate.
 5. **Marketing Budget Re-Allocation:**
    - Expand media allocation into high-performing WhatsApp Loyalty blasts (`CMP-2026-LOYALTY`, ROMI 1.1099) and Omnichannel Platinum member showcases (ROMI 1.1034), leveraging the 100% leak-free holdout experimentation architecture.
+

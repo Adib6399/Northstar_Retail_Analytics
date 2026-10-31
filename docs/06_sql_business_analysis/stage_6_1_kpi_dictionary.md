@@ -44,10 +44,10 @@
 - **Aggregation Method:** Non-additive ratio of additive sums
 - **Known Nuances / Limitations:** Highly skewed by clearance campaigns. Groceries/FMCG typically displays high depth, whereas Electronics operates at narrower nominal markdown percentages.
 
-### 1.4 Net Taxable Sales (Net Revenue)
+### 1.4 Net Taxable Sales (Net Commercial Revenue)
 - **Business Definition:** Commercial revenue realized by the enterprise after subtracting customer discounts from GMV, serving as the statutory base for GST computation and COGS matching.
-- **SQL / Mathematical Formula:** `SUM(net_sales_amount)` = `SUM(gross_sales_amount - discount_amount)`
-- **Source Table & Column(s):** `gold.fact_sales.net_sales_amount`
+- **SQL / Mathematical Formula:** `SUM(net_taxable_amount)` = `SUM(gross_sales_amount - discount_amount)`
+- **Source Table & Column(s):** `gold.fact_sales.net_taxable_amount`
 - **Analytical Grain:** Line Item / Invoice / Store / Date / Enterprise
 - **Units of Measurement:** Indian Rupee (INR ₹), 2 decimal precision
 - **Applicable Filters:** Completed POS sales lines
@@ -56,7 +56,7 @@
 
 ### 1.5 Goods and Services Tax (GST) Collected
 - **Business Definition:** Statutory output tax collected from customers on behalf of central and state governments (CGST, SGST, IGST) based on product HSN classifications (0%, 5%, 12%, 18%, 28%).
-- **SQL / Mathematical Formula:** `SUM(tax_amount)` = `SUM(net_sales_amount * (tax_rate_pct / 100.0))`
+- **SQL / Mathematical Formula:** `SUM(tax_amount)` = `SUM(net_taxable_amount * (tax_rate_pct / 100.0))`
 - **Source Table & Column(s):** `gold.fact_sales.tax_amount`
 - **Analytical Grain:** Line Item / Tax Slab / Store / Date
 - **Units of Measurement:** Indian Rupee (INR ₹), 2 decimal precision
@@ -66,8 +66,8 @@
 
 ### 1.6 Net Invoiced Sales (Gross Cash / Tender Invoiced)
 - **Business Definition:** The final legal invoice amount payable by the consumer at the point of sale, encompassing net taxable sales plus statutory GST. Must balance with total tender settlements.
-- **SQL / Mathematical Formula:** `SUM(net_sales_amount + tax_amount)`
-- **Source Table & Column(s):** `gold.fact_sales` (`net_sales_amount`, `tax_amount`)
+- **SQL / Mathematical Formula:** `SUM(net_sales_amount)` = `SUM(net_taxable_amount + tax_amount)`
+- **Source Table & Column(s):** `gold.fact_sales.net_sales_amount` (physically stores `net_taxable_amount + tax_amount`)
 - **Analytical Grain:** Line Item / Invoice / Store / Day / Enterprise
 - **Units of Measurement:** Indian Rupee (INR ₹), 2 decimal precision
 - **Applicable Filters:** None
@@ -76,8 +76,8 @@
 
 ### 1.7 Total Cost of Goods Sold (COGS)
 - **Business Definition:** The weighted average inventory acquisition cost of goods sold during the trading period, matched against sales lines.
-- **SQL / Mathematical Formula:** `SUM(cogs_amount)` = `SUM(quantity_sold * unit_cost)`
-- **Source Table & Column(s):** `gold.fact_sales.cogs_amount`
+- **SQL / Mathematical Formula:** `SUM(cost_amount)` = `SUM(quantity_sold * unit_cost_price)`
+- **Source Table & Column(s):** `gold.fact_sales.cost_amount`
 - **Analytical Grain:** Line Item / Product / Store / Date / Enterprise
 - **Units of Measurement:** Indian Rupee (INR ₹), 2 decimal precision
 - **Applicable Filters:** None
@@ -86,8 +86,8 @@
 
 ### 1.8 Gross Margin Amount (₹)
 - **Business Definition:** Total monetary gross profit generated from retail sales after deducting direct merchandise acquisition costs from net taxable sales.
-- **SQL / Mathematical Formula:** `SUM(net_sales_amount - cogs_amount)`
-- **Source Table & Column(s):** `gold.fact_sales` (`net_sales_amount`, `cogs_amount`, `gross_margin_amount`)
+- **SQL / Mathematical Formula:** `SUM(gross_margin_amount)` = `SUM(net_taxable_amount - cost_amount)`
+- **Source Table & Column(s):** `gold.fact_sales.gross_margin_amount`
 - **Analytical Grain:** Line Item / SKU / Category / Store / Enterprise
 - **Units of Measurement:** Indian Rupee (INR ₹), 2 decimal precision
 - **Applicable Filters:** None
@@ -96,13 +96,13 @@
 
 ### 1.9 Gross Margin Percentage (%)
 - **Business Definition:** Gross profit expressed as a percentage of Net Taxable Sales.
-- **SQL / Mathematical Formula:** `(SUM(net_sales_amount - cogs_amount) / NULLIF(SUM(net_sales_amount), 0)) * 100.0`
-- **Source Table & Column(s):** `gold.fact_sales` (`gross_margin_amount`, `net_sales_amount`)
+- **SQL / Mathematical Formula:** `(SUM(gross_margin_amount) / NULLIF(SUM(net_taxable_amount), 0)) * 100.0`
+- **Source Table & Column(s):** `gold.fact_sales` (`gross_margin_amount`, `net_taxable_amount`)
 - **Analytical Grain:** Dimension Level
 - **Units of Measurement:** Percentage (%), 2 decimal precision
 - **Applicable Filters:** None
 - **Aggregation Method:** Non-additive ratio
-- **Known Nuances / Limitations:** Critical retail definition: denominator is Net Taxable Sales (`net_sales_amount`), NOT Net Invoiced Sales (which includes tax) and NOT GMV (which precedes discounts).
+- **Known Nuances / Limitations:** Critical retail definition: denominator is Net Taxable Sales (`net_taxable_amount`), NOT Net Invoiced Sales (`net_sales_amount` which includes tax) and NOT GMV (`gross_sales_amount` which precedes discounts).
 
 ### 1.10 Average Transaction Value (ATV) / Average Order Value (AOV)
 - **Business Definition:** Average net invoiced spend per customer checkout basket.
@@ -378,3 +378,4 @@
 - **Source Table & Column(s):** `gold.fact_demand_forecast.recommended_reorder_units`
 - **Analytical Grain:** Store / Category / SKU
 - **Units of Measurement:** Units, 2 decimal precision
+
