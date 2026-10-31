@@ -34,7 +34,7 @@ Stage 6.2 Advanced SQL Analytics executes a comprehensive behavioral, financial,
 - **Customer Concentration & Revisit Velocity:** Registered loyalty members exhibit high retention (100% monthly cohort retention) and a compressed inter-purchase cadence, with **76.23% of repeat transactions occurring within 7 days** of the prior visit. 89.72% of registered customers operate as `CORE_ACTIVE_REPEAT` shoppers driving 92.47% of loyalty revenue (₹4.043 billion).
 - **RFM Capital Concentration:** The top customer deciles—comprising `CHAMPIONS` (1,241 members) and `CANNOT_LOSE_THEM` (1,174 members)—account for **₹1.382 billion in cumulative spend (31.62% of loyalty revenue)**, averaging ₹569,822 to ₹574,838 in spend per customer.
 - **Cross-Category Market Basket Interlocking:** Apparel and Groceries & FMCG represent the primary co-occurrence anchor, appearing together in **41.31% of total baskets (190,021 transactions)**. Complementary cross-category bundles (e.g., Home Linen paired with Athleisure Wear) exhibit lift ratios reaching **1.96**, uncovering untapped joint merchandising opportunities.
-- **Working Capital Trapping in Slow-Aging Inventory:** As of the October 31, 2026 closing snapshot, while 37.75% of store-SKU cells operate within a healthy 3–14 day buffer, **33.10% of cells (4,965 store-SKUs) are overstocked beyond 30 days of forward cover**, trapping **₹375.48 million in unproductively deployed working capital** across 470,640 units (73.0% of total network physical units).
+- **Working Capital Trapping in Slow-Aging Inventory:** As of the October 31, 2026 closing snapshot, while 37.75% of store-SKU cells operate within a healthy 3–14 day buffer, **33.10% of cells (4,965 store-SKUs) are overstocked beyond 30 days of forward cover**, trapping an estimated **₹375.48 million in working capital** across 470,640 units (64.97% of total saleable stock on hand; 60.61% of total physical pipeline stock).
 - **Catastrophic Deep Discount Margin Erosion:** Full-price sales lines generate a healthy **22.68% realized gross margin**. However, sales subjected to deep markdowns (>20% discount) suffered an aggregate **loss of -₹89.64 million (-34.32% gross margin)** across 150,858 sales lines. Groceries & FMCG markdown lines suffered a severe margin erosion of 51.24 percentage points to -38.25%.
 - **Marketing Attribution & Simpson's Paradox:** The enterprise marketing portfolio generated ₹15.36 million in incremental sales lift and ₹4.91 million in incremental gross margin against ₹4.48 million in expenditure. The true **enterprise-weighted ROMI is 1.0971**, resolving a +17.3% distortion caused by unweighted campaign averaging (1.2700).
 
@@ -170,7 +170,8 @@ While general category lifts hover near ~0.90 due to basket size constraints, sp
 Interrogation of the October 31, 2026 closing inventory snapshot across 15,000 store-SKU cells (30 stores $\times$ 500 SKUs) uncovers working capital imbalances:
 
 #### 7.1 Days of Inventory (DOI) Aging Census
-- **Total Physical Stock on Hand (SOH):** 644,457 units.
+- **Total Saleable Stock on Hand (SOH):** 724,457 units.
+- **Grand Total Physical Pipeline Units:** 776,536 units (including 7,556 quarantined and 44,523 in-transit units).
 - **Total Inventory Valuation at Cost:** **₹1,785,329,210.62**.
 
 | DOI Health Band | Store-SKU Cells | Cell Share (%) | SOH Units | Valuation Cost (INR) | Capital Share (%) | Avg DOI (Days) |
@@ -181,11 +182,12 @@ Interrogation of the October 31, 2026 closing inventory snapshot across 15,000 s
 | **04_ELEVATED_INVENTORY (15 - 30 Days)**| 3,693 | 24.62% | 137,415.0 | ₹406,272,536.63 | 22.76% | 20.7 |
 | **05_OVERSTOCKED (31 - 60 Days)** | 2,610 | 17.40% | 187,271.0 | ₹224,995,060.00 | 12.60% | 43.2 |
 | **06_CHRONIC_AGING (> 60 Days)** | 2,355 | 15.70% | 283,369.0 | ₹150,481,267.62 | 8.43% | 124.3 |
-| **TOTAL** | **15,000** | **100.00%** | **644,457.0** | **₹1,785,329,210.62** | **100.00%** | **33.4** |
+| **TOTAL** | **15,000** | **100.00%** | **724,457.0** | **₹1,785,329,210.62** | **100.00%** | **33.4** |
 
 #### 7.2 Capital Trapping & Release Opportunity
 - **Overstocked Exposure:** Combining Bands 05 and 06 reveals that **4,965 store-SKU cells (33.10%)** hold stock in excess of 30 days of forward cover.
-- **Physical Distortion:** These overstocked cells hold **470,640 units (73.0% of total network units)** and trap **₹375,476,327.62 (21.03%)** of working capital.
+- **Physical Distortion:** These overstocked cells hold **470,640 units (64.97% of total saleable SOH units; 60.61% of total physical pipeline stock)** and trap **₹375,476,327.62 (21.03%)** of working capital.
+- **Working-Capital Opportunity Disclosure:** The **₹375.48 million** figure is an analytical estimate based on modeled trailing run-rate demand, representing an upper-bound capital release target rather than guaranteed cash savings. Actual capital realization depends on supplier return terms, holding carrying costs, and minimum presentation stock requirements.
 - **Slow-Moving SKU Pareto:** The top overstocked SKUs are concentrated in Groceries & FMCG (e.g., `SKU-FMCG-0395` with 130.0 avg DOI across 24 stores, holding ₹1.55M in excess capital; `SKU-FMCG-0011` with 102.0 avg DOI, holding ₹1.55M in excess capital).
 
 #### 7.3 Store Inventory Productivity & Turnover
@@ -314,3 +316,4 @@ Based on empirical findings across the 9 analytical modules, Northstar leadershi
 2. **Double-Entry Ledger Boundary:** In accordance with Stage 5.3.4 governance disclosures, inventory analytics are derived from closing daily periodic balance snapshots (`gold.fact_inventory_snapshot`) rather than an exhaustive double-entry inventory ledger (`fact_inventory_movements`).
 3. **Control Cohort Granularity:** Control holdout groups are randomized at the campaign-audience grain; micro-targeting differences across local store catchments were normalized across the network.
 4. **Read-Only Architectural Guarantee:** All analyses were executed strictly via SQL queries without creating temporary or permanent schema objects, maintaining warehouse integrity.
+
