@@ -1,0 +1,890 @@
+=== MODULE: 01_advanced_window_functions.sql ===
+
+--- Query 1.1: Store Daily Sales, Running Cumulative Totals & Rolling 7-Day Moving Average ---
+      store_id                      store_name calendar_date   day_name  daily_invoices  daily_units_sold  daily_invoiced_sales_inr  cumulative_running_sales_inr  rolling_7d_avg_sales_inr  rolling_7d_avg_margin_inr
+0   STR-KA-001  Northstar Indiranagar Flagship    2026-08-01   Saturday             228             881.0                3257340.38                  3.257340e+06                3257340.38                  502043.03
+1   STR-KA-001  Northstar Indiranagar Flagship    2026-08-02     Sunday             228             861.0                2808184.43                  6.065525e+06                3032762.41                  490536.62
+2   STR-KA-001  Northstar Indiranagar Flagship    2026-08-03     Monday             142             542.0                1799202.23                  7.864727e+06                2621575.68                  414831.25
+3   STR-KA-001  Northstar Indiranagar Flagship    2026-08-04    Tuesday             142             565.0                1951818.11                  9.816545e+06                2454136.29                  400657.16
+4   STR-KA-001  Northstar Indiranagar Flagship    2026-08-05  Wednesday             142             569.0                1974147.83                  1.179069e+07                2358138.60                  382459.00
+5   STR-KA-001  Northstar Indiranagar Flagship    2026-08-06   Thursday             142             552.0                1732852.98                  1.352355e+07                2253924.33                  367569.83
+6   STR-KA-001  Northstar Indiranagar Flagship    2026-08-07     Friday             186             728.0                2503439.78                  1.602699e+07                2289569.39                  374772.14
+7   STR-KA-001  Northstar Indiranagar Flagship    2026-08-08   Saturday             228             871.0                3235856.95                  1.926284e+07                2286500.33                  380244.28
+8   STR-KA-001  Northstar Indiranagar Flagship    2026-08-09     Sunday             228             865.0                3097732.40                  2.236058e+07                2327864.33                  381419.68
+9   STR-KA-001  Northstar Indiranagar Flagship    2026-08-10     Monday             142             556.0                1886764.42                  2.424734e+07                2340373.21                  389658.23
+10  STR-KA-001  Northstar Indiranagar Flagship    2026-08-11    Tuesday             142             546.0                2056480.06                  2.630382e+07                2355324.92                  384795.41
+11  STR-KA-001  Northstar Indiranagar Flagship    2026-08-12  Wednesday             142             551.0                1636749.03                  2.794057e+07                2307125.09                  379777.86
+12  STR-KA-001  Northstar Indiranagar Flagship    2026-08-13   Thursday             142             564.0                1629923.98                  2.957049e+07                2292420.95                  381389.49
+13  STR-KA-001  Northstar Indiranagar Flagship    2026-08-14     Friday             186             715.0                2618725.68                  3.218922e+07                2308890.36                  385945.73
+14  STR-KA-001  Northstar Indiranagar Flagship    2026-08-15   Saturday             228             856.0                3088629.41                  3.527785e+07                2287857.85                  383174.56
+15  STR-KA-001  Northstar Indiranagar Flagship    2026-08-16     Sunday             228             830.0                3121833.33                  3.839968e+07                2291300.84                  385549.62
+16  STR-KA-001  Northstar Indiranagar Flagship    2026-08-17     Monday             142             503.0                2265368.82                  4.066505e+07                2345387.19                  391997.44
+17  STR-KA-001  Northstar Indiranagar Flagship    2026-08-18    Tuesday             142             564.0                1961508.29                  4.262656e+07                2331819.79                  396301.93
+18  STR-KA-001  Northstar Indiranagar Flagship    2026-08-19  Wednesday             142             543.0                1529502.49                  4.415606e+07                2316498.86                  396901.68
+19  STR-KA-001  Northstar Indiranagar Flagship    2026-08-20   Thursday             142             551.0                1816669.86                  4.597273e+07                2343176.84                  398829.18
+20  STR-KA-001  Northstar Indiranagar Flagship    2026-08-21     Friday             186             691.0                2405615.98                  4.837835e+07                2312732.60                  394345.59
+21  STR-KA-001  Northstar Indiranagar Flagship    2026-08-22   Saturday             228             870.0                3040398.02                  5.141874e+07                2305842.40                  391391.23
+22  STR-KA-001  Northstar Indiranagar Flagship    2026-08-23     Sunday             228             906.0                3162210.66                  5.458096e+07                2311610.59                  398672.22
+23  STR-KA-001  Northstar Indiranagar Flagship    2026-08-24     Monday             142             539.0                1745864.60                  5.632682e+07                2237395.70                  386975.21
+24  STR-KA-001  Northstar Indiranagar Flagship    2026-08-25    Tuesday             142             523.0                1906847.93                  5.823367e+07                2229587.08                  374371.33
+25  STR-KA-001  Northstar Indiranagar Flagship    2026-08-26  Wednesday             142             554.0                2205277.87                  6.043895e+07                2326126.42                  386835.23
+26  STR-KA-001  Northstar Indiranagar Flagship    2026-08-27   Thursday             142             536.0                1933760.00                  6.237271e+07                2342853.58                  386141.79
+27  STR-KA-001  Northstar Indiranagar Flagship    2026-08-28     Friday             186             742.0                2423860.94                  6.479657e+07                2345460.00                  382419.50
+28  STR-KA-001  Northstar Indiranagar Flagship    2026-08-29   Saturday             228             826.0                2847815.60                  6.764438e+07                2317948.23                  378962.19
+29  STR-KA-001  Northstar Indiranagar Flagship    2026-08-30     Sunday             228             921.0                3569301.95                  7.121368e+07                2376104.13                  378736.03
+30  STR-KA-001  Northstar Indiranagar Flagship    2026-08-31     Monday             142             525.0                1873655.17                  7.308734e+07                2394359.92                  381631.66
+31  STR-KA-001  Northstar Indiranagar Flagship    2026-09-01    Tuesday             142             513.0                1805517.66                  7.489286e+07                2379884.17                  387269.52
+32  STR-KA-001  Northstar Indiranagar Flagship    2026-09-02  Wednesday             142             544.0                2030276.31                  7.692313e+07                2354883.95                  385914.10
+33  STR-KA-001  Northstar Indiranagar Flagship    2026-09-03   Thursday             142             567.0                1982390.17                  7.890552e+07                2361831.11                  384364.72
+34  STR-KA-001  Northstar Indiranagar Flagship    2026-09-04     Friday             186             742.0                2857306.39                  8.176283e+07                2423751.89                  401384.12
+35  STR-KA-001  Northstar Indiranagar Flagship    2026-09-05   Saturday             228             842.0                2741113.11                  8.450394e+07                2408508.68                  399874.39
+36  STR-KA-001  Northstar Indiranagar Flagship    2026-09-06     Sunday             228             803.0                2837410.42                  8.734135e+07                2303952.75                  394462.09
+37  STR-KA-001  Northstar Indiranagar Flagship    2026-09-07     Monday             142             545.0                2145227.63                  8.948658e+07                2342748.81                  404800.04
+38  STR-KA-001  Northstar Indiranagar Flagship    2026-09-08    Tuesday             142             565.0                1874288.73                  9.136087e+07                2352573.25                  402311.39
+39  STR-KA-001  Northstar Indiranagar Flagship    2026-09-09  Wednesday             142             557.0                1977106.09                  9.333798e+07                2344977.51                  397509.35
+40  STR-KA-001  Northstar Indiranagar Flagship    2026-09-10   Thursday             142             546.0                2087083.87                  9.542506e+07                2359933.75                  406709.16
+41  STR-KA-001  Northstar Indiranagar Flagship    2026-09-11     Friday             186             716.0                2557681.34                  9.798274e+07                2317130.17                  398297.21
+42  STR-KA-001  Northstar Indiranagar Flagship    2026-09-12   Saturday             228             860.0                3556017.56                  1.015388e+08                2433545.09                  413875.42
+43  STR-KA-001  Northstar Indiranagar Flagship    2026-09-13     Sunday             228             867.0                2704083.24                  1.042428e+08                2414498.35                  405746.41
+44  STR-KA-001  Northstar Indiranagar Flagship    2026-09-14     Monday             142             559.0                1667193.87                  1.059100e+08                2346207.81                  395953.04
+45  STR-KA-001  Northstar Indiranagar Flagship    2026-09-15    Tuesday             142             540.0                2285261.58                  1.081953e+08                2404918.22                  409420.85
+46  STR-KA-001  Northstar Indiranagar Flagship    2026-09-16  Wednesday             142             530.0                1758114.73                  1.099534e+08                2373633.74                  404096.66
+47  STR-KA-001  Northstar Indiranagar Flagship    2026-09-17   Thursday             142             543.0                1769864.90                  1.117233e+08                2328316.75                  396608.97
+48  STR-KA-001  Northstar Indiranagar Flagship    2026-09-18     Friday             186             707.0                2722004.16                  1.144453e+08                2351791.43                  391549.88
+49  STR-KA-001  Northstar Indiranagar Flagship    2026-09-19   Saturday             228             865.0                3441887.85                  1.178872e+08                2335487.19                  381657.55
+50  STR-KA-001  Northstar Indiranagar Flagship    2026-09-20     Sunday             228             914.0                3344096.96                  1.212313e+08                2426917.72                  391236.80
+51  STR-KA-001  Northstar Indiranagar Flagship    2026-09-21     Monday             142             589.0                2050584.67                  1.232819e+08                2481687.84                  392715.65
+52  STR-KA-001  Northstar Indiranagar Flagship    2026-09-22    Tuesday             142             574.0                2195160.21                  1.254770e+08                2468816.21                  392360.45
+53  STR-KA-001  Northstar Indiranagar Flagship    2026-09-23  Wednesday             142             575.0                2193907.24                  1.276709e+08                2531072.28                  404250.67
+54  STR-KA-001  Northstar Indiranagar Flagship    2026-09-24   Thursday             142             569.0                1933753.76                  1.296047e+08                2554484.98                  405969.44
+55  STR-KA-001  Northstar Indiranagar Flagship    2026-09-25     Friday             186             695.0                2386759.99                  1.319914e+08                2506592.95                  403607.32
+56  STR-KA-001  Northstar Indiranagar Flagship    2026-09-26   Saturday             228             854.0                3144425.70                  1.351359e+08                2464098.36                  406639.40
+57  STR-KA-001  Northstar Indiranagar Flagship    2026-09-27     Sunday             228             918.0                3105924.67                  1.382418e+08                2430073.75                  405724.52
+58  STR-KA-001  Northstar Indiranagar Flagship    2026-09-28     Monday             142             535.0                1823943.24                  1.400657e+08                2397696.40                  398292.25
+59  STR-KA-001  Northstar Indiranagar Flagship    2026-09-29    Tuesday             142             523.0                2154796.31                  1.422205e+08                2391930.13                  393698.18
+
+--- Query 1.2: Daily Store Revenue Ranking & Inter-Day Rank Volatility ---
+   calendar_date    store_id                          store_name        city store_tier  daily_sales_inr  daily_network_rank  prior_day_rank  rank_shift_positions
+0     2026-10-31  STR-TS-003     Northstar Jubilee Hills Central   Hyderabad     TIER_1       4686288.09                   1               1                     0
+1     2026-10-31  STR-GJ-001       Northstar SG Highway Flagship   Ahmedabad     TIER_1       4658776.68                   2               9                     7
+2     2026-10-31  STR-TS-001    Northstar Banjara Hills Flagship   Hyderabad     TIER_1       4640761.92                   3              14                    11
+3     2026-10-31  STR-MH-003       Northstar Andheri Lokhandwala      Mumbai     TIER_1       4639873.60                   4               6                     2
+4     2026-10-31  STR-TN-002           Northstar T Nagar Express     Chennai     TIER_1       4535890.05                   5               5                     0
+5     2026-10-31  STR-MH-006              Northstar Pune FC Road        Pune     TIER_1       4513767.21                   6              16                    10
+6     2026-10-31  STR-TS-002       Northstar Hitec City Galleria   Hyderabad     TIER_1       4421195.28                   7               3                    -4
+7     2026-10-31  STR-MH-002     Northstar Lower Parel Palladium      Mumbai     TIER_1       4420109.19                   8              15                     7
+8     2026-10-31  STR-TN-001       Northstar Anna Nagar Flagship     Chennai     TIER_1       4321740.11                   9              10                     1
+9     2026-10-31  STR-GJ-002        Northstar CG Road Retail Hub   Ahmedabad     TIER_1       4321372.65                  10               4                    -6
+10    2026-10-31  STR-KA-001      Northstar Indiranagar Flagship   Bengaluru     TIER_1       4200641.16                  11               2                    -9
+11    2026-10-31  STR-KA-002          Northstar Koramangala Mall   Bengaluru     TIER_1       4052536.20                  12              11                    -1
+12    2026-10-31  STR-GJ-004          Northstar Surat Dumas Road       Surat     TIER_2       4047919.49                  13              18                     5
+13    2026-10-31  STR-KA-003       Northstar Whitefield Tech Hub   Bengaluru     TIER_1       3991361.17                  14               8                    -6
+14    2026-10-31  STR-MH-001      Northstar Bandra West Flagship      Mumbai     TIER_1       3965302.33                  15               7                    -8
+15    2026-10-31  STR-KA-007      Northstar Mysuru Heritage Mall      Mysuru     TIER_2       3702331.43                  16              22                     6
+16    2026-10-31  STR-MH-005             Northstar Thane Viviana       Thane     TIER_2       3668826.17                  17              25                     8
+17    2026-10-31  STR-TN-005   Northstar Coimbatore Brookefields  Coimbatore     TIER_2       3576681.84                  18              19                     1
+18    2026-10-31  STR-TN-003      Northstar Velachery Grand Mall     Chennai     TIER_2       3475358.79                  19              13                    -6
+19    2026-10-31  STR-KA-005      Northstar Malleshwaram Central   Bengaluru     TIER_2       3409766.41                  20              26                     6
+20    2026-10-31  STR-MH-007          Northstar Pune Viman Nagar        Pune     TIER_2       3365236.75                  21              27                     6
+21    2026-10-31  STR-TN-004           Northstar OMR IT Corridor     Chennai     TIER_2       3318710.66                  22              12                   -10
+22    2026-10-31  STR-GJ-003       Northstar Vastrapur Lake Mall   Ahmedabad     TIER_2       3317694.40                  23              24                     1
+23    2026-10-31  STR-KA-006        Northstar HSR Layout Express   Bengaluru     TIER_2       3279124.42                  24              20                    -4
+24    2026-10-31  STR-TS-004  Northstar Secunderabad Clock Tower   Hyderabad     TIER_2       3124711.71                  25              17                    -8
+25    2026-10-31  STR-MH-004         Northstar Powai Hiranandani      Mumbai     TIER_2       3124003.07                  26              21                    -5
+26    2026-10-31  STR-KA-004     Northstar Jayanagar High Street   Bengaluru     TIER_2       3023444.06                  27              23                    -4
+27    2026-10-31  STR-TN-006          Northstar Madurai KK Nagar     Madurai     TIER_3       2554843.21                  28              29                     1
+28    2026-10-31  STR-MH-008        Northstar Nagpur Civil Lines      Nagpur     TIER_3       2399303.08                  29              30                     1
+29    2026-10-31  STR-KA-008         Northstar Hubballi Junction    Hubballi     TIER_3       2367918.70                  30              28                    -2
+30    2026-10-30  STR-TS-003     Northstar Jubilee Hills Central   Hyderabad     TIER_1       3990990.32                   1               5                     4
+31    2026-10-30  STR-KA-001      Northstar Indiranagar Flagship   Bengaluru     TIER_1       3795860.38                   2              10                     8
+32    2026-10-30  STR-TS-002       Northstar Hitec City Galleria   Hyderabad     TIER_1       3790164.79                   3               8                     5
+33    2026-10-30  STR-GJ-002        Northstar CG Road Retail Hub   Ahmedabad     TIER_1       3745198.67                   4               6                     2
+34    2026-10-30  STR-TN-002           Northstar T Nagar Express     Chennai     TIER_1       3734036.55                   5              13                     8
+35    2026-10-30  STR-MH-003       Northstar Andheri Lokhandwala      Mumbai     TIER_1       3634666.07                   6               2                    -4
+36    2026-10-30  STR-MH-001      Northstar Bandra West Flagship      Mumbai     TIER_1       3621120.79                   7              12                     5
+37    2026-10-30  STR-KA-003       Northstar Whitefield Tech Hub   Bengaluru     TIER_1       3596464.50                   8               1                    -7
+38    2026-10-30  STR-GJ-001       Northstar SG Highway Flagship   Ahmedabad     TIER_1       3431946.07                   9               3                    -6
+39    2026-10-30  STR-TN-001       Northstar Anna Nagar Flagship     Chennai     TIER_1       3426636.10                  10               4                    -6
+
+--- Query 1.3: Month-over-Month Store Trajectory & Relative Velocity Drift ---
+      store_id                          store_name        city store_tier calendar_month_name  monthly_net_sales_inr  prior_month_sales_inr  mom_sales_growth_pct  monthly_network_rank
+0   STR-GJ-001       Northstar SG Highway Flagship   Ahmedabad     TIER_1              August            72855785.82                    NaN                   NaN                    12
+1   STR-GJ-001       Northstar SG Highway Flagship   Ahmedabad     TIER_1           September            72309719.55            72855785.82                 -0.75                     2
+2   STR-GJ-001       Northstar SG Highway Flagship   Ahmedabad     TIER_1             October            94040534.01            72309719.55                 30.05                     8
+3   STR-GJ-002        Northstar CG Road Retail Hub   Ahmedabad     TIER_1              August            72366356.63                    NaN                   NaN                    14
+4   STR-GJ-002        Northstar CG Road Retail Hub   Ahmedabad     TIER_1           September            68780445.95            72366356.63                 -4.96                    13
+5   STR-GJ-002        Northstar CG Road Retail Hub   Ahmedabad     TIER_1             October            94960302.15            68780445.95                 38.06                     5
+6   STR-GJ-003       Northstar Vastrapur Lake Mall   Ahmedabad     TIER_2              August            58723671.57                    NaN                   NaN                    25
+7   STR-GJ-003       Northstar Vastrapur Lake Mall   Ahmedabad     TIER_2           September            54567243.54            58723671.57                 -7.08                    27
+8   STR-GJ-003       Northstar Vastrapur Lake Mall   Ahmedabad     TIER_2             October            75181515.02            54567243.54                 37.78                    22
+9   STR-GJ-004          Northstar Surat Dumas Road       Surat     TIER_2              August            58935910.04                    NaN                   NaN                    24
+10  STR-GJ-004          Northstar Surat Dumas Road       Surat     TIER_2           September            57260570.63            58935910.04                 -2.84                    15
+11  STR-GJ-004          Northstar Surat Dumas Road       Surat     TIER_2             October            77007137.23            57260570.63                 34.49                    15
+12  STR-KA-001      Northstar Indiranagar Flagship   Bengaluru     TIER_1              August            73087339.18                    NaN                   NaN                    10
+13  STR-KA-001      Northstar Indiranagar Flagship   Bengaluru     TIER_1           September            71344999.15            73087339.18                 -2.38                     4
+14  STR-KA-001      Northstar Indiranagar Flagship   Bengaluru     TIER_1             October            93529973.52            71344999.15                 31.10                    11
+15  STR-KA-002          Northstar Koramangala Mall   Bengaluru     TIER_1              August            72465572.24                    NaN                   NaN                    13
+16  STR-KA-002          Northstar Koramangala Mall   Bengaluru     TIER_1           September            71835596.21            72465572.24                 -0.87                     3
+17  STR-KA-002          Northstar Koramangala Mall   Bengaluru     TIER_1             October            91095164.88            71835596.21                 26.81                    14
+18  STR-KA-003       Northstar Whitefield Tech Hub   Bengaluru     TIER_1              August            73381705.56                    NaN                   NaN                     9
+19  STR-KA-003       Northstar Whitefield Tech Hub   Bengaluru     TIER_1           September            69945632.35            73381705.56                 -4.68                     6
+20  STR-KA-003       Northstar Whitefield Tech Hub   Bengaluru     TIER_1             October            96014445.66            69945632.35                 37.27                     2
+21  STR-KA-004     Northstar Jayanagar High Street   Bengaluru     TIER_2              August            59685887.81                    NaN                   NaN                    19
+22  STR-KA-004     Northstar Jayanagar High Street   Bengaluru     TIER_2           September            56707267.12            59685887.81                 -4.99                    18
+23  STR-KA-004     Northstar Jayanagar High Street   Bengaluru     TIER_2             October            74670430.50            56707267.12                 31.68                    23
+24  STR-KA-005      Northstar Malleshwaram Central   Bengaluru     TIER_2              August            60476351.06                    NaN                   NaN                    16
+25  STR-KA-005      Northstar Malleshwaram Central   Bengaluru     TIER_2           September            56183808.69            60476351.06                 -7.10                    20
+26  STR-KA-005      Northstar Malleshwaram Central   Bengaluru     TIER_2             October            74279656.31            56183808.69                 32.21                    25
+27  STR-KA-006        Northstar HSR Layout Express   Bengaluru     TIER_2              August            61311433.81                    NaN                   NaN                    15
+28  STR-KA-006        Northstar HSR Layout Express   Bengaluru     TIER_2           September            55880336.43            61311433.81                 -8.86                    23
+29  STR-KA-006        Northstar HSR Layout Express   Bengaluru     TIER_2             October            73398694.91            55880336.43                 31.35                    27
+30  STR-KA-007      Northstar Mysuru Heritage Mall      Mysuru     TIER_2              August            60286579.38                    NaN                   NaN                    17
+31  STR-KA-007      Northstar Mysuru Heritage Mall      Mysuru     TIER_2           September            55928029.67            60286579.38                 -7.23                    22
+32  STR-KA-007      Northstar Mysuru Heritage Mall      Mysuru     TIER_2             October            75615108.40            55928029.67                 35.20                    20
+33  STR-KA-008         Northstar Hubballi Junction    Hubballi     TIER_3              August            42339506.33                    NaN                   NaN                    30
+34  STR-KA-008         Northstar Hubballi Junction    Hubballi     TIER_3           September            42509668.30            42339506.33                  0.40                    28
+35  STR-KA-008         Northstar Hubballi Junction    Hubballi     TIER_3             October            55894776.83            42509668.30                 31.49                    30
+36  STR-MH-001      Northstar Bandra West Flagship      Mumbai     TIER_1              August            74502352.62                    NaN                   NaN                     6
+37  STR-MH-001      Northstar Bandra West Flagship      Mumbai     TIER_1           September            69222771.69            74502352.62                 -7.09                    11
+38  STR-MH-001      Northstar Bandra West Flagship      Mumbai     TIER_1             October            93394102.78            69222771.69                 34.92                    12
+39  STR-MH-002     Northstar Lower Parel Palladium      Mumbai     TIER_1              August            74830065.36                    NaN                   NaN                     5
+40  STR-MH-002     Northstar Lower Parel Palladium      Mumbai     TIER_1           September            69906978.57            74830065.36                 -6.58                     7
+41  STR-MH-002     Northstar Lower Parel Palladium      Mumbai     TIER_1             October            93188330.27            69906978.57                 33.30                    13
+42  STR-MH-003       Northstar Andheri Lokhandwala      Mumbai     TIER_1              August            75662376.45                    NaN                   NaN                     3
+43  STR-MH-003       Northstar Andheri Lokhandwala      Mumbai     TIER_1           September            72592548.33            75662376.45                 -4.06                     1
+44  STR-MH-003       Northstar Andheri Lokhandwala      Mumbai     TIER_1             October            94277612.95            72592548.33                 29.87                     7
+45  STR-MH-004         Northstar Powai Hiranandani      Mumbai     TIER_2              August            59467377.47                    NaN                   NaN                    22
+46  STR-MH-004         Northstar Powai Hiranandani      Mumbai     TIER_2           September            57002017.17            59467377.47                 -4.15                    17
+47  STR-MH-004         Northstar Powai Hiranandani      Mumbai     TIER_2             October            75421747.84            57002017.17                 32.31                    21
+48  STR-MH-005             Northstar Thane Viviana       Thane     TIER_2              August            59555992.40                    NaN                   NaN                    21
+49  STR-MH-005             Northstar Thane Viviana       Thane     TIER_2           September            56545527.84            59555992.40                 -5.05                    19
+50  STR-MH-005             Northstar Thane Viviana       Thane     TIER_2             October            75835969.43            56545527.84                 34.11                    19
+51  STR-MH-006              Northstar Pune FC Road        Pune     TIER_1              August            73035952.66                    NaN                   NaN                    11
+52  STR-MH-006              Northstar Pune FC Road        Pune     TIER_1           September            69319925.61            73035952.66                 -5.09                    10
+53  STR-MH-006              Northstar Pune FC Road        Pune     TIER_1             October            95905867.12            69319925.61                 38.35                     3
+54  STR-MH-007          Northstar Pune Viman Nagar        Pune     TIER_2              August            57941622.93                    NaN                   NaN                    26
+55  STR-MH-007          Northstar Pune Viman Nagar        Pune     TIER_2           September            54942720.27            57941622.93                 -5.18                    26
+56  STR-MH-007          Northstar Pune Viman Nagar        Pune     TIER_2             October            73844306.38            54942720.27                 34.40                    26
+57  STR-MH-008        Northstar Nagpur Civil Lines      Nagpur     TIER_3              August            43125991.59                    NaN                   NaN                    29
+58  STR-MH-008        Northstar Nagpur Civil Lines      Nagpur     TIER_3           September            40949119.70            43125991.59                 -5.05                    30
+59  STR-MH-008        Northstar Nagpur Civil Lines      Nagpur     TIER_3             October            56126501.00            40949119.70                 37.06                    29
+60  STR-TN-001       Northstar Anna Nagar Flagship     Chennai     TIER_1              August            73680738.99                    NaN                   NaN                     8
+61  STR-TN-001       Northstar Anna Nagar Flagship     Chennai     TIER_1           September            70582067.17            73680738.99                 -4.21                     5
+62  STR-TN-001       Northstar Anna Nagar Flagship     Chennai     TIER_1             October            95863779.04            70582067.17                 35.82                     4
+63  STR-TN-002           Northstar T Nagar Express     Chennai     TIER_1              August            73962798.99                    NaN                   NaN                     7
+64  STR-TN-002           Northstar T Nagar Express     Chennai     TIER_1           September            69660579.28            73962798.99                 -5.82                     8
+65  STR-TN-002           Northstar T Nagar Express     Chennai     TIER_1             October            93806827.52            69660579.28                 34.66                     9
+66  STR-TN-003      Northstar Velachery Grand Mall     Chennai     TIER_2              August            59127243.99                    NaN                   NaN                    23
+67  STR-TN-003      Northstar Velachery Grand Mall     Chennai     TIER_2           September            55765580.76            59127243.99                 -5.69                    24
+68  STR-TN-003      Northstar Velachery Grand Mall     Chennai     TIER_2             October            74546455.49            55765580.76                 33.68                    24
+69  STR-TN-004           Northstar OMR IT Corridor     Chennai     TIER_2              August            57600285.34                    NaN                   NaN                    27
+70  STR-TN-004           Northstar OMR IT Corridor     Chennai     TIER_2           September            55700493.59            57600285.34                 -3.30                    25
+71  STR-TN-004           Northstar OMR IT Corridor     Chennai     TIER_2             October            76149145.45            55700493.59                 36.71                    17
+72  STR-TN-005   Northstar Coimbatore Brookefields  Coimbatore     TIER_2              August            59642906.56                    NaN                   NaN                    20
+73  STR-TN-005   Northstar Coimbatore Brookefields  Coimbatore     TIER_2           September            56141269.69            59642906.56                 -5.87                    21
+74  STR-TN-005   Northstar Coimbatore Brookefields  Coimbatore     TIER_2             October            76403952.23            56141269.69                 36.09                    16
+75  STR-TN-006          Northstar Madurai KK Nagar     Madurai     TIER_3              August            45512358.60                    NaN                   NaN                    28
+76  STR-TN-006          Northstar Madurai KK Nagar     Madurai     TIER_3           September            41353151.10            45512358.60                 -9.14                    29
+77  STR-TN-006          Northstar Madurai KK Nagar     Madurai     TIER_3             October            57121674.23            41353151.10                 38.13                    28
+78  STR-TS-001    Northstar Banjara Hills Flagship   Hyderabad     TIER_1              August            75682716.42                    NaN                   NaN                     2
+79  STR-TS-001    Northstar Banjara Hills Flagship   Hyderabad     TIER_1           September            68611351.88            75682716.42                 -9.34                    14
+80  STR-TS-001    Northstar Banjara Hills Flagship   Hyderabad     TIER_1             October            93598448.22            68611351.88                 36.42                    10
+81  STR-TS-002       Northstar Hitec City Galleria   Hyderabad     TIER_1              August            75162103.13                    NaN                   NaN                     4
+82  STR-TS-002       Northstar Hitec City Galleria   Hyderabad     TIER_1           September            69013357.55            75162103.13                 -8.18                    12
+83  STR-TS-002       Northstar Hitec City Galleria   Hyderabad     TIER_1             October            96090645.92            69013357.55                 39.23                     1
+84  STR-TS-003     Northstar Jubilee Hills Central   Hyderabad     TIER_1              August            75739970.90                    NaN                   NaN                     1
+85  STR-TS-003     Northstar Jubilee Hills Central   Hyderabad     TIER_1           September            69474714.30            75739970.90                 -8.27                     9
+86  STR-TS-003     Northstar Jubilee Hills Central   Hyderabad     TIER_1             October            94838385.77            69474714.30                 36.51                     6
+87  STR-TS-004  Northstar Secunderabad Clock Tower   Hyderabad     TIER_2              August            60075471.78                    NaN                   NaN                    18
+88  STR-TS-004  Northstar Secunderabad Clock Tower   Hyderabad     TIER_2           September            57170929.84            60075471.78                 -4.83                    16
+89  STR-TS-004  Northstar Secunderabad Clock Tower   Hyderabad     TIER_2             October            76067450.64            57170929.84                 33.05                    18
+
+--- Query 1.4: Intra-Category Product Revenue Contribution and Cumulative Pareto Analysis ---
+         category_name  category_revenue_rank         sku_id                                                         sku_name  units_sold  product_revenue_inr  category_revenue_share_pct  cumulative_category_share_pct intra_category_tier
+0   Clothing & Apparel                      1  SKU-APPR-0262        Northstar Clothing & Apparel Womens Ethnic Wear Item 0262      3182.0          16602460.10                        1.50                           1.50      A_CORE (0-80%)
+1   Clothing & Apparel                      2  SKU-APPR-0294        Northstar Clothing & Apparel Womens Ethnic Wear Item 0294      3258.0          16514590.53                        1.49                           3.00      A_CORE (0-80%)
+2   Clothing & Apparel                      3  SKU-APPR-0098          Northstar Clothing & Apparel Mens Casual Wear Item 0098      3254.0          16048970.64                        1.45                           4.45      A_CORE (0-80%)
+3   Clothing & Apparel                      4  SKU-APPR-0394     Northstar Clothing & Apparel Kids & Infant Fashion Item 0394      3175.0          15700592.85                        1.42                           5.87      A_CORE (0-80%)
+4   Clothing & Apparel                      5  SKU-APPR-0426     Northstar Clothing & Apparel Kids & Infant Fashion Item 0426      3205.0          15565259.07                        1.41                           7.28      A_CORE (0-80%)
+5   Clothing & Apparel                    121  SKU-APPR-0198        Northstar Clothing & Apparel Womens Ethnic Wear Item 0198      3192.0           2080365.00                        0.19                          99.36    C_TAIL (95-100%)
+6   Clothing & Apparel                    122  SKU-APPR-0034          Northstar Clothing & Apparel Mens Casual Wear Item 0034      3037.0           1949695.41                        0.18                          99.53    C_TAIL (95-100%)
+7   Clothing & Apparel                    123  SKU-APPR-0362     Northstar Clothing & Apparel Kids & Infant Fashion Item 0362      3110.0           1802522.36                        0.16                          99.70    C_TAIL (95-100%)
+8   Clothing & Apparel                    124  SKU-APPR-0230        Northstar Clothing & Apparel Womens Ethnic Wear Item 0230      3208.0           1683326.93                        0.15                          99.85    C_TAIL (95-100%)
+9   Clothing & Apparel                    125  SKU-APPR-0066          Northstar Clothing & Apparel Mens Casual Wear Item 0066      3149.0           1656278.80                        0.15                         100.00    C_TAIL (95-100%)
+10         Electronics                      1  SKU-ELEC-0313               Northstar Electronics Home Entertainment Item 0313      1374.0          75118879.57                        1.96                           1.96      A_CORE (0-80%)
+11         Electronics                      2  SKU-ELEC-0297               Northstar Electronics Home Entertainment Item 0297      1343.0          69768441.51                        1.82                           3.79      A_CORE (0-80%)
+12         Electronics                      3  SKU-ELEC-0317          Northstar Electronics IT Accessories & Cables Item 0317      1347.0          68379684.56                        1.79                           5.57      A_CORE (0-80%)
+13         Electronics                      4  SKU-ELEC-0281               Northstar Electronics Home Entertainment Item 0281      1383.0          68023055.65                        1.78                           7.35      A_CORE (0-80%)
+14         Electronics                      5  SKU-ELEC-0293                Northstar Electronics Audio & Wearables Item 0293      1358.0          64441168.63                        1.68                           9.04      A_CORE (0-80%)
+15         Electronics                    121  SKU-ELEC-0009               Northstar Electronics Home Entertainment Item 0009      1345.0           4481592.15                        0.12                          99.68    C_TAIL (95-100%)
+16         Electronics                    122  SKU-ELEC-0325                Northstar Electronics Audio & Wearables Item 0325      1353.0           3838562.55                        0.10                          99.78    C_TAIL (95-100%)
+17         Electronics                    123  SKU-ELEC-0005                Northstar Electronics Audio & Wearables Item 0005      1270.0           3124117.87                        0.08                          99.86    C_TAIL (95-100%)
+18         Electronics                    124  SKU-ELEC-0321                 Northstar Electronics Mobile & Tablets Item 0321      1313.0           2912276.61                        0.08                          99.93    C_TAIL (95-100%)
+19         Electronics                    125  SKU-ELEC-0001                 Northstar Electronics Mobile & Tablets Item 0001      1361.0           2497952.30                        0.07                         100.00    C_TAIL (95-100%)
+20    Groceries & FMCG                      1  SKU-FMCG-0319     Northstar Groceries & FMCG Personal Care & Hygiene Item 0319      7755.0           6934456.05                        1.59                           1.59      A_CORE (0-80%)
+21    Groceries & FMCG                      2  SKU-FMCG-0047     Northstar Groceries & FMCG Personal Care & Hygiene Item 0047      7657.0           6787289.60                        1.56                           3.14      A_CORE (0-80%)
+22    Groceries & FMCG                      3  SKU-FMCG-0331          Northstar Groceries & FMCG Beverages & Juices Item 0331      7808.0           6775698.83                        1.55                           4.70      A_CORE (0-80%)
+23    Groceries & FMCG                      4  SKU-FMCG-0059          Northstar Groceries & FMCG Beverages & Juices Item 0059      7748.0           6733461.25                        1.54                           6.24      A_CORE (0-80%)
+24    Groceries & FMCG                      5  SKU-FMCG-0455     Northstar Groceries & FMCG Packaged Foods & Snacks Item 0455      7862.0           6675982.04                        1.53                           7.77      A_CORE (0-80%)
+25    Groceries & FMCG                    121  SKU-FMCG-0083            Northstar Groceries & FMCG Staples & Grains Item 0083      7409.0            472061.25                        0.11                          99.64    C_TAIL (95-100%)
+26    Groceries & FMCG                    122  SKU-FMCG-0479     Northstar Groceries & FMCG Personal Care & Hygiene Item 0479      7697.0            430806.32                        0.10                          99.74    C_TAIL (95-100%)
+27    Groceries & FMCG                    123  SKU-FMCG-0343     Northstar Groceries & FMCG Packaged Foods & Snacks Item 0343      7690.0            391452.61                        0.09                          99.83    C_TAIL (95-100%)
+28    Groceries & FMCG                    124  SKU-FMCG-0207     Northstar Groceries & FMCG Personal Care & Hygiene Item 0207      7521.0            386096.41                        0.09                          99.91    C_TAIL (95-100%)
+29    Groceries & FMCG                    125  SKU-FMCG-0071     Northstar Groceries & FMCG Packaged Foods & Snacks Item 0071      7920.0            374309.86                        0.09                         100.00    C_TAIL (95-100%)
+30      Home & Kitchen                      1  SKU-HOME-0124  Northstar Home & Kitchen Storage & Plastic Containers Item 0124      2055.0          13674737.68                        1.56                           1.56      A_CORE (0-80%)
+31      Home & Kitchen                      2  SKU-HOME-0040      Northstar Home & Kitchen Small Kitchen Appliances Item 0040      2089.0          13650479.75                        1.55                           3.11      A_CORE (0-80%)
+32      Home & Kitchen                      3  SKU-HOME-0332  Northstar Home & Kitchen Storage & Plastic Containers Item 0332      2038.0          13565735.80                        1.54                           4.66      A_CORE (0-80%)
+33      Home & Kitchen                      4  SKU-HOME-0248      Northstar Home & Kitchen Small Kitchen Appliances Item 0248      1983.0          12926033.22                        1.47                           6.13      A_CORE (0-80%)
+34      Home & Kitchen                      5  SKU-HOME-0372    Northstar Home & Kitchen Cookware & Stainless Steel Item 0372      2015.0          12905231.51                        1.47                           7.60      A_CORE (0-80%)
+35      Home & Kitchen                    121  SKU-HOME-0168      Northstar Home & Kitchen Small Kitchen Appliances Item 0168      1999.0           1124702.19                        0.13                          99.58    C_TAIL (95-100%)
+36      Home & Kitchen                    122  SKU-HOME-0376      Northstar Home & Kitchen Small Kitchen Appliances Item 0376      1907.0           1077795.14                        0.12                          99.71    C_TAIL (95-100%)
+37      Home & Kitchen                    123  SKU-HOME-0292    Northstar Home & Kitchen Cookware & Stainless Steel Item 0292      1982.0            872490.56                        0.10                          99.81    C_TAIL (95-100%)
+38      Home & Kitchen                    124  SKU-HOME-0500    Northstar Home & Kitchen Cookware & Stainless Steel Item 0500      1973.0            861396.80                        0.10                          99.90    C_TAIL (95-100%)
+39      Home & Kitchen                    125  SKU-HOME-0084    Northstar Home & Kitchen Cookware & Stainless Steel Item 0084      1895.0            845227.71                        0.10                         100.00    C_TAIL (95-100%)
+
+--- Query 1.5: Intra-State Store Density and Revenue Benchmarking ---
+          state    store_id                          store_name        city store_tier  carpet_area_sqft  store_sales_inr  state_revenue_rank  total_state_revenue_inr  state_revenue_share_pct  state_density_rank  sales_density_sqft_inr
+0       Gujarat  STR-GJ-001       Northstar SG Highway Flagship   Ahmedabad     TIER_1           28000.0     2.392060e+08                   1             8.569892e+08                    27.91                   4                 8543.07
+1       Gujarat  STR-GJ-002        Northstar CG Road Retail Hub   Ahmedabad     TIER_1           22000.0     2.361071e+08                   2             8.569892e+08                    27.55                   3                10732.14
+2       Gujarat  STR-GJ-004          Northstar Surat Dumas Road       Surat     TIER_2           18000.0     1.932036e+08                   3             8.569892e+08                    22.54                   2                10733.53
+3       Gujarat  STR-GJ-003       Northstar Vastrapur Lake Mall   Ahmedabad     TIER_2           17000.0     1.884724e+08                   4             8.569892e+08                    21.99                   1                11086.61
+4     Karnataka  STR-KA-003       Northstar Whitefield Tech Hub   Bengaluru     TIER_1           22000.0     2.393418e+08                   1             1.617868e+09                    14.79                   5                10879.17
+5     Karnataka  STR-KA-001      Northstar Indiranagar Flagship   Bengaluru     TIER_1           35000.0     2.379623e+08                   2             1.617868e+09                    14.71                   8                 6798.92
+6     Karnataka  STR-KA-002          Northstar Koramangala Mall   Bengaluru     TIER_1           25000.0     2.353963e+08                   3             1.617868e+09                    14.55                   7                 9415.85
+7     Karnataka  STR-KA-007      Northstar Mysuru Heritage Mall      Mysuru     TIER_2           15000.0     1.918297e+08                   4             1.617868e+09                    11.86                   3                12788.65
+8     Karnataka  STR-KA-004     Northstar Jayanagar High Street   Bengaluru     TIER_2           18000.0     1.910636e+08                   5             1.617868e+09                    11.81                   6                10614.64
+9     Karnataka  STR-KA-005      Northstar Malleshwaram Central   Bengaluru     TIER_2           16500.0     1.909398e+08                   6             1.617868e+09                    11.80                   4                11572.11
+10    Karnataka  STR-KA-006        Northstar HSR Layout Express   Bengaluru     TIER_2           12000.0     1.905905e+08                   7             1.617868e+09                    11.78                   1                15882.54
+11    Karnataka  STR-KA-008         Northstar Hubballi Junction    Hubballi     TIER_3           10000.0     1.407440e+08                   8             1.617868e+09                     8.70                   2                14074.40
+12  Maharashtra  STR-MH-003       Northstar Andheri Lokhandwala      Mumbai     TIER_1           26000.0     2.425325e+08                   1             1.666598e+09                    14.55                   5                 9328.17
+13  Maharashtra  STR-MH-006              Northstar Pune FC Road        Pune     TIER_1           22000.0     2.382617e+08                   2             1.666598e+09                    14.30                   1                10830.08
+14  Maharashtra  STR-MH-002     Northstar Lower Parel Palladium      Mumbai     TIER_1           38000.0     2.379254e+08                   3             1.666598e+09                    14.28                   7                 6261.19
+15  Maharashtra  STR-MH-001      Northstar Bandra West Flagship      Mumbai     TIER_1           42000.0     2.371192e+08                   4             1.666598e+09                    14.23                   8                 5645.70
+16  Maharashtra  STR-MH-005             Northstar Thane Viviana       Thane     TIER_2           24000.0     1.919375e+08                   5             1.666598e+09                    11.52                   6                 7997.40
+17  Maharashtra  STR-MH-004         Northstar Powai Hiranandani      Mumbai     TIER_2           20000.0     1.918911e+08                   6             1.666598e+09                    11.51                   4                 9594.56
+18  Maharashtra  STR-MH-007          Northstar Pune Viman Nagar        Pune     TIER_2           18000.0     1.867286e+08                   7             1.666598e+09                    11.20                   2                10373.81
+19  Maharashtra  STR-MH-008        Northstar Nagpur Civil Lines      Nagpur     TIER_3           14000.0     1.402016e+08                   8             1.666598e+09                     8.41                   3                10014.40
+20   Tamil Nadu  STR-TN-001       Northstar Anna Nagar Flagship     Chennai     TIER_1           32000.0     2.401266e+08                   1             1.192621e+09                    20.13                   6                 7503.96
+21   Tamil Nadu  STR-TN-002           Northstar T Nagar Express     Chennai     TIER_1           24000.0     2.374302e+08                   2             1.192621e+09                    19.91                   4                 9892.93
+22   Tamil Nadu  STR-TN-005   Northstar Coimbatore Brookefields  Coimbatore     TIER_2           16000.0     1.921881e+08                   3             1.192621e+09                    16.11                   2                12011.76
+23   Tamil Nadu  STR-TN-004           Northstar OMR IT Corridor     Chennai     TIER_2           17000.0     1.894499e+08                   4             1.192621e+09                    15.89                   3                11144.11
+24   Tamil Nadu  STR-TN-003      Northstar Velachery Grand Mall     Chennai     TIER_2           20000.0     1.894393e+08                   5             1.192621e+09                    15.88                   5                 9471.96
+25   Tamil Nadu  STR-TN-006          Northstar Madurai KK Nagar     Madurai     TIER_3           11000.0     1.439872e+08                   6             1.192621e+09                    12.07                   1                13089.74
+26    Telangana  STR-TS-002       Northstar Hitec City Galleria   Hyderabad     TIER_1           26000.0     2.402661e+08                   1             9.115255e+08                    26.36                   3                 9241.00
+27    Telangana  STR-TS-003     Northstar Jubilee Hills Central   Hyderabad     TIER_1           22000.0     2.400531e+08                   2             9.115255e+08                    26.34                   2                10911.50
+28    Telangana  STR-TS-001    Northstar Banjara Hills Flagship   Hyderabad     TIER_1           30000.0     2.378925e+08                   3             9.115255e+08                    26.10                   4                 7929.75
+29    Telangana  STR-TS-004  Northstar Secunderabad Clock Tower   Hyderabad     TIER_2           15000.0     1.933139e+08                   4             9.115255e+08                    21.21                   1                12887.59
+
+--- Query 1.6: Boundary Analysis: Category Margin Extremes via FIRST_VALUE and LAST_VALUE ---
+        category_name                                           highest_margin_product  highest_margin_pct                                          lowest_margin_product  lowest_margin_pct  margin_spread_pct_points
+0  Clothing & Apparel          Northstar Clothing & Apparel Mens Casual Wear Item 0098               45.48      Northstar Clothing & Apparel Womens Ethnic Wear Item 0230              34.81                     10.67
+1         Electronics          Northstar Electronics IT Accessories & Cables Item 0109               14.99               Northstar Electronics Mobile & Tablets Item 0001               6.33                      8.66
+2    Groceries & FMCG     Northstar Groceries & FMCG Personal Care & Hygiene Item 0319               10.95        Northstar Groceries & FMCG Beverages & Juices Item 0491              -1.58                     12.53
+3      Home & Kitchen  Northstar Home & Kitchen Storage & Plastic Containers Item 0108               33.31  Northstar Home & Kitchen Cookware & Stainless Steel Item 0500              22.36                     10.95
+
+=== MODULE: 02_customer_cohort_analysis.sql ===
+
+--- Query 2.1: Monthly Customer Acquisition Cohorts & Longitudinal Retention Matrix ---
+  acquisition_cohort  cohort_size calendar_month  elapsed_months  active_members  retention_rate_pct  total_invoices  avg_orders_per_active_member  total_cohort_revenue_inr  revenue_per_acquired_member_inr
+0            2026-08         9999        2026-08               0            9999              100.00         99869.0                          9.99              1.354575e+09                        135471.08
+1            2026-08         9999        2026-09               1            9998               99.99         94280.0                          9.43              1.286965e+09                        128709.34
+2            2026-08         9999        2026-10               2            9999              100.00        127958.0                         12.80              1.729747e+09                        172991.98
+3            2026-09            1        2026-09               0               1              100.00             6.0                          6.00              1.134720e+05                        113472.01
+4            2026-09            1        2026-10               1               1              100.00            12.0                         12.00              2.037826e+05                        203782.64
+
+--- Query 2.2: Weekly Customer Acquisition Cohorts & Revisit Velocity ---
+    acquisition_week  initial_cohort_size  activity_week  week_offset  returning_customers  weekly_retention_pct  weekly_invoices  weekly_cohort_sales_inr  sales_per_acquired_customer_inr
+0                 31                 5640             31            0                 5640                100.00             8258             1.121934e+08                         19892.45
+1                 31                 5640             32            1                 5006                 88.76            12556             1.681380e+08                         29811.70
+2                 31                 5640             33            2                 5015                 88.92            12566             1.705465e+08                         30238.74
+3                 31                 5640             34            3                 5000                 88.65            12445             1.651660e+08                         29284.76
+4                 31                 5640             35            4                 5020                 89.01            12459             1.715902e+08                         30423.79
+5                 31                 5640             36            5                 5060                 89.72            12473             1.714287e+08                         30395.16
+6                 31                 5640             37            6                 5039                 89.34            12601             1.723671e+08                         30561.54
+7                 31                 5640             38            7                 5056                 89.65            12612             1.699445e+08                         30132.00
+8                 31                 5640             39            8                 5044                 89.43            12693             1.738009e+08                         30815.76
+9                 32                 3872             32            0                 3872                100.00             9657             1.323833e+08                         34189.89
+10                32                 3872             33            1                 3448                 89.05             8561             1.160111e+08                         29961.54
+11                32                 3872             34            2                 3471                 89.64             8688             1.175595e+08                         30361.45
+12                32                 3872             35            3                 3490                 90.13             8749             1.193716e+08                         30829.43
+13                32                 3872             36            4                 3451                 89.13             8605             1.169476e+08                         30203.42
+14                32                 3872             37            5                 3450                 89.10             8655             1.191064e+08                         30760.95
+15                32                 3872             38            6                 3463                 89.44             8610             1.186158e+08                         30634.25
+16                32                 3872             39            7                 3442                 88.89             8495             1.158210e+08                         29912.45
+17                32                 3872             40            8                 3516                 90.81             9438             1.276701e+08                         32972.65
+18                33                  447             33            0                  447                100.00             1132             1.575434e+07                         35244.60
+19                33                  447             34            1                  407                 91.05              987             1.323870e+07                         29616.78
+20                33                  447             35            2                  394                 88.14              992             1.403460e+07                         31397.32
+21                33                  447             36            3                  394                 88.14              965             1.271403e+07                         28443.02
+22                33                  447             37            4                  394                 88.14              972             1.284972e+07                         28746.58
+23                33                  447             38            5                  398                 89.04              984             1.413123e+07                         31613.49
+24                33                  447             39            6                  401                 89.71              977             1.309751e+07                         29300.92
+25                33                  447             40            7                  408                 91.28             1103             1.625845e+07                         36372.36
+26                33                  447             41            8                  405                 90.60             1172             1.672440e+07                         37414.76
+
+--- Query 2.3: Cumulative Revenue Build & Customer Value Trajectory by Acquisition Cohort ---
+             cohort_name  trading_month  month_index  active_customers  period_revenue_inr  cumulative_cohort_revenue_inr  cumulative_spend_per_customer_inr
+0     August 2026 Cohort              8            0              9999        1.354575e+09                   1.354575e+09                          135471.08
+1  September 2026 Cohort              9            0              9999        1.287078e+09                   1.287078e+09                          128720.69
+2    October 2026 Cohort             10            0             10000        1.729951e+09                   1.729951e+09                          172995.06
+
+--- Query 2.4: Repeat Purchase Interval & Revisit Frequency Distribution ---
+            revisit_cadence_tier  repeat_visit_instances  visit_instance_share_pct  avg_days_between_visits  min_days  max_days
+0  00_SAME_DAY_MULTI_TRANSACTION                   52798                     16.92                      0.0         0         0
+1               01_WITHIN_1_WEEK                  237923                     76.23                      2.7         1         7
+2              02_WITHIN_2_WEEKS                   19472                      6.24                      9.8         8        14
+3              03_WITHIN_1_MONTH                    1924                      0.62                     17.5        15        30
+4                04_OVER_30_DAYS                       8                      0.00                     32.4        31        35
+
+=== MODULE: 03_rfm_segmentation.sql ===
+
+--- Query 3.1: Individual Customer RFM Metrics and Quintile Scores ---
+                                                         customer_sk loyalty_tier  recency_days  frequency_invoices  monetary_total_inr  r_score  f_score  m_score  rfm_cell_code empirical_rfm_segment
+0   22d62c163083a05147d4e5e9708e78b558135ed28b744ef9229f9619c10da3b4       BRONZE             1                  56          1004938.88        2        5        5            255      CANNOT_LOSE_THEM
+1   a9d43482449f0ac7cf2f7a640c16b79ab40a9161a7ec71474509340c21a928af         GOLD             1                  51          1001439.88        2        5        5            255      CANNOT_LOSE_THEM
+2   775753a27edfe008e53ffd5057bd9d5a1aff7443546caab25bc8b519512fdad3       BRONZE             5                  41           939898.15        1        5        5            155      CANNOT_LOSE_THEM
+3   ed2146a8eecf7935a39563c3b827b1f1462ee44ce6de21f86261ab3e510a6dc3       BRONZE             2                  47           912472.19        2        5        5            255      CANNOT_LOSE_THEM
+4   4b05ddc57d9257fea7526885e2efd288defafa62d346eb5b2fa850540f05641d       BRONZE             1                  44           909614.86        2        5        5            255      CANNOT_LOSE_THEM
+5   b75fb857f4ed0d9405bd19e65515b672765d74a3b0ad52f21aae9aef92075c5f       BRONZE             0                  49           907523.43        5        5        5            555             CHAMPIONS
+6   56cbdbc533c19558f9ac1b31fe22e2fe7756c11b48179dcad9edc6bec19fa1e3       BRONZE             0                  40           897387.80        5        5        5            555             CHAMPIONS
+7   813950fd4511e3e000f4f2f1c96c14583fc9e2b284484e7101ef9c4102f39f7f       BRONZE             0                  45           896735.50        5        5        5            555             CHAMPIONS
+8   7ca39d27fef44b0c701bcb6484fd16911def5338d365e5e3d48c21ca0f7e2936       BRONZE             0                  42           883443.91        4        5        5            455             CHAMPIONS
+9   7e0c45299a4b7dd7f91a2b8585e9f105603d7ec65376d00d85a83e5f12bc9048         GOLD             1                  44           873975.03        2        5        5            255      CANNOT_LOSE_THEM
+10  d9a92e177d1f86b2c8a58a3d42bb3959f05e6c29c5c9683e0d9ebec1c782d17b     PLATINUM             2                  50           871577.77        2        5        5            255      CANNOT_LOSE_THEM
+11  7ea775fce5ba7f79bc5432a7c68170266bbced757244548f8934fcae89ff52c6       BRONZE             0                  49           864865.84        5        5        5            555             CHAMPIONS
+12  d4beece71ace78ce4dce4a86a61e4ea76b16cdb3f69b16b171fc694c071e13a7       BRONZE             0                  43           863817.67        4        5        5            455             CHAMPIONS
+13  81fbb6ec8d70966d2472dc7281b565183c4c51a576f34eaef192267cd74bcf32       BRONZE             1                  51           862310.49        2        5        5            255      CANNOT_LOSE_THEM
+14  4432a490564a33789eadf9a5c60840c179a154967b52efb428306c2cb28b0ded       BRONZE             2                  38           855925.01        2        5        5            255      CANNOT_LOSE_THEM
+15  1d7f8de73fa19843d6ed3496c11fb40b75cc46aa592a154dd20494f71d5726c9       SILVER             2                  41           855356.36        2        5        5            255      CANNOT_LOSE_THEM
+16  4ebd032c3e9094a2ad5b3c4010263adf1247290752223c70329004c64adbdfb9       BRONZE             1                  49           852528.02        2        5        5            255      CANNOT_LOSE_THEM
+17  9aaa81302c3edb4cc39322b92366094a52d7c49436e2bd594bc1e48077709f0f       BRONZE             0                  48           851576.59        5        5        5            555             CHAMPIONS
+18  e6e38a37be9969538c83c7b29eb34c4a322ce9a2fa10da275a1eb43984b86983       BRONZE             1                  43           842876.90        2        5        5            255      CANNOT_LOSE_THEM
+19  a71784f948c7bafba4cef35bb94c11dc93ecf45fdc42ec9512b8045fd857871a       BRONZE             3                  41           839893.16        2        5        5            255      CANNOT_LOSE_THEM
+20  51607eaaab056aa54b9b6c4d9de600655709af05380c0f927a18826cf484f1ef       BRONZE             1                  37           839561.71        2        5        5            255      CANNOT_LOSE_THEM
+21  97064fa0552a61dc7ddcf5d65ed77eb2e2b3c8b08a0622f0494fbae2070f28c2       BRONZE             2                  44           837013.33        2        5        5            255      CANNOT_LOSE_THEM
+22  f38f74ed4d45b2c39384b3c6b721c9bdb299f3da1a599c474abe68d9bda123bb       BRONZE             0                  48           836927.97        5        5        5            555             CHAMPIONS
+23  d03d940896cd97179d178db93154ab176f804b9a553b0ef9e749ecfd88c8bdcc       BRONZE             2                  49           836087.50        2        5        5            255      CANNOT_LOSE_THEM
+24  5f99faebfa35194e4b3c7e03601df10267f02a5150d2367812206cb1640a76a4       BRONZE             0                  55           833753.82        4        5        5            455             CHAMPIONS
+25  ae9421aee1ae9d5e42a871a7c5d68add2af2c7dbe7c0dd075bf5eb601016fb10       BRONZE             4                  42           829678.36        1        5        5            155      CANNOT_LOSE_THEM
+26  64c684deb3c43649e0550d438c9d610bad95b3157e49d07b9371b81e13c44b7d         GOLD             0                  51           829071.86        4        5        5            455             CHAMPIONS
+27  0f3ab2e2900a1364d88daf1377fcc557801b31d2b2b8e3956416b7de378cbdea       BRONZE             1                  38           828077.61        2        5        5            255      CANNOT_LOSE_THEM
+28  a9e6cf4f37c9a384b49939a011f50dc80fe6d7068eddc9cca095d5a5df1b6c97       BRONZE             0                  42           827458.68        4        5        5            455             CHAMPIONS
+29  4fafffddb341c15d4f979ed5bd636df236c5d4cab89bf7a188a327b214330ecd       BRONZE             0                  36           825702.05        4        4        5            445             CHAMPIONS
+30  11054d869c08947a787e84ca5e34345bd004cc6f68a7d329f79169ecf67b550d       BRONZE             4                  39           825605.28        1        5        5            155      CANNOT_LOSE_THEM
+31  caf45ae343bce6d7c73a3fb05b2151eff35aec7a5f9d2c7dd6b12bc9d0eb3be4     PLATINUM             2                  43           825092.11        2        5        5            255      CANNOT_LOSE_THEM
+32  d505db1c65e5725c888d75c28572238f7c31eef364be1b8ac3a2d309204a001d       BRONZE             0                  36           819619.95        4        4        5            445             CHAMPIONS
+33  d58d0a3d39bcea93a29fdc3403ccd84cd5f0a45650d863eadc145be797dae793       BRONZE             0                  51           817130.03        4        5        5            455             CHAMPIONS
+34  38dbc7b71f97fd8bd8be1bec9ad3682a24f272199f7fab8aedf30116604bb825       SILVER             0                  42           816006.44        4        5        5            455             CHAMPIONS
+35  798569a779e756f8b5e212c4b993596f5a2db57b3f5d5c87ed3c5c387854e81a       BRONZE             0                  47           813130.29        5        5        5            555             CHAMPIONS
+36  0f14d25e4c9b31b9b1ff1546c916f946526a35dd7a3225e8bdbabe68c8cff387       BRONZE             0                  45           812278.79        5        5        5            555             CHAMPIONS
+37  271cdeaa14c6a5b3319157e9e45afba11a200c4ff98d9c58db6f1ab0ed755c98       BRONZE             2                  40           811688.74        2        5        5            255      CANNOT_LOSE_THEM
+38  dc8e1a8f0a3072fe0d3be42d63d18972c4fe460a12145ae209e109f7ccc31b03       SILVER             1                  38           811299.94        2        5        5            255      CANNOT_LOSE_THEM
+39  b1156f45c1edfb2d4f7c973cf8e1eb7a3a86524bfa74d66ea2ebe37ae737ebef       BRONZE             2                  42           806479.67        2        5        5            255      CANNOT_LOSE_THEM
+40  8428adf38b5abdc4e084cd6df759ee71a03f84cbfe78b0b62e98d4a69874abd2       BRONZE             0                  46           806375.82        3        5        5            355       LOYAL_CUSTOMERS
+41  3f1f1ac7fe2740d76105c7911213bc0ed1b91fb9926c1e52d6a253c8b64f8fef         GOLD             2                  46           805867.28        2        5        5            255      CANNOT_LOSE_THEM
+42  5e2d34600d224007744a4bdfda34ea87648ae7e95c5fe98bf7f69106b3f4e7ab     PLATINUM             7                  37           803448.77        1        5        5            155      CANNOT_LOSE_THEM
+43  807392cda0d90a616a22af871f81f1480e641bf65c4498fad361d26603c3f472       SILVER             0                  45           802894.40        5        5        5            555             CHAMPIONS
+44  b261f66e10567e22773b148d6026d3e56c188c8880c5a71a48d92d1afb0c3474         GOLD             0                  42           802228.93        4        5        5            455             CHAMPIONS
+45  fbfd699b237fa5051cbd5aae912275a4628a59763f64be70afceba36f5ca1e56       BRONZE             0                  45           801909.61        5        5        5            555             CHAMPIONS
+46  7950b726806e3df5f20ee3736e833cc3ea1c32217056cf79a62dfcb687b53531       SILVER             3                  43           801316.44        2        5        5            255      CANNOT_LOSE_THEM
+47  65320ee7a91303d38a367c83ce97e50a20394cc1ef7a5bf536de62ec9de25cb2       BRONZE             0                  35           801073.66        4        4        5            445             CHAMPIONS
+48  3fd336419d1dfef77c4a29fe3499cc10db8ced10562f65b5d69837a3372279d1       BRONZE             0                  37           801031.35        4        5        5            455             CHAMPIONS
+49  4fcd05b175983aea54b425db994cc31f2ac290a1508388d94dfebaf4ee4cf863       BRONZE             0                  43           799542.94        4        5        5            455             CHAMPIONS
+
+--- Query 3.2: RFM Segment Census, Financial Value & Behavioral Benchmark Summary ---
+  empirical_rfm_segment  customer_count  customer_share_pct  total_revenue_inr  revenue_share_pct  total_margin_inr  avg_recency_days  avg_frequency_orders  avg_monetary_per_customer_inr  avg_basket_value_inr
+0        NEED_ATTENTION            1842               18.42       7.094905e+08              16.23      1.171904e+08               0.7                  30.1                      385173.98              12791.45
+1             CHAMPIONS            1241               12.41       7.071499e+08              16.18      1.122584e+08               0.0                  38.8                      569822.66              14683.96
+2      CANNOT_LOSE_THEM            1174               11.74       6.748599e+08              15.44      1.071633e+08               2.7                  38.7                      574838.05              14841.87
+3   POTENTIAL_LOYALISTS            1496               14.96       6.205773e+08              14.20      1.007001e+08               0.0                  30.6                      414824.37              13568.98
+4           HIBERNATING            1625               16.25       5.860350e+08              13.41      9.475647e+07               4.4                  26.6                      360636.93              13572.22
+5               AT_RISK            1201               12.01       4.974200e+08              11.38      8.333460e+07               3.6                  34.1                      414171.55              12156.21
+6       LOYAL_CUSTOMERS             711                7.11       3.390176e+08               7.75      5.582038e+07               0.3                  36.3                      476817.96              13149.39
+7         NEW_CUSTOMERS             710                7.10       2.370540e+08               5.42      3.859155e+07               0.0                  24.5                      333878.84              13611.28
+
+--- Query 3.3: Dynamic Empirical RFM vs Static Master Catalog RFM Migration Matrix ---
+    master_catalog_rfm empirical_rfm_segment  customer_migration_count  transition_rate_pct
+0              AT_RISK        NEED_ATTENTION                       752                18.80
+1              AT_RISK           HIBERNATING                       632                15.80
+2              AT_RISK   POTENTIAL_LOYALISTS                       589                14.73
+3              AT_RISK             CHAMPIONS                       532                13.30
+4              AT_RISK      CANNOT_LOSE_THEM                       466                11.65
+5              AT_RISK               AT_RISK                       459                11.48
+6              AT_RISK         NEW_CUSTOMERS                       318                 7.95
+7              AT_RISK       LOYAL_CUSTOMERS                       252                 6.30
+8            CHAMPIONS        NEED_ATTENTION                        49                16.33
+9            CHAMPIONS   POTENTIAL_LOYALISTS                        47                15.67
+10           CHAMPIONS           HIBERNATING                        47                15.67
+11           CHAMPIONS      CANNOT_LOSE_THEM                        43                14.33
+12           CHAMPIONS               AT_RISK                        38                12.67
+13           CHAMPIONS             CHAMPIONS                        35                11.67
+14           CHAMPIONS       LOYAL_CUSTOMERS                        26                 8.67
+15           CHAMPIONS         NEW_CUSTOMERS                        15                 5.00
+16               LOYAL        NEED_ATTENTION                       819                18.20
+17               LOYAL           HIBERNATING                       732                16.27
+18               LOYAL   POTENTIAL_LOYALISTS                       674                14.98
+19               LOYAL               AT_RISK                       570                12.67
+20               LOYAL             CHAMPIONS                       532                11.82
+21               LOYAL      CANNOT_LOSE_THEM                       528                11.73
+22               LOYAL       LOYAL_CUSTOMERS                       335                 7.44
+23               LOYAL         NEW_CUSTOMERS                       310                 6.89
+24  POTENTIAL_LOYALIST        NEED_ATTENTION                       222                18.50
+25  POTENTIAL_LOYALIST           HIBERNATING                       214                17.83
+26  POTENTIAL_LOYALIST   POTENTIAL_LOYALISTS                       186                15.50
+27  POTENTIAL_LOYALIST             CHAMPIONS                       142                11.83
+28  POTENTIAL_LOYALIST      CANNOT_LOSE_THEM                       137                11.42
+29  POTENTIAL_LOYALIST               AT_RISK                       134                11.17
+30  POTENTIAL_LOYALIST       LOYAL_CUSTOMERS                        98                 8.17
+31  POTENTIAL_LOYALIST         NEW_CUSTOMERS                        67                 5.58
+
+--- Query 3.4: 5x5 RFM Grid Heatmap (Recency Score vs Frequency Score Matrix) ---
+    recency_quintile  frequency_quintile  customer_density  population_pct  cell_avg_spend_inr  cell_total_revenue_inr
+0                  5                   3               433            4.33           426115.14            1.845079e+08
+1                  5                   2               793            7.93           394010.24            3.124501e+08
+2                  5                   1               774            7.74           333352.39            2.580148e+08
+3                  4                   5               564            5.64           519767.87            2.931491e+08
+4                  4                   4               963            9.63           477635.62            4.599631e+08
+5                  4                   3               473            4.73           445246.66            2.106017e+08
+6                  3                   5               803            8.03           567747.68            4.559014e+08
+7                  3                   4               331            3.31           474772.85            1.571498e+08
+8                  3                   3               304            3.04           433029.75            1.316410e+08
+9                  3                   2               281            2.81           391722.07            1.100739e+08
+10                 3                   1               281            2.81           337666.41            9.488426e+07
+11                 2                   5               369            3.69           555651.37            2.050354e+08
+12                 2                   4               358            3.58           473529.88            1.695237e+08
+13                 2                   3               399            3.99           430434.55            1.717434e+08
+14                 2                   2               480            4.80           397959.97            1.910208e+08
+15                 2                   1               394            3.94           323297.78            1.273793e+08
+16                 1                   5               264            2.64           549748.13            1.451335e+08
+17                 1                   4               348            3.48           477175.40            1.660570e+08
+18                 1                   3               391            3.91           429315.82            1.678625e+08
+19                 1                   2               446            4.46           396745.13            1.769483e+08
+20                 1                   1               551            5.51           331330.69            1.825632e+08
+
+=== MODULE: 04_customer_lifecycle_analysis.sql ===
+
+--- Query 4.1: Customer Lifecycle Stage Classification and Baseline Census ---
+         lifecycle_stage  customer_count  customer_share_pct  stage_revenue_inr  revenue_share_pct  stage_gross_margin_inr  stage_gross_margin_pct  avg_recency_days  avg_orders_per_customer  avg_spend_per_customer_inr  avg_order_value_inr
+0  01_CORE_ACTIVE_REPEAT            8972               89.72       4.042559e+09              92.47             656443943.9                   16.24               1.4                     33.2                   450574.96             13578.12
+1       02_RECENT_ACTIVE            1013               10.13       3.240781e+08               7.41              52505175.3                   16.20               3.6                     23.7                   319919.13             13483.59
+2      03_AT_RISK_LAPSED              15                0.15       4.967440e+06               0.11                866084.4                   17.44              17.1                     24.3                   331162.67             13646.81
+
+--- Query 4.2: Longitudinal Monthly Momentum Trajectory ---
+          momentum_trajectory  customer_count  customer_share_pct  avg_aug_orders  avg_sep_orders  avg_oct_orders  avg_total_orders  total_spend_inr  avg_customer_spend_inr  avg_recency_days
+0      01_ACCELERATING_GROWTH            5132               51.32            10.3             9.8            15.2              35.3     2.457792e+09               478915.09               1.2
+1      05_SPORADIC_OCCASIONAL            3519               35.19             8.6             8.2            10.4              27.3     1.297494e+09               368710.90               1.5
+2       02_STABLE_REPEAT_CORE             737                7.37            13.2            12.7            11.4              37.3     3.732831e+08               506489.94               1.8
+3  03_DECELERATING_ENGAGEMENT             369                3.69            13.0             9.9             7.2              30.1     1.560980e+08               423029.74               3.2
+4         04_AT_RISK_INACTIVE             243                2.43             8.7             8.8             8.7              26.3     8.693710e+07               357765.86               8.9
+
+--- Query 4.3: Customer Lifecycle Migration vs Loyalty Tier Cross-Tabulation ---
+  loyalty_tier  tier_member_count  core_active_count  core_active_pct  recent_active_count  recent_active_pct  at_risk_count  at_risk_pct
+0     PLATINUM                300                271            90.33                   29               9.67              0         0.00
+1         GOLD               1200               1072            89.33                  125              10.42              3         0.25
+2       SILVER               2500               2245            89.80                  252              10.08              3         0.12
+3       BRONZE               6000               5384            89.73                  607              10.12              9         0.15
+
+--- Query 4.4: Lifecycle Cohort Basket Economics and Markdown Dependency ---
+      lifecycle_stage  customer_count  total_revenue_inr  average_order_value_inr  units_per_transaction  realized_discount_depth_pct  realized_gross_margin_pct
+0  CORE_ACTIVE_REPEAT            8972       4.042559e+09                 13578.12                   3.85                         4.65                      16.24
+1       RECENT_ACTIVE            1013       3.240781e+08                 13483.59                   3.86                         4.66                      16.20
+2   AT_RISK_OR_LAPSED              15       4.967440e+06                 13646.81                   3.83                         3.80                      17.44
+
+=== MODULE: 05_product_affinity_analysis.sql ===
+
+--- Query 5.1: Cross-Category Basket Co-Occurrence & Association Rule Mining ---
+           category_a        category_b  joint_basket_frequency  pair_support_pct  confidence_a_to_b_pct  confidence_b_to_a_pct  pair_lift_ratio
+0  Clothing & Apparel  Groceries & FMCG                  190021             41.31                  74.10                  51.98            0.932
+1    Groceries & FMCG    Home & Kitchen                  146441             31.84                  40.06                  73.22            0.921
+2         Electronics  Groceries & FMCG                  104150             22.64                  72.64                  28.49            0.914
+3  Clothing & Apparel    Home & Kitchen                   99078             21.54                  38.64                  49.54            0.889
+4  Clothing & Apparel       Electronics                   70212             15.26                  27.38                  48.97            0.878
+5         Electronics    Home & Kitchen                   53726             11.68                  37.47                  26.86            0.862
+
+--- Query 5.2: Top Associated Product Pairs by Transaction Support (Frequent Itemsets) ---
+                                                      sku_a_name        category_a                                                    sku_b_name        category_b  joint_frequency  support_pct  confidence_a_to_b_pct  confidence_b_to_a_pct  lift_ratio
+0   Northstar Groceries & FMCG Personal Care & Hygiene Item 0111  Groceries & FMCG         Northstar Groceries & FMCG Staples & Grains Item 0131  Groceries & FMCG               67       0.0146                   1.36                   1.35        1.26
+1   Northstar Groceries & FMCG Packaged Foods & Snacks Item 0407  Groceries & FMCG  Northstar Groceries & FMCG Personal Care & Hygiene Item 0415  Groceries & FMCG               66       0.0143                   1.33                   1.32        1.23
+2          Northstar Groceries & FMCG Staples & Grains Item 0147  Groceries & FMCG         Northstar Groceries & FMCG Staples & Grains Item 0451  Groceries & FMCG               66       0.0143                   1.33                   1.31        1.21
+3        Northstar Groceries & FMCG Beverages & Juices Item 0107  Groceries & FMCG         Northstar Groceries & FMCG Staples & Grains Item 0115  Groceries & FMCG               66       0.0143                   1.36                   1.33        1.26
+4        Northstar Groceries & FMCG Beverages & Juices Item 0155  Groceries & FMCG         Northstar Groceries & FMCG Staples & Grains Item 0291  Groceries & FMCG               65       0.0141                   1.30                   1.33        1.22
+5   Northstar Groceries & FMCG Packaged Foods & Snacks Item 0023  Groceries & FMCG       Northstar Groceries & FMCG Beverages & Juices Item 0459  Groceries & FMCG               65       0.0141                   1.32                   1.33        1.24
+6        Northstar Groceries & FMCG Beverages & Juices Item 0331  Groceries & FMCG       Northstar Groceries & FMCG Beverages & Juices Item 0395  Groceries & FMCG               65       0.0141                   1.30                   1.32        1.21
+7          Northstar Groceries & FMCG Staples & Grains Item 0243  Groceries & FMCG  Northstar Groceries & FMCG Personal Care & Hygiene Item 0319  Groceries & FMCG               64       0.0139                   1.31                   1.29        1.22
+8          Northstar Groceries & FMCG Staples & Grains Item 0003  Groceries & FMCG  Northstar Groceries & FMCG Packaged Foods & Snacks Item 0231  Groceries & FMCG               64       0.0139                   1.31                   1.27        1.20
+9   Northstar Groceries & FMCG Personal Care & Hygiene Item 0095  Groceries & FMCG  Northstar Groceries & FMCG Packaged Foods & Snacks Item 0215  Groceries & FMCG               64       0.0139                   1.28                   1.27        1.16
+10  Northstar Groceries & FMCG Personal Care & Hygiene Item 0367  Groceries & FMCG       Northstar Groceries & FMCG Beverages & Juices Item 0459  Groceries & FMCG               64       0.0139                   1.31                   1.31        1.23
+11  Northstar Groceries & FMCG Personal Care & Hygiene Item 0239  Groceries & FMCG  Northstar Groceries & FMCG Personal Care & Hygiene Item 0335  Groceries & FMCG               64       0.0139                   1.28                   1.30        1.19
+12         Northstar Groceries & FMCG Staples & Grains Item 0131  Groceries & FMCG       Northstar Groceries & FMCG Beverages & Juices Item 0475  Groceries & FMCG               64       0.0139                   1.29                   1.28        1.18
+13  Northstar Groceries & FMCG Personal Care & Hygiene Item 0159  Groceries & FMCG  Northstar Groceries & FMCG Packaged Foods & Snacks Item 0375  Groceries & FMCG               63       0.0137                   1.27                   1.27        1.18
+14         Northstar Groceries & FMCG Staples & Grains Item 0035  Groceries & FMCG       Northstar Groceries & FMCG Beverages & Juices Item 0219  Groceries & FMCG               63       0.0137                   1.25                   1.29        1.18
+15       Northstar Groceries & FMCG Beverages & Juices Item 0379  Groceries & FMCG         Northstar Groceries & FMCG Staples & Grains Item 0419  Groceries & FMCG               63       0.0137                   1.25                   1.27        1.16
+16  Northstar Groceries & FMCG Personal Care & Hygiene Item 0175  Groceries & FMCG  Northstar Groceries & FMCG Packaged Foods & Snacks Item 0231  Groceries & FMCG               62       0.0135                   1.26                   1.23        1.15
+17         Northstar Groceries & FMCG Staples & Grains Item 0019  Groceries & FMCG         Northstar Groceries & FMCG Staples & Grains Item 0467  Groceries & FMCG               62       0.0135                   1.26                   1.24        1.16
+18  Northstar Groceries & FMCG Personal Care & Hygiene Item 0031  Groceries & FMCG  Northstar Groceries & FMCG Packaged Foods & Snacks Item 0231  Groceries & FMCG               62       0.0135                   1.21                   1.23        1.11
+19       Northstar Groceries & FMCG Beverages & Juices Item 0107  Groceries & FMCG         Northstar Groceries & FMCG Staples & Grains Item 0499  Groceries & FMCG               62       0.0135                   1.28                   1.26        1.20
+20         Northstar Groceries & FMCG Staples & Grains Item 0227  Groceries & FMCG  Northstar Groceries & FMCG Personal Care & Hygiene Item 0271  Groceries & FMCG               62       0.0135                   1.25                   1.26        1.17
+21         Northstar Groceries & FMCG Staples & Grains Item 0227  Groceries & FMCG         Northstar Groceries & FMCG Staples & Grains Item 0323  Groceries & FMCG               62       0.0135                   1.25                   1.26        1.17
+22         Northstar Groceries & FMCG Staples & Grains Item 0195  Groceries & FMCG         Northstar Groceries & FMCG Staples & Grains Item 0339  Groceries & FMCG               62       0.0135                   1.24                   1.25        1.15
+23         Northstar Groceries & FMCG Staples & Grains Item 0051  Groceries & FMCG  Northstar Groceries & FMCG Packaged Foods & Snacks Item 0471  Groceries & FMCG               62       0.0135                   1.27                   1.25        1.17
+24       Northstar Groceries & FMCG Beverages & Juices Item 0203  Groceries & FMCG  Northstar Groceries & FMCG Packaged Foods & Snacks Item 0215  Groceries & FMCG               62       0.0135                   1.26                   1.23        1.15
+
+--- Query 5.3: High-Lift Complementary Affinity Pairs (Candidate Merchandising Bundles) ---
+                                                         sku_a_name          category_a                                                      sku_b_name          category_b  joint_frequency  support_pct  confidence_a_to_b_pct  lift_ratio           association_type
+0           Northstar Home & Kitchen Home Linen & Bedding Item 0048      Home & Kitchen  Northstar Clothing & Apparel Athleisure & Sportswear Item 0238  Clothing & Apparel               23       0.0050                   1.16        1.96    CROSS_CATEGORY_AFFINITY
+1       Northstar Home & Kitchen Small Kitchen Appliances Item 0008      Home & Kitchen       Northstar Clothing & Apparel Womens Ethnic Wear Item 0118  Clothing & Apparel               22       0.0048                   1.13        1.86    CROSS_CATEGORY_AFFINITY
+2           Northstar Home & Kitchen Home Linen & Bedding Item 0048      Home & Kitchen  Northstar Clothing & Apparel Athleisure & Sportswear Item 0398  Clothing & Apparel               22       0.0048                   1.11        1.86    CROSS_CATEGORY_AFFINITY
+3           Northstar Clothing & Apparel Mens Casual Wear Item 0130  Clothing & Apparel     Northstar Home & Kitchen Small Kitchen Appliances Item 0296      Home & Kitchen               21       0.0046                   0.78        1.86    CROSS_CATEGORY_AFFINITY
+4    Northstar Clothing & Apparel Athleisure & Sportswear Item 0254  Clothing & Apparel    Northstar Clothing & Apparel Kids & Infant Fashion Item 0298  Clothing & Apparel               31       0.0067                   1.12        1.85  INTRA_CATEGORY_COMPLEMENT
+5      Northstar Clothing & Apparel Kids & Infant Fashion Item 0218  Clothing & Apparel   Northstar Home & Kitchen Cookware & Stainless Steel Item 0228      Home & Kitchen               22       0.0048                   0.81        1.83    CROSS_CATEGORY_AFFINITY
+6       Northstar Home & Kitchen Small Kitchen Appliances Item 0120      Home & Kitchen    Northstar Clothing & Apparel Kids & Infant Fashion Item 0426  Clothing & Apparel               22       0.0048                   1.11        1.83    CROSS_CATEGORY_AFFINITY
+7       Northstar Home & Kitchen Small Kitchen Appliances Item 0392      Home & Kitchen       Northstar Clothing & Apparel Womens Ethnic Wear Item 0438  Clothing & Apparel               21       0.0046                   1.09        1.83    CROSS_CATEGORY_AFFINITY
+8      Northstar Groceries & FMCG Packaged Foods & Snacks Item 0135    Groceries & FMCG         Northstar Electronics IT Accessories & Cables Item 0253         Electronics               26       0.0057                   0.52        1.77    CROSS_CATEGORY_AFFINITY
+9      Northstar Clothing & Apparel Kids & Infant Fashion Item 0058  Clothing & Apparel     Northstar Home & Kitchen Small Kitchen Appliances Item 0424      Home & Kitchen               20       0.0043                   0.73        1.76    CROSS_CATEGORY_AFFINITY
+10    Northstar Home & Kitchen Cookware & Stainless Steel Item 0276      Home & Kitchen       Northstar Clothing & Apparel Womens Ethnic Wear Item 0278  Clothing & Apparel               20       0.0043                   1.05        1.75    CROSS_CATEGORY_AFFINITY
+11  Northstar Home & Kitchen Storage & Plastic Containers Item 0284      Home & Kitchen         Northstar Clothing & Apparel Mens Casual Wear Item 0322  Clothing & Apparel               21       0.0046                   1.04        1.74    CROSS_CATEGORY_AFFINITY
+12   Northstar Clothing & Apparel Athleisure & Sportswear Item 0110  Clothing & Apparel         Northstar Home & Kitchen Home Linen & Bedding Item 0352      Home & Kitchen               20       0.0043                   0.74        1.73    CROSS_CATEGORY_AFFINITY
+13     Northstar Clothing & Apparel Kids & Infant Fashion Item 0154  Clothing & Apparel   Northstar Home & Kitchen Cookware & Stainless Steel Item 0340      Home & Kitchen               20       0.0043                   0.72        1.71    CROSS_CATEGORY_AFFINITY
+14     Northstar Clothing & Apparel Kids & Infant Fashion Item 0250  Clothing & Apparel     Northstar Home & Kitchen Small Kitchen Appliances Item 0472      Home & Kitchen               20       0.0043                   0.73        1.71    CROSS_CATEGORY_AFFINITY
+15   Northstar Clothing & Apparel Athleisure & Sportswear Item 0014  Clothing & Apparel   Northstar Home & Kitchen Cookware & Stainless Steel Item 0468      Home & Kitchen               20       0.0043                   0.74        1.71    CROSS_CATEGORY_AFFINITY
+16               Northstar Electronics Home Entertainment Item 0089         Electronics           Northstar Groceries & FMCG Staples & Grains Item 0355    Groceries & FMCG               23       0.0050                   1.81        1.69    CROSS_CATEGORY_AFFINITY
+17   Northstar Clothing & Apparel Athleisure & Sportswear Item 0174  Clothing & Apparel   Northstar Home & Kitchen Cookware & Stainless Steel Item 0436      Home & Kitchen               20       0.0043                   0.72        1.68    CROSS_CATEGORY_AFFINITY
+18          Northstar Clothing & Apparel Mens Casual Wear Item 0402  Clothing & Apparel         Northstar Home & Kitchen Home Linen & Bedding Item 0480      Home & Kitchen               20       0.0043                   0.74        1.68    CROSS_CATEGORY_AFFINITY
+19          Northstar Electronics IT Accessories & Cables Item 0157         Electronics           Northstar Groceries & FMCG Staples & Grains Item 0499    Groceries & FMCG               24       0.0052                   1.79        1.67    CROSS_CATEGORY_AFFINITY
+20  Northstar Home & Kitchen Storage & Plastic Containers Item 0188      Home & Kitchen    Northstar Clothing & Apparel Kids & Infant Fashion Item 0442  Clothing & Apparel               20       0.0043                   1.01        1.67    CROSS_CATEGORY_AFFINITY
+21  Northstar Home & Kitchen Storage & Plastic Containers Item 0108      Home & Kitchen       Northstar Clothing & Apparel Womens Ethnic Wear Item 0486  Clothing & Apparel               20       0.0043                   1.02        1.67    CROSS_CATEGORY_AFFINITY
+22          Northstar Clothing & Apparel Mens Casual Wear Item 0226  Clothing & Apparel         Northstar Home & Kitchen Home Linen & Bedding Item 0336      Home & Kitchen               20       0.0043                   0.71        1.67    CROSS_CATEGORY_AFFINITY
+23            Northstar Groceries & FMCG Staples & Grains Item 0195    Groceries & FMCG                Northstar Electronics Mobile & Tablets Item 0353         Electronics               23       0.0050                   0.46        1.66    CROSS_CATEGORY_AFFINITY
+24          Northstar Home & Kitchen Home Linen & Bedding Item 0048      Home & Kitchen    Northstar Clothing & Apparel Kids & Infant Fashion Item 0410  Clothing & Apparel               20       0.0043                   1.01        1.66    CROSS_CATEGORY_AFFINITY
+
+--- Query 5.4: Subcategory Basket Association Matrix ---
+                      subcat_a               cat_a                      subcat_b               cat_b  joint_baskets  support_pct  confidence_a_to_b_pct  lift_ratio
+0      Personal Care & Hygiene    Groceries & FMCG              Staples & Grains    Groceries & FMCG          34616         7.53                  25.67        0.85
+1      Packaged Foods & Snacks    Groceries & FMCG              Staples & Grains    Groceries & FMCG          34608         7.52                  25.60        0.85
+2           Beverages & Juices    Groceries & FMCG              Staples & Grains    Groceries & FMCG          34361         7.47                  25.49        0.85
+3           Beverages & Juices    Groceries & FMCG       Personal Care & Hygiene    Groceries & FMCG          33777         7.34                  25.05        0.85
+4      Packaged Foods & Snacks    Groceries & FMCG       Personal Care & Hygiene    Groceries & FMCG          33775         7.34                  24.99        0.85
+5           Beverages & Juices    Groceries & FMCG       Packaged Foods & Snacks    Groceries & FMCG          33452         7.27                  24.81        0.84
+6             Mens Casual Wear  Clothing & Apparel              Staples & Grains    Groceries & FMCG          20708         4.50                  25.36        0.84
+7             Mens Casual Wear  Clothing & Apparel       Packaged Foods & Snacks    Groceries & FMCG          20293         4.41                  24.85        0.85
+8           Beverages & Juices    Groceries & FMCG              Mens Casual Wear  Clothing & Apparel          20120         4.37                  14.92        0.84
+9             Staples & Grains    Groceries & FMCG            Womens Ethnic Wear  Clothing & Apparel          20104         4.37                  14.53        0.84
+10     Athleisure & Sportswear  Clothing & Apparel              Staples & Grains    Groceries & FMCG          20092         4.37                  25.28        0.84
+11            Mens Casual Wear  Clothing & Apparel       Personal Care & Hygiene    Groceries & FMCG          20036         4.36                  24.54        0.84
+12       Kids & Infant Fashion  Clothing & Apparel              Staples & Grains    Groceries & FMCG          19814         4.31                  24.94        0.83
+13       Kids & Infant Fashion  Clothing & Apparel       Packaged Foods & Snacks    Groceries & FMCG          19737         4.29                  24.85        0.85
+14     Athleisure & Sportswear  Clothing & Apparel       Packaged Foods & Snacks    Groceries & FMCG          19692         4.28                  24.78        0.84
+15     Personal Care & Hygiene    Groceries & FMCG            Womens Ethnic Wear  Clothing & Apparel          19623         4.27                  14.55        0.84
+16     Athleisure & Sportswear  Clothing & Apparel       Personal Care & Hygiene    Groceries & FMCG          19615         4.26                  24.68        0.84
+17     Packaged Foods & Snacks    Groceries & FMCG            Womens Ethnic Wear  Clothing & Apparel          19539         4.25                  14.46        0.83
+18          Beverages & Juices    Groceries & FMCG            Womens Ethnic Wear  Clothing & Apparel          19483         4.24                  14.45        0.83
+19     Athleisure & Sportswear  Clothing & Apparel            Beverages & Juices    Groceries & FMCG          19459         4.23                  24.48        0.84
+20       Kids & Infant Fashion  Clothing & Apparel       Personal Care & Hygiene    Groceries & FMCG          19445         4.23                  24.48        0.84
+21          Beverages & Juices    Groceries & FMCG         Kids & Infant Fashion  Clothing & Apparel          19369         4.21                  14.37        0.83
+22  Cookware & Stainless Steel      Home & Kitchen              Staples & Grains    Groceries & FMCG          15065         3.28                  25.10        0.83
+23          Beverages & Juices    Groceries & FMCG    Cookware & Stainless Steel      Home & Kitchen          14806         3.22                  10.98        0.84
+24        Home Linen & Bedding      Home & Kitchen              Staples & Grains    Groceries & FMCG          14717         3.20                  25.18        0.84
+25    Small Kitchen Appliances      Home & Kitchen              Staples & Grains    Groceries & FMCG          14707         3.20                  25.24        0.84
+26  Cookware & Stainless Steel      Home & Kitchen       Packaged Foods & Snacks    Groceries & FMCG          14648         3.18                  24.41        0.83
+27            Staples & Grains    Groceries & FMCG  Storage & Plastic Containers      Home & Kitchen          14643         3.18                  10.58        0.83
+28  Cookware & Stainless Steel      Home & Kitchen       Personal Care & Hygiene    Groceries & FMCG          14618         3.18                  24.36        0.83
+29        Home Linen & Bedding      Home & Kitchen       Packaged Foods & Snacks    Groceries & FMCG          14405         3.13                  24.64        0.84
+
+=== MODULE: 06_advanced_inventory_analysis.sql ===
+
+--- Query 6.1: Enterprise Inventory Position & DOI Aging Band Census (Closing Snapshot: 2026-10-31) ---
+                    doi_health_category  store_sku_cells  cell_percentage  total_soh_units  tied_up_capital_valuation_inr  capital_share_pct  avg_days_of_inventory
+0         01_CRITICAL_STOCKOUT (0 DAYS)              297             1.98              0.0                   4.595936e+06               0.26                    0.0
+1      02_IMPENDING_STOCKOUT (< 3 DAYS)              382             2.55           2587.0                   6.333023e+07               3.55                    2.3
+2       03_HEALTHY_BUFFER (3 - 14 DAYS)             5663            37.75         113815.0                   9.356542e+08              52.41                    8.4
+3  04_ELEVATED_INVENTORY (15 - 30 DAYS)             3693            24.62         137415.0                   4.062725e+08              22.76                   20.7
+4         05_OVERSTOCKED (31 - 60 DAYS)             2610            17.40         187271.0                   2.249951e+08              12.60                   43.2
+5          06_CHRONIC_AGING (> 60 DAYS)             2355            15.70         283369.0                   1.504813e+08               8.43                  124.3
+
+--- Query 6.2: Overstocked Inventory Valuation and Capital Release Target ---
+       category_name         sku_id                                                      sku_name  stores_overstocked  total_soh_units  avg_doi_forward  total_trapped_capital_inr  excess_stock_units  excess_capital_to_release_inr  category_excess_rank
+0   Groceries & FMCG  SKU-FMCG-0395       Northstar Groceries & FMCG Beverages & Juices Item 0395                  24           3756.0            130.0                 2307344.40              2569.0                     1553259.47                     1
+1   Groceries & FMCG  SKU-FMCG-0011       Northstar Groceries & FMCG Beverages & Juices Item 0011                  28           3789.0            102.0                 2599516.92              2308.0                     1548097.98                     2
+2   Groceries & FMCG  SKU-FMCG-0431  Northstar Groceries & FMCG Personal Care & Hygiene Item 0431                  27           3847.0            104.5                 2744418.04              2148.0                     1499040.14                     3
+3   Groceries & FMCG  SKU-FMCG-0047  Northstar Groceries & FMCG Personal Care & Hygiene Item 0047                  25           3385.0            123.0                 2369641.90              2140.0                     1471571.00                     4
+4   Groceries & FMCG  SKU-FMCG-0331       Northstar Groceries & FMCG Beverages & Juices Item 0331                  23           3054.0            115.0                 2348228.61              1918.0                     1461100.68                     5
+5   Groceries & FMCG  SKU-FMCG-0283       Northstar Groceries & FMCG Beverages & Juices Item 0283                  27           3367.0            115.4                 2273262.03              2188.0                     1443246.76                     6
+6   Groceries & FMCG  SKU-FMCG-0307         Northstar Groceries & FMCG Staples & Grains Item 0307                  24           3318.0            116.7                 2246677.50              2133.0                     1430496.45                     7
+7   Groceries & FMCG  SKU-FMCG-0195         Northstar Groceries & FMCG Staples & Grains Item 0195                  28           3538.0             97.8                 2690044.35              1944.0                     1412011.24                     8
+8   Groceries & FMCG  SKU-FMCG-0059       Northstar Groceries & FMCG Beverages & Juices Item 0059                  27           3405.0             91.0                 2385986.89              2042.0                     1411917.15                     9
+9   Groceries & FMCG  SKU-FMCG-0467         Northstar Groceries & FMCG Staples & Grains Item 0467                  28           3528.0            101.0                 2585168.75              1968.0                     1403479.20                    10
+10  Groceries & FMCG  SKU-FMCG-0419         Northstar Groceries & FMCG Staples & Grains Item 0419                  30           3876.0             96.6                 2433458.74              2273.0                     1401824.47                    11
+11  Groceries & FMCG  SKU-FMCG-0319  Northstar Groceries & FMCG Personal Care & Hygiene Item 0319                  26           3535.0             86.7                 2404951.56              2071.0                     1397779.29                    12
+12  Groceries & FMCG  SKU-FMCG-0455  Northstar Groceries & FMCG Packaged Foods & Snacks Item 0455                  21           3037.0            105.2                 2224289.85              1957.0                     1387610.85                    13
+13  Groceries & FMCG  SKU-FMCG-0295  Northstar Groceries & FMCG Packaged Foods & Snacks Item 0295                  28           3552.0            101.8                 2422602.00              2009.0                     1337185.03                    14
+14  Groceries & FMCG  SKU-FMCG-0183  Northstar Groceries & FMCG Packaged Foods & Snacks Item 0183                  23           3220.0             85.6                 2366749.41              1851.0                     1335827.06                    15
+15  Groceries & FMCG  SKU-FMCG-0259         Northstar Groceries & FMCG Staples & Grains Item 0259                  26           3589.0            108.6                 2102894.64              2213.0                     1273059.81                    16
+16  Groceries & FMCG  SKU-FMCG-0159  Northstar Groceries & FMCG Personal Care & Hygiene Item 0159                  27           3502.0             96.6                 2296309.54              1968.0                     1246133.78                    17
+17  Groceries & FMCG  SKU-FMCG-0211         Northstar Groceries & FMCG Staples & Grains Item 0211                  26           3702.0            117.5                 2089959.69              2290.0                     1244010.69                    18
+18  Groceries & FMCG  SKU-FMCG-0171       Northstar Groceries & FMCG Beverages & Juices Item 0171                  24           3016.0             98.5                 2243044.44              1737.0                     1243782.67                    19
+19  Groceries & FMCG  SKU-FMCG-0323         Northstar Groceries & FMCG Staples & Grains Item 0323                  28           3706.0            142.6                 1848770.30              2487.0                     1219459.82                    20
+20  Groceries & FMCG  SKU-FMCG-0443       Northstar Groceries & FMCG Beverages & Juices Item 0443                  26           3575.0             77.6                 2605466.99              1728.0                     1216394.15                    21
+21  Groceries & FMCG  SKU-FMCG-0495  Northstar Groceries & FMCG Personal Care & Hygiene Item 0495                  25           3411.0            104.0                 1901493.75              2138.0                     1162615.18                    22
+22  Groceries & FMCG  SKU-FMCG-0235       Northstar Groceries & FMCG Beverages & Juices Item 0235                  29           3399.0            106.4                 1951118.55              2062.0                     1157011.14                    23
+23  Groceries & FMCG  SKU-FMCG-0135  Northstar Groceries & FMCG Packaged Foods & Snacks Item 0135                  22           2899.0            105.0                 1871748.45              1759.0                     1094185.95                    24
+24  Groceries & FMCG  SKU-FMCG-0051         Northstar Groceries & FMCG Staples & Grains Item 0051                  27           3515.0            107.9                 1807402.87              2167.0                     1078738.70                    25
+25  Groceries & FMCG  SKU-FMCG-0123       Northstar Groceries & FMCG Beverages & Juices Item 0123                  27           3289.0             84.1                 2073746.28              1723.0                     1059364.20                    26
+26       Electronics  SKU-ELEC-0309             Northstar Electronics Audio & Wearables Item 0309                   6            128.0             41.0                 5391459.00                29.0                     1057752.91                     1
+27  Groceries & FMCG  SKU-FMCG-0359  Northstar Groceries & FMCG Packaged Foods & Snacks Item 0359                  25           3612.0            113.7                 1907027.92              2043.0                     1056636.48                    27
+28  Groceries & FMCG  SKU-FMCG-0147         Northstar Groceries & FMCG Staples & Grains Item 0147                  22           2949.0             85.8                 1899525.60              1661.0                     1043446.89                    28
+29       Electronics  SKU-ELEC-0213             Northstar Electronics Audio & Wearables Item 0213                   4             90.0             53.5                 2909479.23                39.0                     1029566.70                     2
+
+--- Query 6.3: Slow-Moving Merchandise (High SOH with Near-Zero Forward Velocity) ---
+Empty DataFrame
+Columns: [category_name, sku_id, sku_name, standard_cost_price, network_soh_units, trailing_14d_velocity_units, inventory_valuation_inr, stores_with_zero_sales]
+Index: []
+
+--- Query 6.4: Store Inventory Efficiency & Working Capital Productivity ---
+      store_id                          store_name        city store_tier  carpet_area_sqft  total_soh_units  closing_inventory_val_cost_inr  total_period_sales_inr  sales_to_inventory_ratio  gmroi_ratio  stockout_sku_count  stockout_rate_pct  productivity_rank
+0   STR-TS-001    Northstar Banjara Hills Flagship   Hyderabad     TIER_1           30000.0          24219.0                     54052580.27            2.378925e+08                      4.40         0.72                  12                2.4                  1
+1   STR-TN-001       Northstar Anna Nagar Flagship     Chennai     TIER_1           32000.0          24778.0                     56888191.72            2.401266e+08                      4.22         0.69                  13                2.6                  2
+2   STR-TN-002           Northstar T Nagar Express     Chennai     TIER_1           24000.0          23274.0                     56877981.86            2.374302e+08                      4.17         0.67                  12                2.4                  3
+3   STR-MH-001      Northstar Bandra West Flagship      Mumbai     TIER_1           42000.0          23970.0                     57235918.15            2.371192e+08                      4.14         0.67                  14                2.8                  4
+4   STR-TS-002       Northstar Hitec City Galleria   Hyderabad     TIER_1           26000.0          24783.0                     58447144.52            2.402661e+08                      4.11         0.66                   6                1.2                  5
+5   STR-TS-003     Northstar Jubilee Hills Central   Hyderabad     TIER_1           22000.0          24158.0                     59373494.57            2.400531e+08                      4.04         0.66                  11                2.2                  6
+6   STR-MH-002     Northstar Lower Parel Palladium      Mumbai     TIER_1           38000.0          23458.0                     59005749.52            2.379254e+08                      4.03         0.65                  15                3.0                  7
+7   STR-GJ-001       Northstar SG Highway Flagship   Ahmedabad     TIER_1           28000.0          24265.0                     59831044.25            2.392060e+08                      4.00         0.65                  14                2.8                  8
+8   STR-GJ-002        Northstar CG Road Retail Hub   Ahmedabad     TIER_1           22000.0          23767.0                     60583709.60            2.361071e+08                      3.90         0.63                   7                1.4                  9
+9   STR-KA-003       Northstar Whitefield Tech Hub   Bengaluru     TIER_1           22000.0          24785.0                     61469731.33            2.393418e+08                      3.89         0.63                   9                1.8                 10
+10  STR-MH-003       Northstar Andheri Lokhandwala      Mumbai     TIER_1           26000.0          23735.0                     62378607.63            2.425325e+08                      3.89         0.63                   9                1.8                 11
+11  STR-MH-006              Northstar Pune FC Road        Pune     TIER_1           22000.0          24550.0                     61590053.64            2.382617e+08                      3.87         0.63                  13                2.6                 12
+12  STR-KA-002          Northstar Koramangala Mall   Bengaluru     TIER_1           25000.0          24440.0                     61545142.93            2.353963e+08                      3.82         0.62                   9                1.8                 13
+13  STR-KA-001      Northstar Indiranagar Flagship   Bengaluru     TIER_1           35000.0          24262.0                     62461444.51            2.379623e+08                      3.81         0.62                   2                0.4                 14
+14  STR-KA-005      Northstar Malleshwaram Central   Bengaluru     TIER_2           16500.0          23128.0                     56908962.18            1.909398e+08                      3.36         0.54                  13                2.6                 15
+15  STR-TN-005   Northstar Coimbatore Brookefields  Coimbatore     TIER_2           16000.0          23385.0                     57284059.36            1.921881e+08                      3.36         0.54                  14                2.8                 16
+16  STR-MH-005             Northstar Thane Viviana       Thane     TIER_2           24000.0          25640.0                     58432654.06            1.919375e+08                      3.28         0.53                   8                1.6                 17
+17  STR-KA-006        Northstar HSR Layout Express   Bengaluru     TIER_2           12000.0          23370.0                     58655860.97            1.905905e+08                      3.25         0.53                   9                1.8                 18
+18  STR-MH-007          Northstar Pune Viman Nagar        Pune     TIER_2           18000.0          23644.0                     57953042.80            1.867286e+08                      3.22         0.53                  12                2.4                 19
+19  STR-TN-004           Northstar OMR IT Corridor     Chennai     TIER_2           17000.0          23839.0                     58922769.26            1.894499e+08                      3.22         0.53                   9                1.8                 20
+20  STR-GJ-004          Northstar Surat Dumas Road       Surat     TIER_2           18000.0          24194.0                     60660372.65            1.932036e+08                      3.19         0.51                  15                3.0                 21
+21  STR-GJ-003       Northstar Vastrapur Lake Mall   Ahmedabad     TIER_2           17000.0          23732.0                     59474192.55            1.884724e+08                      3.17         0.52                  10                2.0                 22
+22  STR-KA-004     Northstar Jayanagar High Street   Bengaluru     TIER_2           18000.0          24274.0                     60591746.07            1.910636e+08                      3.15         0.52                  13                2.6                 23
+23  STR-TN-003      Northstar Velachery Grand Mall     Chennai     TIER_2           20000.0          24428.0                     60224793.16            1.894393e+08                      3.15         0.51                   6                1.2                 24
+24  STR-MH-004         Northstar Powai Hiranandani      Mumbai     TIER_2           20000.0          23661.0                     61718449.76            1.918911e+08                      3.11         0.50                   6                1.2                 25
+25  STR-KA-007      Northstar Mysuru Heritage Mall      Mysuru     TIER_2           15000.0          24639.0                     62878202.44            1.918297e+08                      3.05         0.49                  11                2.2                 26
+26  STR-TS-004  Northstar Secunderabad Clock Tower   Hyderabad     TIER_2           15000.0          24693.0                     64574192.25            1.933139e+08                      2.99         0.48                   8                1.6                 27
+27  STR-TN-006          Northstar Madurai KK Nagar     Madurai     TIER_3           11000.0          24684.0                     56136736.95            1.439872e+08                      2.56         0.42                   2                0.4                 28
+28  STR-KA-008         Northstar Hubballi Junction    Hubballi     TIER_3           10000.0          23774.0                     59040109.60            1.407440e+08                      2.38         0.39                   9                1.8                 29
+29  STR-MH-008        Northstar Nagpur Civil Lines      Nagpur     TIER_3           14000.0          24928.0                     60132272.06            1.402016e+08                      2.33         0.38                   6                1.2                 30
+
+--- Query 6.5: SKU Inventory Capital Concentration (Pareto Analysis of Tied-Up Working Capital) ---
+    capital_rank         sku_id                                                       sku_name     category_name  total_soh_units  sku_valuation_cost_inr  valuation_share_pct  cumulative_capital_share_pct capital_concentration_tier
+0              1  SKU-ELEC-0313             Northstar Electronics Home Entertainment Item 0313       Electronics            476.0             24441060.51                1.369                          1.37   CAPITAL_TIER_A (Top 70%)
+1              2  SKU-ELEC-0317        Northstar Electronics IT Accessories & Cables Item 0317       Electronics            407.0             21666111.67                1.214                          2.58   CAPITAL_TIER_A (Top 70%)
+2              3  SKU-ELEC-0293              Northstar Electronics Audio & Wearables Item 0293       Electronics            490.0             20830910.25                1.167                          3.75   CAPITAL_TIER_A (Top 70%)
+3              4  SKU-ELEC-0305               Northstar Electronics Mobile & Tablets Item 0305       Electronics            436.0             20603660.00                1.154                          4.90   CAPITAL_TIER_A (Top 70%)
+4              5  SKU-ELEC-0297             Northstar Electronics Home Entertainment Item 0297       Electronics            484.0             20169717.12                1.130                          6.03   CAPITAL_TIER_A (Top 70%)
+5              6  SKU-ELEC-0281             Northstar Electronics Home Entertainment Item 0281       Electronics            435.0             19614128.83                1.099                          7.13   CAPITAL_TIER_A (Top 70%)
+6              7  SKU-ELEC-0289               Northstar Electronics Mobile & Tablets Item 0289       Electronics            458.0             19375349.50                1.085                          8.22   CAPITAL_TIER_A (Top 70%)
+7              8  SKU-ELEC-0253        Northstar Electronics IT Accessories & Cables Item 0253       Electronics            485.0             18750201.72                1.050                          9.27   CAPITAL_TIER_A (Top 70%)
+8              9  SKU-ELEC-0301        Northstar Electronics IT Accessories & Cables Item 0301       Electronics            420.0             18485461.98                1.035                         10.30   CAPITAL_TIER_A (Top 70%)
+9             10  SKU-ELEC-0309              Northstar Electronics Audio & Wearables Item 0309       Electronics            413.0             18438789.78                1.033                         11.34   CAPITAL_TIER_A (Top 70%)
+10            11  SKU-ELEC-0261              Northstar Electronics Audio & Wearables Item 0261       Electronics            458.0             18270460.23                1.023                         12.36   CAPITAL_TIER_A (Top 70%)
+11            12  SKU-ELEC-0221        Northstar Electronics IT Accessories & Cables Item 0221       Electronics            464.0             17789082.37                0.996                         13.36   CAPITAL_TIER_A (Top 70%)
+12            13  SKU-ELEC-0233             Northstar Electronics Home Entertainment Item 0233       Electronics            473.0             17329456.92                0.971                         14.33   CAPITAL_TIER_A (Top 70%)
+13            14  SKU-ELEC-0249             Northstar Electronics Home Entertainment Item 0249       Electronics            455.0             16908340.14                0.947                         15.27   CAPITAL_TIER_A (Top 70%)
+14            15  SKU-ELEC-0285        Northstar Electronics IT Accessories & Cables Item 0285       Electronics            412.0             16680213.00                0.934                         16.21   CAPITAL_TIER_A (Top 70%)
+15           490  SKU-HOME-0168    Northstar Home & Kitchen Small Kitchen Appliances Item 0168    Home & Kitchen            706.0               256758.40                0.014                         99.89  CAPITAL_TIER_C (Tail 10%)
+16           491  SKU-HOME-0500  Northstar Home & Kitchen Cookware & Stainless Steel Item 0500    Home & Kitchen            785.0               253093.68                0.014                         99.90  CAPITAL_TIER_C (Tail 10%)
+17           492  SKU-HOME-0084  Northstar Home & Kitchen Cookware & Stainless Steel Item 0084    Home & Kitchen            754.0               247423.44                0.014                         99.91  CAPITAL_TIER_C (Tail 10%)
+18           493  SKU-FMCG-0355          Northstar Groceries & FMCG Staples & Grains Item 0355  Groceries & FMCG           3570.0               236988.00                0.013                         99.93  CAPITAL_TIER_C (Tail 10%)
+19           494  SKU-HOME-0292  Northstar Home & Kitchen Cookware & Stainless Steel Item 0292    Home & Kitchen            704.0               236681.90                0.013                         99.94  CAPITAL_TIER_C (Tail 10%)
+20           495  SKU-FMCG-0219        Northstar Groceries & FMCG Beverages & Juices Item 0219  Groceries & FMCG           3729.0               232968.55                0.013                         99.95  CAPITAL_TIER_C (Tail 10%)
+21           496  SKU-FMCG-0083          Northstar Groceries & FMCG Staples & Grains Item 0083  Groceries & FMCG           3465.0               225714.68                0.013                         99.97  CAPITAL_TIER_C (Tail 10%)
+22           497  SKU-FMCG-0479   Northstar Groceries & FMCG Personal Care & Hygiene Item 0479  Groceries & FMCG           3543.0               160387.54                0.009                         99.97  CAPITAL_TIER_C (Tail 10%)
+23           498  SKU-FMCG-0343   Northstar Groceries & FMCG Packaged Foods & Snacks Item 0343  Groceries & FMCG           3364.0               158229.54                0.009                         99.98  CAPITAL_TIER_C (Tail 10%)
+24           499  SKU-FMCG-0207   Northstar Groceries & FMCG Personal Care & Hygiene Item 0207  Groceries & FMCG           3417.0               147774.20                0.008                         99.99  CAPITAL_TIER_C (Tail 10%)
+25           500  SKU-FMCG-0071   Northstar Groceries & FMCG Packaged Foods & Snacks Item 0071  Groceries & FMCG           3285.0               145204.15                0.008                        100.00  CAPITAL_TIER_C (Tail 10%)
+
+=== MODULE: 07_store_benchmarking.sql ===
+
+--- Query 7.1: Comprehensive Store Operational & Financial Matrix by Comparable Tier ---
+   store_tier    store_id                          store_name        city        state  carpet_area_sqft  total_invoices  total_units_sold  total_net_invoiced_inr  total_gross_margin_inr  gross_margin_pct   atv_inr  units_per_transaction  discount_rate_pct  sales_density_sqft_inr  return_line_rate_pct  sales_to_inventory_ratio
+0      TIER_1  STR-TS-003     Northstar Jubilee Hills Central   Hyderabad    Telangana           22000.0           17541           67541.0            2.400531e+08             39255820.04             19.12  13685.26                   3.85               4.50                10911.50                  2.51                      4.04
+1      TIER_1  STR-KA-003       Northstar Whitefield Tech Hub   Bengaluru    Karnataka           22000.0           17559           67915.0            2.393418e+08             38699425.93             18.90  13630.72                   3.87               4.64                10879.17                  2.47                      3.89
+2      TIER_1  STR-MH-006              Northstar Pune FC Road        Pune  Maharashtra           22000.0           17549           67591.0            2.382617e+08             38714731.56             18.98  13576.94                   3.85               4.59                10830.08                  2.46                      3.87
+3      TIER_1  STR-GJ-002        Northstar CG Road Retail Hub   Ahmedabad      Gujarat           22000.0           17544           67502.0            2.361071e+08             38049869.28             18.84  13458.00                   3.85               4.70                10732.14                  2.51                      3.90
+4      TIER_1  STR-TN-002           Northstar T Nagar Express     Chennai   Tamil Nadu           24000.0           17541           67572.0            2.374302e+08             38172312.73             18.79  13535.73                   3.85               4.79                 9892.93                  2.50                      4.17
+5      TIER_1  STR-KA-002          Northstar Koramangala Mall   Bengaluru    Karnataka           25000.0           17559           67467.0            2.353963e+08             38314220.01             19.03  13406.02                   3.84               4.62                 9415.85                  2.46                      3.82
+6      TIER_1  STR-MH-003       Northstar Andheri Lokhandwala      Mumbai  Maharashtra           26000.0           17549           67785.0            2.425325e+08             39536839.08             19.06  13820.31                   3.86               4.52                 9328.17                  2.39                      3.89
+7      TIER_1  STR-TS-002       Northstar Hitec City Galleria   Hyderabad    Telangana           26000.0           17541           67668.0            2.402661e+08             38774223.89             18.86  13697.40                   3.86               4.70                 9241.00                  2.47                      4.11
+8      TIER_1  STR-GJ-001       Northstar SG Highway Flagship   Ahmedabad      Gujarat           28000.0           17559           67460.0            2.392060e+08             38846825.90             18.99  13622.99                   3.84               4.59                 8543.07                  2.51                      4.00
+9      TIER_1  STR-TS-001    Northstar Banjara Hills Flagship   Hyderabad    Telangana           30000.0           17557           67719.0            2.378925e+08             39034440.29             19.18  13549.72                   3.86               4.50                 7929.75                  2.43                      4.40
+10     TIER_1  STR-TN-001       Northstar Anna Nagar Flagship     Chennai   Tamil Nadu           32000.0           17559           67941.0            2.401266e+08             39289079.43             19.12  13675.41                   3.87               4.55                 7503.96                  2.52                      4.22
+11     TIER_1  STR-KA-001      Northstar Indiranagar Flagship   Bengaluru    Karnataka           35000.0           17523           67411.0            2.379623e+08             38893385.83             19.11  13580.00                   3.85               4.59                 6798.92                  2.49                      3.81
+12     TIER_1  STR-MH-002     Northstar Lower Parel Palladium      Mumbai  Maharashtra           38000.0           17567           67607.0            2.379254e+08             38413000.44             18.87  13543.88                   3.85               4.73                 6261.19                  2.56                      4.03
+13     TIER_1  STR-MH-001      Northstar Bandra West Flagship      Mumbai  Maharashtra           42000.0           17523           67451.0            2.371192e+08             38416885.86             18.93  13531.89                   3.85               4.65                 5645.70                  2.53                      4.14
+14     TIER_2  STR-KA-006        Northstar HSR Layout Express   Bengaluru    Karnataka           12000.0           14058           54235.0            1.905905e+08             30840713.29             18.90  13557.44                   3.86               4.81                15882.54                  2.51                      3.25
+15     TIER_2  STR-TS-004  Northstar Secunderabad Clock Tower   Hyderabad    Telangana           15000.0           14058           54097.0            1.933139e+08             31163274.60             18.84  13751.16                   3.85               4.59                12887.59                  2.51                      2.99
+16     TIER_2  STR-KA-007      Northstar Mysuru Heritage Mall      Mysuru    Karnataka           15000.0           14058           54131.0            1.918297e+08             30956950.04             18.87  13645.59                   3.85               4.60                12788.65                  2.51                      3.05
+17     TIER_2  STR-TN-005   Northstar Coimbatore Brookefields  Coimbatore   Tamil Nadu           16000.0           14058           54415.0            1.921881e+08             31189151.41             18.97  13671.09                   3.87               4.57                12011.76                  2.52                      3.36
+18     TIER_2  STR-KA-005      Northstar Malleshwaram Central   Bengaluru    Karnataka           16500.0           14058           53862.0            1.909398e+08             30954832.79             18.94  13582.29                   3.83               4.71                11572.11                  2.57                      3.36
+19     TIER_2  STR-TN-004           Northstar OMR IT Corridor     Chennai   Tamil Nadu           17000.0           14058           53888.0            1.894499e+08             31257595.26             19.27  13476.31                   3.83               4.40                11144.11                  2.52                      3.22
+20     TIER_2  STR-GJ-003       Northstar Vastrapur Lake Mall   Ahmedabad      Gujarat           17000.0           14058           53960.0            1.884724e+08             30733352.35             19.06  13406.77                   3.84               4.70                11086.61                  2.53                      3.17
+21     TIER_2  STR-GJ-004          Northstar Surat Dumas Road       Surat      Gujarat           18000.0           14058           54335.0            1.932036e+08             31118940.13             18.83  13743.32                   3.87               4.68                10733.53                  2.48                      3.19
+22     TIER_2  STR-KA-004     Northstar Jayanagar High Street   Bengaluru    Karnataka           18000.0           14058           54048.0            1.910636e+08             31219928.49             19.10  13591.09                   3.84               4.45                10614.64                  2.54                      3.15
+23     TIER_2  STR-MH-007          Northstar Pune Viman Nagar        Pune  Maharashtra           18000.0           14058           54298.0            1.867286e+08             30764982.12             19.23  13282.73                   3.86               4.50                10373.81                  2.52                      3.22
+24     TIER_2  STR-MH-004         Northstar Powai Hiranandani      Mumbai  Maharashtra           20000.0           14058           54339.0            1.918911e+08             30707930.34             18.71  13649.96                   3.87               4.81                 9594.56                  2.52                      3.11
+25     TIER_2  STR-TN-003      Northstar Velachery Grand Mall     Chennai   Tamil Nadu           20000.0           14058           54087.0            1.894393e+08             30512613.70             18.82  13475.55                   3.85               4.86                 9471.96                  2.53                      3.15
+26     TIER_2  STR-MH-005             Northstar Thane Viviana       Thane  Maharashtra           24000.0           14058           54212.0            1.919375e+08             31072754.89             18.92  13653.26                   3.86               4.57                 7997.40                  2.44                      3.28
+27     TIER_3  STR-KA-008         Northstar Hubballi Junction    Hubballi    Karnataka           10000.0           10525           40972.0            1.407440e+08             23109019.94             19.17  13372.35                   3.89               4.73                14074.40                  2.56                      2.38
+28     TIER_3  STR-TN-006          Northstar Madurai KK Nagar     Madurai   Tamil Nadu           11000.0           10525           40705.0            1.439872e+08             23370105.56             18.98  13680.49                   3.87               4.57                13089.74                  2.52                      2.56
+29     TIER_3  STR-MH-008        Northstar Nagpur Civil Lines      Nagpur  Maharashtra           14000.0           10525           40746.0            1.402016e+08             22668584.92             18.88  13320.82                   3.87               4.91                10014.40                  2.43                      2.33
+
+--- Query 7.2: Intra-Peer Percentile Benchmarking (Outperformers vs Laggards within Tier) ---
+   store_tier    store_id                          store_name        city  carpet_area_sqft  net_sales_inr  sales_density_sqft_inr  margin_pct  density_percentile_in_tier  margin_percentile_in_tier        peer_benchmark_status
+0      TIER_1  STR-TS-003     Northstar Jubilee Hills Central   Hyderabad           22000.0   2.400531e+08                10911.50       19.12                       100.0                       84.6     PEER_LEADER_OUTPERFORMER
+1      TIER_1  STR-KA-003       Northstar Whitefield Tech Hub   Bengaluru           22000.0   2.393418e+08                10879.17       18.90                        92.3                       30.8            CORE_PEER_AVERAGE
+2      TIER_1  STR-MH-006              Northstar Pune FC Road        Pune           22000.0   2.382617e+08                10830.08       18.98                        84.6                       46.2            CORE_PEER_AVERAGE
+3      TIER_1  STR-GJ-002        Northstar CG Road Retail Hub   Ahmedabad           22000.0   2.361071e+08                10732.14       18.84                        76.9                        7.7            CORE_PEER_AVERAGE
+4      TIER_1  STR-TN-002           Northstar T Nagar Express     Chennai           24000.0   2.374302e+08                 9892.93       18.79                        69.2                        0.0            CORE_PEER_AVERAGE
+5      TIER_1  STR-KA-002          Northstar Koramangala Mall   Bengaluru           25000.0   2.353963e+08                 9415.85       19.03                        61.5                       61.5            CORE_PEER_AVERAGE
+6      TIER_1  STR-MH-003       Northstar Andheri Lokhandwala      Mumbai           26000.0   2.425325e+08                 9328.17       19.06                        53.8                       69.2            CORE_PEER_AVERAGE
+7      TIER_1  STR-TS-002       Northstar Hitec City Galleria   Hyderabad           26000.0   2.402661e+08                 9241.00       18.86                        46.2                       15.4            CORE_PEER_AVERAGE
+8      TIER_1  STR-GJ-001       Northstar SG Highway Flagship   Ahmedabad           28000.0   2.392060e+08                 8543.07       18.99                        38.5                       53.8            CORE_PEER_AVERAGE
+9      TIER_1  STR-TS-001    Northstar Banjara Hills Flagship   Hyderabad           30000.0   2.378925e+08                 7929.75       19.18                        30.8                      100.0            CORE_PEER_AVERAGE
+10     TIER_1  STR-TN-001       Northstar Anna Nagar Flagship     Chennai           32000.0   2.401266e+08                 7503.96       19.12                        23.1                       84.6            CORE_PEER_AVERAGE
+11     TIER_1  STR-KA-001      Northstar Indiranagar Flagship   Bengaluru           35000.0   2.379623e+08                 6798.92       19.11                        15.4                       76.9            CORE_PEER_AVERAGE
+12     TIER_1  STR-MH-002     Northstar Lower Parel Palladium      Mumbai           38000.0   2.379254e+08                 6261.19       18.87                         7.7                       23.1  PEER_LAGGARD_UNDERPERFORMER
+13     TIER_1  STR-MH-001      Northstar Bandra West Flagship      Mumbai           42000.0   2.371192e+08                 5645.70       18.93                         0.0                       38.5  PEER_LAGGARD_UNDERPERFORMER
+14     TIER_2  STR-KA-006        Northstar HSR Layout Express   Bengaluru           12000.0   1.905905e+08                15882.54       18.90                       100.0                       41.7            CORE_PEER_AVERAGE
+15     TIER_2  STR-TS-004  Northstar Secunderabad Clock Tower   Hyderabad           15000.0   1.933139e+08                12887.59       18.84                        91.7                       25.0            CORE_PEER_AVERAGE
+16     TIER_2  STR-KA-007      Northstar Mysuru Heritage Mall      Mysuru           15000.0   1.918297e+08                12788.65       18.87                        83.3                       33.3            CORE_PEER_AVERAGE
+17     TIER_2  STR-TN-005   Northstar Coimbatore Brookefields  Coimbatore           16000.0   1.921881e+08                12011.76       18.97                        75.0                       66.7     PEER_LEADER_OUTPERFORMER
+18     TIER_2  STR-KA-005      Northstar Malleshwaram Central   Bengaluru           16500.0   1.909398e+08                11572.11       18.94                        66.7                       58.3            CORE_PEER_AVERAGE
+19     TIER_2  STR-TN-004           Northstar OMR IT Corridor     Chennai           17000.0   1.894499e+08                11144.11       19.27                        58.3                      100.0            CORE_PEER_AVERAGE
+20     TIER_2  STR-GJ-003       Northstar Vastrapur Lake Mall   Ahmedabad           17000.0   1.884724e+08                11086.61       19.06                        50.0                       75.0            CORE_PEER_AVERAGE
+21     TIER_2  STR-GJ-004          Northstar Surat Dumas Road       Surat           18000.0   1.932036e+08                10733.53       18.83                        41.7                       16.7            CORE_PEER_AVERAGE
+22     TIER_2  STR-KA-004     Northstar Jayanagar High Street   Bengaluru           18000.0   1.910636e+08                10614.64       19.10                        33.3                       83.3            CORE_PEER_AVERAGE
+23     TIER_2  STR-MH-007          Northstar Pune Viman Nagar        Pune           18000.0   1.867286e+08                10373.81       19.23                        25.0                       91.7            CORE_PEER_AVERAGE
+24     TIER_2  STR-MH-004         Northstar Powai Hiranandani      Mumbai           20000.0   1.918911e+08                 9594.56       18.71                        16.7                        0.0  PEER_LAGGARD_UNDERPERFORMER
+25     TIER_2  STR-TN-003      Northstar Velachery Grand Mall     Chennai           20000.0   1.894393e+08                 9471.96       18.82                         8.3                        8.3  PEER_LAGGARD_UNDERPERFORMER
+26     TIER_2  STR-MH-005             Northstar Thane Viviana       Thane           24000.0   1.919375e+08                 7997.40       18.92                         0.0                       50.0  PEER_LAGGARD_UNDERPERFORMER
+27     TIER_3  STR-KA-008         Northstar Hubballi Junction    Hubballi           10000.0   1.407440e+08                14074.40       19.17                       100.0                      100.0     PEER_LEADER_OUTPERFORMER
+28     TIER_3  STR-TN-006          Northstar Madurai KK Nagar     Madurai           11000.0   1.439872e+08                13089.74       18.98                        50.0                       50.0            CORE_PEER_AVERAGE
+29     TIER_3  STR-MH-008        Northstar Nagpur Civil Lines      Nagpur           14000.0   1.402016e+08                10014.40       18.88                         0.0                        0.0  PEER_LAGGARD_UNDERPERFORMER
+
+--- Query 7.3: Composite Operational Efficiency Index (COEI) ---
+      store_id                          store_name        city store_tier  sales_density_sqft_inr  gross_margin_pct  return_rate_pct  sales_to_inventory_ratio  composite_efficiency_score  enterprise_efficiency_rank
+0   STR-TS-003     Northstar Jubilee Hills Central   Hyderabad     TIER_1                10911.50             19.12             2.51                      4.04                        75.2                           1
+1   STR-TN-004           Northstar OMR IT Corridor     Chennai     TIER_2                11144.11             19.27             2.52                      3.22                        71.4                           2
+2   STR-KA-008         Northstar Hubballi Junction    Hubballi     TIER_3                14074.40             19.17             2.56                      2.38                        66.9                           3
+3   STR-KA-006        Northstar HSR Layout Express   Bengaluru     TIER_2                15882.54             18.90             2.51                      3.25                        64.8                           4
+4   STR-TS-001    Northstar Banjara Hills Flagship   Hyderabad     TIER_1                 7929.75             19.18             2.43                      4.40                        63.1                           5
+5   STR-MH-006              Northstar Pune FC Road        Pune     TIER_1                10830.08             18.98             2.46                      3.87                        62.4                           6
+6   STR-TN-005   Northstar Coimbatore Brookefields  Coimbatore     TIER_2                12011.76             18.97             2.52                      3.36                        62.4                           7
+7   STR-MH-007          Northstar Pune Viman Nagar        Pune     TIER_2                10373.81             19.23             2.52                      3.22                        59.3                           8
+8   STR-TN-006          Northstar Madurai KK Nagar     Madurai     TIER_3                13089.74             18.98             2.52                      2.56                        59.3                           9
+9   STR-KA-003       Northstar Whitefield Tech Hub   Bengaluru     TIER_1                10879.17             18.90             2.47                      3.89                        57.6                          10
+10  STR-GJ-003       Northstar Vastrapur Lake Mall   Ahmedabad     TIER_2                11086.61             19.06             2.53                      3.17                        57.2                          11
+11  STR-KA-005      Northstar Malleshwaram Central   Bengaluru     TIER_2                11572.11             18.94             2.57                      3.36                        55.9                          12
+12  STR-MH-003       Northstar Andheri Lokhandwala      Mumbai     TIER_1                 9328.17             19.06             2.39                      3.89                        54.8                          13
+13  STR-TN-001       Northstar Anna Nagar Flagship     Chennai     TIER_1                 7503.96             19.12             2.52                      4.22                        52.4                          14
+14  STR-KA-002          Northstar Koramangala Mall   Bengaluru     TIER_1                 9415.85             19.03             2.46                      3.82                        52.4                          15
+15  STR-KA-007      Northstar Mysuru Heritage Mall      Mysuru     TIER_2                12788.65             18.87             2.51                      3.05                        50.7                          16
+16  STR-KA-004     Northstar Jayanagar High Street   Bengaluru     TIER_2                10614.64             19.10             2.54                      3.15                        48.6                          17
+17  STR-TS-004  Northstar Secunderabad Clock Tower   Hyderabad     TIER_2                12887.59             18.84             2.51                      2.99                        48.3                          18
+18  STR-GJ-001       Northstar SG Highway Flagship   Ahmedabad     TIER_1                 8543.07             18.99             2.51                      4.00                        48.3                          19
+19  STR-GJ-002        Northstar CG Road Retail Hub   Ahmedabad     TIER_1                10732.14             18.84             2.51                      3.90                        46.9                          20
+20  STR-KA-001      Northstar Indiranagar Flagship   Bengaluru     TIER_1                 6798.92             19.11             2.49                      3.81                        44.5                          21
+21  STR-TN-002           Northstar T Nagar Express     Chennai     TIER_1                 9892.93             18.79             2.50                      4.17                        42.8                          22
+22  STR-TS-002       Northstar Hitec City Galleria   Hyderabad     TIER_1                 9241.00             18.86             2.47                      4.11                        41.0                          23
+23  STR-GJ-004          Northstar Surat Dumas Road       Surat     TIER_2                10733.53             18.83             2.48                      3.19                        40.0                          24
+24  STR-MH-005             Northstar Thane Viviana       Thane     TIER_2                 7997.40             18.92             2.44                      3.28                        37.2                          25
+25  STR-MH-008        Northstar Nagpur Civil Lines      Nagpur     TIER_3                10014.40             18.88             2.43                      2.33                        36.9                          26
+26  STR-MH-001      Northstar Bandra West Flagship      Mumbai     TIER_1                 5645.70             18.93             2.53                      4.14                        33.4                          27
+27  STR-MH-002     Northstar Lower Parel Palladium      Mumbai     TIER_1                 6261.19             18.87             2.56                      4.03                        25.2                          28
+28  STR-MH-004         Northstar Powai Hiranandani      Mumbai     TIER_2                 9594.56             18.71             2.52                      3.11                        22.8                          29
+29  STR-TN-003      Northstar Velachery Grand Mall     Chennai     TIER_2                 9471.96             18.82             2.53                      3.15                        22.1                          30
+
+=== MODULE: 08_discount_effectiveness.sql ===
+
+--- Query 8.1: Enterprise Discount Depth Band Performance & Margin Dilution Matrix ---
+            discount_depth_band  line_items_count  line_item_share_pct  total_units_sold  conceded_discounts_inr  net_invoiced_sales_inr  revenue_share_pct  gross_margin_inr  realized_gross_margin_pct  effective_markdown_depth_pct
+0            01_FULL_PRICE (0%)           1121430                81.26         1421419.0            0.000000e+00            5.375807e+09              86.07      1.043241e+09                      22.68                          0.00
+1        02_LOW (0.01% - 5.00%)              9290                 0.67           10193.0            2.765250e+06            1.983439e+08               3.18      2.564955e+07                      15.50                          1.64
+2  03_MODERATE (5.01% - 10.00%)             20769                 1.51           24606.0            6.928048e+06            8.752491e+07               1.40      1.862113e+07                      24.32                          8.30
+3     04_HIGH (10.01% - 20.00%)             77653                 5.63          101179.0            5.446794e+07            2.808402e+08               4.50      1.618306e+07                       6.70                         18.40
+4   05_DEEP_MARKDOWN (> 20.00%)            150858                10.93          215563.0            1.954427e+08            3.030859e+08               4.85     -8.964269e+07                     -34.32                         42.80
+
+--- Query 8.2: Category Markdown Dependency and Margin Dilution Breakdown ---
+        category_name  total_sales_lines  discounted_lines  promotional_penetration_pct  category_discounts_inr  category_invoiced_sales_inr  category_markdown_depth_pct  full_price_margin_pct  discounted_margin_pct  margin_erosion_pct_points
+0         Electronics             165724             28866                        17.42            1.336576e+08                 3.826140e+09                         4.04                  14.86                 -11.18                      26.03
+1  Clothing & Apparel             345200             63168                        18.30            5.683933e+07                 1.104895e+09                         5.28                  44.01                  22.37                      21.64
+2      Home & Kitchen             248173             43337                        17.46            3.549239e+07                 8.781139e+08                         4.49                  32.04                   8.54                      23.50
+3    Groceries & FMCG             620903            123199                        19.84            3.361454e+07                 4.364527e+08                         7.83                  12.99                 -38.25                      51.24
+
+--- Query 8.3: Promotion Type Mechanical Efficiency & Value Realization ---
+  promotion_mechanism  sales_lines_count  sales_line_share_pct  units_sold  total_discount_conceded_inr  total_net_invoiced_inr  total_gross_margin_inr  realized_gross_margin_pct  average_depth_pct  realized_asp_inr
+0                BOGO             408152                 29.58    524715.0                 1.700386e+07            1.915454e+09            3.599646e+08                      21.97               1.03           3650.47
+1  CLEARANCE_MARKDOWN             441863                 32.02    567778.0                 1.682175e+08            1.899766e+09            2.390794e+08                      14.70               9.38           3345.97
+2          PERCENTAGE             288461                 20.90    370360.0                 5.408773e+07            1.307270e+09            2.122010e+08                      18.96               4.61           3529.73
+3         FLAT_AMOUNT             241524                 17.50    310107.0                 2.029476e+07            1.123111e+09            2.028068e+08                      21.11               2.07           3621.69
+
+--- Query 8.4: Store-Level Promotional Intensity vs Realized Margin Correlation ---
+      store_id                          store_name        city store_tier  promotional_penetration_pct  discount_depth_pct  realized_gross_margin_pct  discount_depth_rank  margin_rank
+0   STR-MH-008        Northstar Nagpur Civil Lines      Nagpur     TIER_3                        18.79                4.91                      18.88                    1           21
+1   STR-TN-003      Northstar Velachery Grand Mall     Chennai     TIER_2                        19.15                4.86                      18.82                    2           28
+2   STR-MH-004         Northstar Powai Hiranandani      Mumbai     TIER_2                        18.48                4.81                      18.71                    3           30
+3   STR-KA-006        Northstar HSR Layout Express   Bengaluru     TIER_2                        18.84                4.81                      18.90                    4           20
+4   STR-TN-002           Northstar T Nagar Express     Chennai     TIER_1                        18.90                4.79                      18.79                    5           29
+5   STR-KA-008         Northstar Hubballi Junction    Hubballi     TIER_3                        19.08                4.73                      19.17                    6            4
+6   STR-MH-002     Northstar Lower Parel Palladium      Mumbai     TIER_1                        18.51                4.73                      18.87                    7           23
+7   STR-KA-005      Northstar Malleshwaram Central   Bengaluru     TIER_2                        18.79                4.71                      18.94                    8           16
+8   STR-GJ-003       Northstar Vastrapur Lake Mall   Ahmedabad     TIER_2                        18.76                4.70                      19.06                    9           10
+9   STR-GJ-002        Northstar CG Road Retail Hub   Ahmedabad     TIER_1                        18.56                4.70                      18.84                   10           25
+10  STR-TS-002       Northstar Hitec City Galleria   Hyderabad     TIER_1                        18.78                4.70                      18.86                   11           24
+11  STR-GJ-004          Northstar Surat Dumas Road       Surat     TIER_2                        18.76                4.68                      18.83                   12           27
+12  STR-MH-001      Northstar Bandra West Flagship      Mumbai     TIER_1                        18.72                4.65                      18.93                   13           17
+13  STR-KA-003       Northstar Whitefield Tech Hub   Bengaluru     TIER_1                        18.72                4.64                      18.90                   14           19
+14  STR-KA-002          Northstar Koramangala Mall   Bengaluru     TIER_1                        18.79                4.62                      19.03                   15           11
+15  STR-KA-007      Northstar Mysuru Heritage Mall      Mysuru     TIER_2                        18.77                4.60                      18.87                   16           22
+16  STR-MH-006              Northstar Pune FC Road        Pune     TIER_1                        18.63                4.59                      18.98                   17           13
+17  STR-KA-001      Northstar Indiranagar Flagship   Bengaluru     TIER_1                        18.84                4.59                      19.11                   18            7
+18  STR-GJ-001       Northstar SG Highway Flagship   Ahmedabad     TIER_1                        18.93                4.59                      18.99                   19           12
+19  STR-TS-004  Northstar Secunderabad Clock Tower   Hyderabad     TIER_2                        18.24                4.59                      18.84                   20           26
+20  STR-TN-005   Northstar Coimbatore Brookefields  Coimbatore     TIER_2                        18.91                4.57                      18.97                   21           15
+21  STR-MH-005             Northstar Thane Viviana       Thane     TIER_2                        18.81                4.57                      18.92                   22           18
+22  STR-TN-006          Northstar Madurai KK Nagar     Madurai     TIER_3                        18.76                4.57                      18.98                   23           14
+23  STR-TN-001       Northstar Anna Nagar Flagship     Chennai     TIER_1                        18.63                4.55                      19.12                   24            6
+24  STR-MH-003       Northstar Andheri Lokhandwala      Mumbai     TIER_1                        18.76                4.52                      19.06                   25            9
+25  STR-TS-001    Northstar Banjara Hills Flagship   Hyderabad     TIER_1                        18.91                4.50                      19.18                   26            3
+26  STR-MH-007          Northstar Pune Viman Nagar        Pune     TIER_2                        18.75                4.50                      19.23                   27            2
+27  STR-TS-003     Northstar Jubilee Hills Central   Hyderabad     TIER_1                        18.51                4.50                      19.12                   28            5
+28  STR-KA-004     Northstar Jayanagar High Street   Bengaluru     TIER_2                        18.67                4.45                      19.10                   29            8
+29  STR-TN-004           Northstar OMR IT Corridor     Chennai     TIER_2                        18.48                4.40                      19.27                   30            1
+
+=== MODULE: 09_marketing_cohort_analysis.sql ===
+
+--- Query 9.1: Campaign Cohort Exposure, Delivery & Coupon Redemption Funnel ---
+         campaign_id                                    campaign_name communication_channel  total_assigned_audience  treatment_audience  control_holdout_audience  control_holdout_pct  treatment_delivered  delivery_rate_pct  treatment_redemptions  treatment_redemption_rate_pct  control_leakage_redemptions  avg_days_to_redeem
+0    CMP-2026-DIWALI     Diwali Festive Megasale Omnichannel Campaign           OMNICHANNEL                    10000                9045                       955                 9.55                 8495              93.92                    777                           8.59                            0                 5.0
+1     CMP-2026-FRESH          Weekend Grocery FMCG Flash SMS Campaign                   SMS                    10000                9030                       970                 9.70                 8488              94.00                    741                           8.21                            0                 5.1
+2  CMP-2026-HOMEFEST  Monsoon Home & Kitchen Clearance Email Outreach                 EMAIL                    10000                9030                       970                 9.70                 8479              93.90                    797                           8.83                            0                 4.9
+3   CMP-2026-LOYALTY         Q4 Loyalty Tier Retention WhatsApp Blast              WHATSAPP                    10000                9014                       986                 9.86                 8465              93.91                    813                           9.02                            0                 5.0
+4   CMP-2026-PREMIUM        Platinum Members Private Showcase Preview           OMNICHANNEL                    10000                9014                       986                 9.86                 8473              94.00                    739                           8.20                            0                 5.1
+
+--- Query 9.2: Treatment vs Control Cohort Spend Comparison & Incremental Lift ---
+         campaign_id                                    campaign_name communication_channel  total_campaign_spend_inr  test_cohort_sales_inr  control_cohort_sales_inr  incremental_sales_lift_inr  incremental_margin_lift_inr  test_spend_per_customer_inr  control_spend_per_customer_inr  campaign_weighted_romi  romi_efficiency_rank
+0   CMP-2026-LOYALTY         Q4 Loyalty Tier Retention WhatsApp Blast              WHATSAPP                 1025520.1            24819749.43               21262915.37                  3556834.06                   1138186.98                       347.11                         2825.26                  1.1099                     1
+1   CMP-2026-PREMIUM        Platinum Members Private Showcase Preview           OMNICHANNEL                  160916.1             3879053.46                3324213.67                   554839.79                    177548.74                       339.43                         2774.80                  1.1034                     2
+2     CMP-2026-FRESH          Weekend Grocery FMCG Flash SMS Campaign                   SMS                 2176770.8            53159336.36               45667366.98                  7491969.38                   2397430.27                       347.02                         2836.48                  1.1014                     3
+3  CMP-2026-HOMEFEST  Monsoon Home & Kitchen Clearance Email Outreach                 EMAIL                  790110.0            18585135.32               15889440.59                  2695694.73                    862622.40                       346.02                         2815.78                  1.0918                     4
+4    CMP-2026-DIWALI     Diwali Festive Megasale Omnichannel Campaign           OMNICHANNEL                  326099.4             7717970.72                6660413.86                  1057556.86                    338418.21                       353.40                         2905.94                  1.0378                     5
+
+--- Query 9.3: Communication Channel Comparative Performance Matrix ---
+  communication_channel  active_campaigns  total_audience  treatment_audience  total_coupon_redemptions  channel_redemption_rate_pct  avg_redemption_lag_days
+0              WHATSAPP                 1           10000                9014                       813                         9.02                      5.0
+1                 EMAIL                 1           10000                9030                       797                         8.83                      4.9
+2           OMNICHANNEL                 2           20000               18059                      1516                         8.39                      5.1
+3                   SMS                 1           10000                9030                       741                         8.21                      5.1
+
+--- Query 9.4: Enterprise Marketing Portfolio Weighted ROMI & Simpson's Paradox Audit ---
+   daily_store_campaign_rollups  active_campaigns_count  portfolio_spend_inr  portfolio_incremental_sales_inr  portfolio_incremental_margin_inr  enterprise_weighted_romi  unweighted_mean_romi  simpsons_paradox_divergence_pct
+0                          1840                       5            4479416.4                      15356894.82                         4914206.6                    1.0971                  1.27                            0.173
+
