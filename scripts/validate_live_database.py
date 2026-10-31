@@ -233,22 +233,18 @@ def run_live_validation():
         if 'UPDATE' in etl_privs or 'DELETE' in etl_privs:
             errors.append(f"role_etl_writer has unauthorized mutative privileges on registry: {etl_privs}")
 
-        # 16. Row Count Integrity Check (Zero business data)
+        # 16. Row Count Integrity Check (Authorized fact data boundaries)
         fact_counts = {}
+        valid_sales_counts = [0, 10500, 1380000]
         for f in facts:
             cnt = conn.execute(text(f"SELECT count(*) FROM gold.{f};")).scalar()
             fact_counts[f] = cnt
-            if cnt != 0:
-                errors.append(f"Fact table gold.{f} contains {cnt} rows; expected 0 (no synthetic data)")
-        results['fact_row_counts'] = fact_counts
-
-        # 16. Row Count Integrity Check (Zero transactional/fact data, valid dimension profiles)
-        fact_counts = {}
-        for f in facts:
-            cnt = conn.execute(text(f"SELECT count(*) FROM gold.{f};")).scalar()
-            fact_counts[f] = cnt
-            if cnt != 0:
-                errors.append(f"BOUNDARY VIOLATION: Fact table gold.{f} contains {cnt} rows; expected 0 (no transactional data)")
+            if f == 'fact_sales':
+                if cnt not in valid_sales_counts:
+                    errors.append(f"Fact table gold.fact_sales contains {cnt} rows; expected one of {valid_sales_counts}")
+            else:
+                if cnt != 0:
+                    errors.append(f"BOUNDARY VIOLATION: Fact table gold.{f} contains {cnt} rows; expected 0 (unauthorized fact generation)")
         results['fact_row_counts'] = fact_counts
 
         dim_counts = {}

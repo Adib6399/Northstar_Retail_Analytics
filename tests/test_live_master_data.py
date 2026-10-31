@@ -49,14 +49,19 @@ class TestLiveMasterData(unittest.TestCase):
                 )
 
     def test_fact_tables_zero_row_boundary(self):
-        """Ensure all 9 fact tables and control_batch_audit remain strictly empty."""
-        facts = [
-            "fact_sales", "fact_payments", "fact_returns", "fact_inventory_snapshot",
+        """Ensure other 8 fact tables and control_batch_audit remain strictly empty."""
+        other_facts = [
+            "fact_payments", "fact_returns", "fact_inventory_snapshot",
             "fact_inventory_movements", "fact_reconciliation", "fact_marketing_performance",
             "fact_campaign_exposure", "fact_demand_forecast"
         ]
         with self.engine.connect() as conn:
-            for fact in facts:
+            # fact_sales is authorized in Stage 5.3.3 (0, 10,500, or 1,380,000)
+            sales_cnt = conn.execute(text("SELECT count(*) FROM gold.fact_sales;")).scalar()
+            self.assertIn(sales_cnt, [0, 10500, 1380000], f"Unexpected fact_sales count: {sales_cnt}")
+
+            # All other 8 fact tables must strictly remain 0
+            for fact in other_facts:
                 act_cnt = conn.execute(text(f"SELECT count(*) FROM gold.{fact};")).scalar()
                 self.assertEqual(act_cnt, 0, f"Fact table {fact} is NOT empty: {act_cnt} rows")
 

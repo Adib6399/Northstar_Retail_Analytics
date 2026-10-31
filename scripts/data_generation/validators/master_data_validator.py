@@ -54,7 +54,7 @@ class MasterDataValidator:
 
             metrics["row_counts"] = actual_counts
 
-            # 2. Fact Tables Zero-Row Boundary
+            # 2. Fact Tables Boundary (fact_sales authorized for profile, others strictly 0)
             facts = [
                 "fact_sales", "fact_payments", "fact_returns", "fact_inventory_snapshot",
                 "fact_inventory_movements", "fact_reconciliation", "fact_marketing_performance",
@@ -64,8 +64,12 @@ class MasterDataValidator:
             for fact in facts:
                 act_cnt = conn.execute(text(f"SELECT count(*) FROM gold.{fact};")).scalar()
                 fact_counts[fact] = act_cnt
-                if act_cnt != 0:
-                    errors.append(f"BOUNDARY VIOLATION: Fact table gold.{fact} has {act_cnt} rows (must be 0)")
+                if fact == "fact_sales":
+                    if act_cnt not in [0, config.sales_line_items]:
+                        errors.append(f"BOUNDARY VIOLATION: Fact table gold.fact_sales has {act_cnt} rows (must be 0 or {config.sales_line_items})")
+                else:
+                    if act_cnt != 0:
+                        errors.append(f"BOUNDARY VIOLATION: Fact table gold.{fact} has {act_cnt} rows (must be 0)")
 
             batch_audit_cnt = conn.execute(text("SELECT count(*) FROM control.control_batch_audit;")).scalar()
             fact_counts["control_batch_audit"] = batch_audit_cnt
