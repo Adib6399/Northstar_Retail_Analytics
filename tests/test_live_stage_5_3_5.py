@@ -29,12 +29,15 @@ class TestLiveStage535Data(unittest.TestCase):
             "fact_marketing_performance": 1840,
             "fact_campaign_exposure": 50000,
             "fact_reconciliation": 11040,
-            "fact_demand_forecast": 0,
+            "fact_demand_forecast": [0, 210000],
         }
         with self.engine.connect() as conn:
             for tbl, exp_cnt in expected_counts.items():
                 cnt = conn.execute(text(f"SELECT count(*) FROM gold.{tbl};")).scalar()
-                self.assertEqual(cnt, exp_cnt, f"Row count mismatch in gold.{tbl}: expected {exp_cnt}, found {cnt}")
+                if isinstance(exp_cnt, list):
+                    self.assertIn(cnt, exp_cnt, f"Row count mismatch in gold.{tbl}: expected one of {exp_cnt}, found {cnt}")
+                else:
+                    self.assertEqual(cnt, exp_cnt, f"Row count mismatch in gold.{tbl}: expected {exp_cnt}, found {cnt}")
 
             reg_cnt = conn.execute(text("SELECT count(*) FROM control.control_campaign_assignment_registry;")).scalar()
             self.assertEqual(reg_cnt, 50000, f"control_campaign_assignment_registry count {reg_cnt} != 50,000")

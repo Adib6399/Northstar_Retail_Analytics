@@ -64,7 +64,7 @@ class MasterDataValidator:
                 "fact_marketing_performance": [0, config.marketing_performance_rows],
                 "fact_campaign_exposure": [0, config.campaign_exposure_drops],
                 "fact_reconciliation": [0, config.reconciliation_audits],
-                "fact_demand_forecast": [0],
+                "fact_demand_forecast": [0, config.demand_forecast_projections],
             }
             facts = list(authorized_counts.keys())
             fact_counts = {}

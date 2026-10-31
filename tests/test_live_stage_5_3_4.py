@@ -40,7 +40,7 @@ class TestLiveStage534Data(unittest.TestCase):
             "fact_marketing_performance": [0, 1840],
             "fact_campaign_exposure": [0, 50000],
             "fact_reconciliation": [0, 11040],
-            "fact_demand_forecast": [0],
+            "fact_demand_forecast": [0, 210000],
         }
         with self.engine.connect() as conn:
             for tbl, exp_cnt in stage_534_expected.items():

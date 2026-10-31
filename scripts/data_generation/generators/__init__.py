@@ -11,5 +11,6 @@ __all__ = [
     "inventory_generator",
     "marketing_generator",
     "reconciliation_generator",
+    "forecast_generator",
 ]
 

@@ -47,14 +47,17 @@ class Stage535Validator:
                 "fact_marketing_performance": config.marketing_performance_rows,  # 1,840
                 "fact_campaign_exposure": config.campaign_exposure_drops,   # 50,000
                 "fact_reconciliation": config.reconciliation_audits,       # 11,040
-                "fact_demand_forecast": 0,                                  # Out-of-scope (0)
+                "fact_demand_forecast": [0, config.demand_forecast_projections],  # Pre-5.3.6 (0) or Post-5.3.6 (210,000)
             }
 
             fact_counts: Dict[str, int] = {}
             for fact_table, exp_cnt in expected_counts.items():
                 act_cnt = conn.execute(text(f"SELECT count(*) FROM gold.{fact_table};")).scalar()
                 fact_counts[fact_table] = act_cnt
-                if act_cnt != exp_cnt:
+                if isinstance(exp_cnt, list):
+                    if act_cnt not in exp_cnt:
+                        errors.append(f"Row count mismatch in gold.{fact_table}: expected one of {exp_cnt}, found {act_cnt:,}")
+                elif act_cnt != exp_cnt:
                     errors.append(f"Row count mismatch in gold.{fact_table}: expected {exp_cnt:,}, found {act_cnt:,}")
 
             reg_count = conn.execute(text("SELECT count(*) FROM control.control_campaign_assignment_registry;")).scalar()

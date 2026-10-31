@@ -244,7 +244,7 @@ def run_live_validation():
             'fact_marketing_performance': [0, 70, 1840],
             'fact_campaign_exposure': [0, 400, 50000],
             'fact_reconciliation': [0, 140, 11040],
-            'fact_demand_forecast': [0],
+            'fact_demand_forecast': [0, 3500, 210000],
         }
         for f in facts:
             cnt = conn.execute(text(f"SELECT count(*) FROM gold.{f};")).scalar()
