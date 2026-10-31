@@ -49,19 +49,30 @@ class TestLiveMasterData(unittest.TestCase):
                 )
 
     def test_fact_tables_zero_row_boundary(self):
-        """Ensure other 8 fact tables and control_batch_audit remain strictly empty."""
-        other_facts = [
-            "fact_payments", "fact_returns", "fact_inventory_snapshot",
-            "fact_inventory_movements", "fact_reconciliation", "fact_marketing_performance",
-            "fact_campaign_exposure", "fact_demand_forecast"
+        """Ensure unpopulated fact tables and control_batch_audit remain strictly empty."""
+        unpopulated_facts = [
+            "fact_marketing_performance", "fact_campaign_exposure",
+            "fact_reconciliation", "fact_demand_forecast"
         ]
         with self.engine.connect() as conn:
-            # fact_sales is authorized in Stage 5.3.3 (0, 10,500, or 1,380,000)
+            # Authorized fact tables check
             sales_cnt = conn.execute(text("SELECT count(*) FROM gold.fact_sales;")).scalar()
             self.assertIn(sales_cnt, [0, 10500, 1380000], f"Unexpected fact_sales count: {sales_cnt}")
 
-            # All other 8 fact tables must strictly remain 0
-            for fact in other_facts:
+            pay_cnt = conn.execute(text("SELECT count(*) FROM gold.fact_payments;")).scalar()
+            self.assertIn(pay_cnt, [0, 3500, 496800], f"Unexpected fact_payments count: {pay_cnt}")
+
+            ret_cnt = conn.execute(text("SELECT count(*) FROM gold.fact_returns;")).scalar()
+            self.assertIn(ret_cnt, [0, 260, 34500], f"Unexpected fact_returns count: {ret_cnt}")
+
+            mov_cnt = conn.execute(text("SELECT count(*) FROM gold.fact_inventory_movements;")).scalar()
+            self.assertIn(mov_cnt, [0, 350, 92000], f"Unexpected fact_inventory_movements count: {mov_cnt}")
+
+            snp_cnt = conn.execute(text("SELECT count(*) FROM gold.fact_inventory_snapshot;")).scalar()
+            self.assertIn(snp_cnt, [0, 1750, 1380000], f"Unexpected fact_inventory_snapshot count: {snp_cnt}")
+
+            # Remaining 4 fact tables must strictly remain 0
+            for fact in unpopulated_facts:
                 act_cnt = conn.execute(text(f"SELECT count(*) FROM gold.{fact};")).scalar()
                 self.assertEqual(act_cnt, 0, f"Fact table {fact} is NOT empty: {act_cnt} rows")
 

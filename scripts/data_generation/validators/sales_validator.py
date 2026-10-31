@@ -43,18 +43,23 @@ class SalesValidator:
                     f"Row count mismatch in gold.fact_sales: expected {expected_sales_count:,}, found {actual_sales_count:,}"
                 )
 
-            # 2. Strict Zero-Row Boundary: other 8 fact tables + control_batch_audit
-            other_facts = [
-                "fact_payments", "fact_returns", "fact_inventory_snapshot",
-                "fact_inventory_movements", "fact_reconciliation", "fact_marketing_performance",
-                "fact_campaign_exposure", "fact_demand_forecast"
-            ]
+            # 2. Strict Boundary for other facts + control_batch_audit
+            authorized_counts = {
+                "fact_payments": [0, config.payment_tenders],
+                "fact_returns": [0, config.return_lines],
+                "fact_inventory_movements": [0, config.inventory_movements],
+                "fact_inventory_snapshot": [0, config.inventory_snapshots],
+                "fact_marketing_performance": [0],
+                "fact_campaign_exposure": [0],
+                "fact_reconciliation": [0],
+                "fact_demand_forecast": [0],
+            }
             fact_counts = {}
-            for f in other_facts:
+            for f, allowed in authorized_counts.items():
                 cnt = conn.execute(text(f"SELECT count(*) FROM gold.{f};")).scalar()
                 fact_counts[f] = cnt
-                if cnt != 0:
-                    errors.append(f"Fact boundary violation: gold.{f} contains {cnt} rows (expected 0)")
+                if cnt not in allowed:
+                    errors.append(f"Fact boundary violation: gold.{f} contains {cnt} rows (allowed: {allowed})")
 
             audit_count = conn.execute(text("SELECT count(*) FROM control.control_batch_audit;")).scalar()
             fact_counts["control_batch_audit"] = audit_count

@@ -54,22 +54,26 @@ class MasterDataValidator:
 
             metrics["row_counts"] = actual_counts
 
-            # 2. Fact Tables Boundary (fact_sales authorized for profile, others strictly 0)
-            facts = [
-                "fact_sales", "fact_payments", "fact_returns", "fact_inventory_snapshot",
-                "fact_inventory_movements", "fact_reconciliation", "fact_marketing_performance",
-                "fact_campaign_exposure", "fact_demand_forecast"
-            ]
+            # 2. Fact Tables Boundary (authorized facts for profile, others strictly 0)
+            authorized_counts = {
+                "fact_sales": [0, config.sales_line_items],
+                "fact_payments": [0, config.payment_tenders],
+                "fact_returns": [0, config.return_lines],
+                "fact_inventory_movements": [0, config.inventory_movements],
+                "fact_inventory_snapshot": [0, config.inventory_snapshots],
+                "fact_marketing_performance": [0],
+                "fact_campaign_exposure": [0],
+                "fact_reconciliation": [0],
+                "fact_demand_forecast": [0],
+            }
+            facts = list(authorized_counts.keys())
             fact_counts = {}
             for fact in facts:
                 act_cnt = conn.execute(text(f"SELECT count(*) FROM gold.{fact};")).scalar()
                 fact_counts[fact] = act_cnt
-                if fact == "fact_sales":
-                    if act_cnt not in [0, config.sales_line_items]:
-                        errors.append(f"BOUNDARY VIOLATION: Fact table gold.fact_sales has {act_cnt} rows (must be 0 or {config.sales_line_items})")
-                else:
-                    if act_cnt != 0:
-                        errors.append(f"BOUNDARY VIOLATION: Fact table gold.{fact} has {act_cnt} rows (must be 0)")
+                allowed = authorized_counts[fact]
+                if act_cnt not in allowed:
+                    errors.append(f"BOUNDARY VIOLATION: Fact table gold.{fact} has {act_cnt} rows (allowed: {allowed})")
 
             batch_audit_cnt = conn.execute(text("SELECT count(*) FROM control.control_batch_audit;")).scalar()
             fact_counts["control_batch_audit"] = batch_audit_cnt

@@ -35,14 +35,13 @@ class TestLiveSalesData(unittest.TestCase):
             self.assertEqual(cnt, 1380000, f"fact_sales row count mismatch: expected 1,380,000, found {cnt}")
 
     def test_other_facts_remain_empty(self):
-        """Ensure other 8 fact tables and control_batch_audit remain strictly empty (0 rows)."""
-        other_facts = [
-            "fact_payments", "fact_returns", "fact_inventory_snapshot",
-            "fact_inventory_movements", "fact_reconciliation", "fact_marketing_performance",
-            "fact_campaign_exposure", "fact_demand_forecast"
+        """Ensure unpopulated fact tables and control_batch_audit remain strictly empty (0 rows)."""
+        unpopulated_facts = [
+            "fact_marketing_performance", "fact_campaign_exposure",
+            "fact_reconciliation", "fact_demand_forecast"
         ]
         with self.engine.connect() as conn:
-            for fact in other_facts:
+            for fact in unpopulated_facts:
                 cnt = conn.execute(text(f"SELECT count(*) FROM gold.{fact};")).scalar()
                 self.assertEqual(cnt, 0, f"Fact table gold.{fact} is NOT empty: {cnt} rows")
 

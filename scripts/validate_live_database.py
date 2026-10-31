@@ -235,16 +235,23 @@ def run_live_validation():
 
         # 16. Row Count Integrity Check (Authorized fact data boundaries)
         fact_counts = {}
-        valid_sales_counts = [0, 10500, 1380000]
+        valid_fact_counts = {
+            'fact_sales': [0, 10500, 1380000],
+            'fact_payments': [0, 3500, 496800],
+            'fact_returns': [0, 260, 34500],
+            'fact_inventory_movements': [0, 350, 92000],
+            'fact_inventory_snapshot': [0, 1750, 1380000],
+            'fact_marketing_performance': [0],
+            'fact_campaign_exposure': [0],
+            'fact_reconciliation': [0],
+            'fact_demand_forecast': [0],
+        }
         for f in facts:
             cnt = conn.execute(text(f"SELECT count(*) FROM gold.{f};")).scalar()
             fact_counts[f] = cnt
-            if f == 'fact_sales':
-                if cnt not in valid_sales_counts:
-                    errors.append(f"Fact table gold.fact_sales contains {cnt} rows; expected one of {valid_sales_counts}")
-            else:
-                if cnt != 0:
-                    errors.append(f"BOUNDARY VIOLATION: Fact table gold.{f} contains {cnt} rows; expected 0 (unauthorized fact generation)")
+            allowed = valid_fact_counts.get(f, [0])
+            if cnt not in allowed:
+                errors.append(f"Fact table gold.{f} contains {cnt} rows; expected one of {allowed}")
         results['fact_row_counts'] = fact_counts
 
         dim_counts = {}
