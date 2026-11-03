@@ -338,58 +338,44 @@
 
 === MODULE: 03_rfm_segmentation.sql ===
 
---- Query 3.1: Individual Customer RFM Metrics and Quintile Scores ---
-                                                         customer_sk loyalty_tier  recency_days  frequency_invoices  monetary_total_inr  r_score  f_score  m_score  rfm_cell_code empirical_rfm_segment
-0   22d62c163083a05147d4e5e9708e78b558135ed28b744ef9229f9619c10da3b4       BRONZE             1                  56          1004938.88        2        5        5            255      CANNOT_LOSE_THEM
-1   a9d43482449f0ac7cf2f7a640c16b79ab40a9161a7ec71474509340c21a928af         GOLD             1                  51          1001439.88        2        5        5            255      CANNOT_LOSE_THEM
-2   775753a27edfe008e53ffd5057bd9d5a1aff7443546caab25bc8b519512fdad3       BRONZE             5                  41           939898.15        1        5        5            155      CANNOT_LOSE_THEM
-3   ed2146a8eecf7935a39563c3b827b1f1462ee44ce6de21f86261ab3e510a6dc3       BRONZE             2                  47           912472.19        2        5        5            255      CANNOT_LOSE_THEM
-4   4b05ddc57d9257fea7526885e2efd288defafa62d346eb5b2fa850540f05641d       BRONZE             1                  44           909614.86        2        5        5            255      CANNOT_LOSE_THEM
-5   b75fb857f4ed0d9405bd19e65515b672765d74a3b0ad52f21aae9aef92075c5f       BRONZE             0                  49           907523.43        5        5        5            555             CHAMPIONS
-6   56cbdbc533c19558f9ac1b31fe22e2fe7756c11b48179dcad9edc6bec19fa1e3       BRONZE             0                  40           897387.80        5        5        5            555             CHAMPIONS
-7   813950fd4511e3e000f4f2f1c96c14583fc9e2b284484e7101ef9c4102f39f7f       BRONZE             0                  45           896735.50        5        5        5            555             CHAMPIONS
-8   7ca39d27fef44b0c701bcb6484fd16911def5338d365e5e3d48c21ca0f7e2936       BRONZE             0                  42           883443.91        4        5        5            455             CHAMPIONS
-9   7e0c45299a4b7dd7f91a2b8585e9f105603d7ec65376d00d85a83e5f12bc9048         GOLD             1                  44           873975.03        2        5        5            255      CANNOT_LOSE_THEM
-10  d9a92e177d1f86b2c8a58a3d42bb3959f05e6c29c5c9683e0d9ebec1c782d17b     PLATINUM             2                  50           871577.77        2        5        5            255      CANNOT_LOSE_THEM
-11  7ea775fce5ba7f79bc5432a7c68170266bbced757244548f8934fcae89ff52c6       BRONZE             0                  49           864865.84        5        5        5            555             CHAMPIONS
-12  d4beece71ace78ce4dce4a86a61e4ea76b16cdb3f69b16b171fc694c071e13a7       BRONZE             0                  43           863817.67        4        5        5            455             CHAMPIONS
-13  81fbb6ec8d70966d2472dc7281b565183c4c51a576f34eaef192267cd74bcf32       BRONZE             1                  51           862310.49        2        5        5            255      CANNOT_LOSE_THEM
-14  4432a490564a33789eadf9a5c60840c179a154967b52efb428306c2cb28b0ded       BRONZE             2                  38           855925.01        2        5        5            255      CANNOT_LOSE_THEM
-15  1d7f8de73fa19843d6ed3496c11fb40b75cc46aa592a154dd20494f71d5726c9       SILVER             2                  41           855356.36        2        5        5            255      CANNOT_LOSE_THEM
-16  4ebd032c3e9094a2ad5b3c4010263adf1247290752223c70329004c64adbdfb9       BRONZE             1                  49           852528.02        2        5        5            255      CANNOT_LOSE_THEM
-17  9aaa81302c3edb4cc39322b92366094a52d7c49436e2bd594bc1e48077709f0f       BRONZE             0                  48           851576.59        5        5        5            555             CHAMPIONS
-18  e6e38a37be9969538c83c7b29eb34c4a322ce9a2fa10da275a1eb43984b86983       BRONZE             1                  43           842876.90        2        5        5            255      CANNOT_LOSE_THEM
-19  a71784f948c7bafba4cef35bb94c11dc93ecf45fdc42ec9512b8045fd857871a       BRONZE             3                  41           839893.16        2        5        5            255      CANNOT_LOSE_THEM
-20  51607eaaab056aa54b9b6c4d9de600655709af05380c0f927a18826cf484f1ef       BRONZE             1                  37           839561.71        2        5        5            255      CANNOT_LOSE_THEM
-21  97064fa0552a61dc7ddcf5d65ed77eb2e2b3c8b08a0622f0494fbae2070f28c2       BRONZE             2                  44           837013.33        2        5        5            255      CANNOT_LOSE_THEM
-22  f38f74ed4d45b2c39384b3c6b721c9bdb299f3da1a599c474abe68d9bda123bb       BRONZE             0                  48           836927.97        5        5        5            555             CHAMPIONS
-23  d03d940896cd97179d178db93154ab176f804b9a553b0ef9e749ecfd88c8bdcc       BRONZE             2                  49           836087.50        2        5        5            255      CANNOT_LOSE_THEM
-24  5f99faebfa35194e4b3c7e03601df10267f02a5150d2367812206cb1640a76a4       BRONZE             0                  55           833753.82        4        5        5            455             CHAMPIONS
-25  ae9421aee1ae9d5e42a871a7c5d68add2af2c7dbe7c0dd075bf5eb601016fb10       BRONZE             4                  42           829678.36        1        5        5            155      CANNOT_LOSE_THEM
-26  64c684deb3c43649e0550d438c9d610bad95b3157e49d07b9371b81e13c44b7d         GOLD             0                  51           829071.86        4        5        5            455             CHAMPIONS
-27  0f3ab2e2900a1364d88daf1377fcc557801b31d2b2b8e3956416b7de378cbdea       BRONZE             1                  38           828077.61        2        5        5            255      CANNOT_LOSE_THEM
-28  a9e6cf4f37c9a384b49939a011f50dc80fe6d7068eddc9cca095d5a5df1b6c97       BRONZE             0                  42           827458.68        4        5        5            455             CHAMPIONS
-29  4fafffddb341c15d4f979ed5bd636df236c5d4cab89bf7a188a327b214330ecd       BRONZE             0                  36           825702.05        4        4        5            445             CHAMPIONS
-30  11054d869c08947a787e84ca5e34345bd004cc6f68a7d329f79169ecf67b550d       BRONZE             4                  39           825605.28        1        5        5            155      CANNOT_LOSE_THEM
-31  caf45ae343bce6d7c73a3fb05b2151eff35aec7a5f9d2c7dd6b12bc9d0eb3be4     PLATINUM             2                  43           825092.11        2        5        5            255      CANNOT_LOSE_THEM
-32  d505db1c65e5725c888d75c28572238f7c31eef364be1b8ac3a2d309204a001d       BRONZE             0                  36           819619.95        4        4        5            445             CHAMPIONS
-33  d58d0a3d39bcea93a29fdc3403ccd84cd5f0a45650d863eadc145be797dae793       BRONZE             0                  51           817130.03        4        5        5            455             CHAMPIONS
-34  38dbc7b71f97fd8bd8be1bec9ad3682a24f272199f7fab8aedf30116604bb825       SILVER             0                  42           816006.44        4        5        5            455             CHAMPIONS
-35  798569a779e756f8b5e212c4b993596f5a2db57b3f5d5c87ed3c5c387854e81a       BRONZE             0                  47           813130.29        5        5        5            555             CHAMPIONS
-36  0f14d25e4c9b31b9b1ff1546c916f946526a35dd7a3225e8bdbabe68c8cff387       BRONZE             0                  45           812278.79        5        5        5            555             CHAMPIONS
-37  271cdeaa14c6a5b3319157e9e45afba11a200c4ff98d9c58db6f1ab0ed755c98       BRONZE             2                  40           811688.74        2        5        5            255      CANNOT_LOSE_THEM
-38  dc8e1a8f0a3072fe0d3be42d63d18972c4fe460a12145ae209e109f7ccc31b03       SILVER             1                  38           811299.94        2        5        5            255      CANNOT_LOSE_THEM
-39  b1156f45c1edfb2d4f7c973cf8e1eb7a3a86524bfa74d66ea2ebe37ae737ebef       BRONZE             2                  42           806479.67        2        5        5            255      CANNOT_LOSE_THEM
-40  8428adf38b5abdc4e084cd6df759ee71a03f84cbfe78b0b62e98d4a69874abd2       BRONZE             0                  46           806375.82        3        5        5            355       LOYAL_CUSTOMERS
-41  3f1f1ac7fe2740d76105c7911213bc0ed1b91fb9926c1e52d6a253c8b64f8fef         GOLD             2                  46           805867.28        2        5        5            255      CANNOT_LOSE_THEM
-42  5e2d34600d224007744a4bdfda34ea87648ae7e95c5fe98bf7f69106b3f4e7ab     PLATINUM             7                  37           803448.77        1        5        5            155      CANNOT_LOSE_THEM
-43  807392cda0d90a616a22af871f81f1480e641bf65c4498fad361d26603c3f472       SILVER             0                  45           802894.40        5        5        5            555             CHAMPIONS
-44  b261f66e10567e22773b148d6026d3e56c188c8880c5a71a48d92d1afb0c3474         GOLD             0                  42           802228.93        4        5        5            455             CHAMPIONS
-45  fbfd699b237fa5051cbd5aae912275a4628a59763f64be70afceba36f5ca1e56       BRONZE             0                  45           801909.61        5        5        5            555             CHAMPIONS
-46  7950b726806e3df5f20ee3736e833cc3ea1c32217056cf79a62dfcb687b53531       SILVER             3                  43           801316.44        2        5        5            255      CANNOT_LOSE_THEM
-47  65320ee7a91303d38a367c83ce97e50a20394cc1ef7a5bf536de62ec9de25cb2       BRONZE             0                  35           801073.66        4        4        5            445             CHAMPIONS
-48  3fd336419d1dfef77c4a29fe3499cc10db8ced10562f65b5d69837a3372279d1       BRONZE             0                  37           801031.35        4        5        5            455             CHAMPIONS
-49  4fcd05b175983aea54b425db994cc31f2ac290a1508388d94dfebaf4ee4cf863       BRONZE             0                  43           799542.94        4        5        5            455             CHAMPIONS
+--- Query 3.1: RFM Quintile & Loyalty Tier Segment Distribution Summary (Aggregated) ---
+[Note: Sanitized for public repository publication to eliminate individual customer records. Aggregated across all 10,000 synthetic loyalty customers by Loyalty Tier and Empirical RFM Segment from gold.fact_sales and gold.dim_customer.]
+
+ loyalty_tier | empirical_rfm_segment | customer_count | avg_recency_days | avg_frequency_invoices | avg_monetary_inr | total_monetary_inr
+--------------+-----------------------+----------------+------------------+------------------------+------------------+--------------------
+ BRONZE       | CHAMPIONS             |            767 |              0.0 |                   38.7 |        570333.67 |       437445928.15
+ BRONZE       | NEED_ATTENTION        |           1114 |              0.7 |                   30.0 |        383343.34 |       427044481.08
+ BRONZE       | CANNOT_LOSE_THEM      |            704 |              2.7 |                   38.7 |        576098.54 |       405573370.81
+ BRONZE       | POTENTIAL_LOYALISTS   |            888 |              0.0 |                   30.6 |        413396.35 |       367095955.81
+ BRONZE       | HIBERNATING           |            946 |              4.2 |                   26.7 |        362350.91 |       342783962.04
+ BRONZE       | AT_RISK               |            690 |              3.6 |                   33.9 |        412518.36 |       284637670.41
+ BRONZE       | LOYAL_CUSTOMERS       |            417 |              0.3 |                   36.3 |        474975.40 |       198064743.75
+ SILVER       | NEED_ATTENTION        |            454 |              0.7 |                   30.4 |        385876.47 |       175187918.05
+ SILVER       | CANNOT_LOSE_THEM      |            300 |              2.7 |                   38.6 |        568996.63 |       170698989.35
+ SILVER       | CHAMPIONS             |            297 |              0.0 |                   38.6 |        567776.35 |       168629576.70
+ SILVER       | POTENTIAL_LOYALISTS   |            388 |              0.0 |                   30.6 |        422122.93 |       163783697.10
+ BRONZE       | NEW_CUSTOMERS         |            474 |              0.0 |                   24.6 |        334543.64 |       158573686.83
+ SILVER       | HIBERNATING           |            416 |              4.5 |                   26.5 |        357400.66 |       148678674.78
+ SILVER       | AT_RISK               |            309 |              3.6 |                   34.3 |        415723.75 |       128458637.64
+ SILVER       | LOYAL_CUSTOMERS       |            186 |              0.3 |                   36.2 |        479986.44 |        89277477.63
+ GOLD         | NEED_ATTENTION        |            225 |              0.7 |                   30.1 |        395119.85 |        88901967.15
+ GOLD         | CHAMPIONS             |            142 |              0.0 |                   39.5 |        573435.73 |        81427873.99
+ GOLD         | HIBERNATING           |            216 |              4.7 |                   26.6 |        359053.28 |        77555507.73
+ GOLD         | CANNOT_LOSE_THEM      |            127 |              2.6 |                   39.4 |        580184.56 |        73683438.82
+ GOLD         | POTENTIAL_LOYALISTS   |            173 |              0.0 |                   30.5 |        416919.98 |        72127155.78
+ GOLD         | AT_RISK               |            164 |              3.5 |                   34.2 |        418029.20 |        68556788.17
+ SILVER       | NEW_CUSTOMERS         |            150 |              0.0 |                   24.3 |        337138.68 |        50570802.71
+ GOLD         | LOYAL_CUSTOMERS       |             82 |              0.4 |                   35.9 |        475852.05 |        39019868.06
+ PLATINUM     | CANNOT_LOSE_THEM      |             43 |              2.7 |                   38.3 |        579164.56 |        24904076.05
+ GOLD         | NEW_CUSTOMERS         |             71 |              0.0 |                   24.4 |        318989.13 |        22648228.56
+ PLATINUM     | CHAMPIONS             |             35 |              0.0 |                   38.7 |        561329.75 |        19646541.21
+ PLATINUM     | NEED_ATTENTION        |             49 |              0.6 |                   30.4 |        374614.29 |        18356100.01
+ PLATINUM     | POTENTIAL_LOYALISTS   |             47 |              0.0 |                   30.6 |        373839.37 |        17570450.40
+ PLATINUM     | HIBERNATING           |             47 |              3.9 |                   26.0 |        362060.82 |        17016858.61
+ PLATINUM     | AT_RISK               |             38 |              3.3 |                   34.2 |        414919.31 |        15766933.66
+ PLATINUM     | LOYAL_CUSTOMERS       |             26 |              0.3 |                   37.0 |        486749.25 |        12655480.51
+ PLATINUM     | NEW_CUSTOMERS         |             15 |              0.0 |                   25.5 |        350750.60 |         5261258.97
+(32 rows; Census Total: 10,000 loyalty customers across all tiers and segments)
 
 --- Query 3.2: RFM Segment Census, Financial Value & Behavioral Benchmark Summary ---
   empirical_rfm_segment  customer_count  customer_share_pct  total_revenue_inr  revenue_share_pct  total_margin_inr  avg_recency_days  avg_frequency_orders  avg_monetary_per_customer_inr  avg_basket_value_inr
